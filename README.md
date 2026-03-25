@@ -8,42 +8,24 @@ Full-stack user management application with Nuxt 4 frontend and Python FastAPI b
 - **User Profile** management (edit info, change password)
 - **Admin Panel** - full CRUD for user management (list, search, edit, enable/disable, delete)
 - **Hot Reload** - both frontend and backend auto-reload on code changes
-- **One-click Start** - Docker Compose or local dev with a single command
+- **One-click Start** - 单容器 Docker Compose，一条命令启动全部
 
 ## Quick Start
 
-### Option 1: Docker (recommended)
+### 一键启动（单容器，推荐）
 
 ```bash
 docker compose up --build
 ```
 
-### Option 2: Local Development
+前后端都在同一个容器内运行，volumes 挂载本地代码，改代码自动热更新。
+
+### 本地开发（不用 Docker）
 
 ```bash
-# One-click start (auto-detects Docker, falls back to local)
 bash start.sh
-
-# Or use Make
-make start
-```
-
-### Option 3: Start Separately
-
-**Backend:**
-```bash
-cd backend
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
-```
-
-**Frontend:**
-```bash
-cd frontend
-npm install
-npm run dev
+# 或
+make local
 ```
 
 ## Access
@@ -80,9 +62,11 @@ npm run dev
 │       ├── schemas/       # Pydantic schemas
 │       ├── routers/       # API routes
 │       └── utils/         # Security utilities
-├── docker-compose.yml     # Docker orchestration
-├── start.sh               # One-click startup script
-└── Makefile               # Make commands
+├── Dockerfile             # 单容器构建
+├── entrypoint.sh          # 容器入口脚本
+├── docker-compose.yml     # Docker 编排 (单容器)
+├── start.sh               # 本地启动脚本
+└── Makefile               # Make 命令
 ```
 
 ## API Endpoints
