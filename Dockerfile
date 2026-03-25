@@ -22,6 +22,6 @@ COPY frontend /app/frontend
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
-EXPOSE 3000 8000
+EXPOSE 5001
 
 CMD ["/app/entrypoint.sh"]

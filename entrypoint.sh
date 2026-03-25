@@ -5,18 +5,17 @@ echo "=========================================="
 echo "  Starting Backend + Frontend (single container)"
 echo "=========================================="
 
-# Start backend
+# Start backend (internal only, not exposed to host)
 cd /app/backend
-/app/backend/venv/bin/uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 &
+/app/backend/venv/bin/uvicorn app.main:app --reload --host 127.0.0.1 --port 8000 &
 
-# Start frontend
+# Start frontend on port 5001, Nuxt proxies /api to backend
 cd /app/frontend
-npm run dev -- --host 0.0.0.0 &
+npx nuxt dev --host 0.0.0.0 --port 5001 &
 
 echo ""
-echo "  Frontend:  http://localhost:3000"
-echo "  Backend:   http://localhost:8000"
-echo "  API Docs:  http://localhost:8000/docs"
+echo "  App:       http://<your-server-ip>:5001"
+echo "  API Docs:  http://<your-server-ip>:5001/api/docs  (proxied)"
 echo ""
 echo "  Admin: admin / admin123"
 echo "=========================================="

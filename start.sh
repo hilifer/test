@@ -30,8 +30,8 @@ fi
 source venv/bin/activate
 pip install -q -r requirements.txt
 
-echo -e "${GREEN}>>> Starting backend (port 8000)...${NC}"
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 &
+echo -e "${GREEN}>>> Starting backend (internal port 8000)...${NC}"
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000 &
 BACKEND_PID=$!
 
 cd ..
@@ -45,8 +45,8 @@ if [ ! -d "node_modules" ]; then
     npm install
 fi
 
-echo -e "${GREEN}>>> Starting frontend (port 3000)...${NC}"
-npm run dev &
+echo -e "${GREEN}>>> Starting frontend (port 5001)...${NC}"
+npx nuxt dev --host 0.0.0.0 --port 5001 &
 FRONTEND_PID=$!
 
 cd ..
@@ -55,9 +55,8 @@ echo ""
 echo "=========================================="
 echo -e "${GREEN}  Services are starting up!${NC}"
 echo ""
-echo "  Frontend:  http://localhost:3000"
-echo "  Backend:   http://localhost:8000"
-echo "  API Docs:  http://localhost:8000/docs"
+echo "  App:       http://<your-server-ip>:5001"
+echo "  API Docs:  http://<your-server-ip>:5001/api/docs"
 echo ""
 echo "  Default admin account:"
 echo "    Username: admin"

@@ -32,9 +32,8 @@ make local
 
 | Service   | URL                        |
 |-----------|----------------------------|
-| Frontend  | http://localhost:3000       |
-| Backend   | http://localhost:8000       |
-| API Docs  | http://localhost:8000/docs  |
+| App       | http://your-server-ip:5001       |
+| API Docs  | http://your-server-ip:5001/api/docs |
 
 ## Default Admin Account
 
