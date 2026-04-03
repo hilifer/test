@@ -21,6 +21,15 @@ interface RegisterData {
   full_name: string
 }
 
+interface UserSession {
+  id: number
+  device_info: string
+  ip_address: string
+  is_current: boolean
+  created_at: string
+  last_active_at: string
+}
+
 export const useAuth = () => {
   const config = useRuntimeConfig()
   const apiBase = config.public.apiBase
@@ -81,10 +90,27 @@ export const useAuth = () => {
     })
   }
 
-  function logout() {
+  async function logout() {
+    try {
+      await apiFetch('/api/auth/logout', { method: 'POST' })
+    } catch {
+      // Ignore errors during logout
+    }
     token.value = null
     user.value = null
     navigateTo('/login')
+  }
+
+  async function listSessions(): Promise<UserSession[]> {
+    return await apiFetch<UserSession[]>('/api/sessions/')
+  }
+
+  async function revokeSession(sessionId: number) {
+    await apiFetch(`/api/sessions/${sessionId}`, { method: 'DELETE' })
+  }
+
+  async function revokeOtherSessions() {
+    await apiFetch('/api/sessions/', { method: 'DELETE' })
   }
 
   return {
@@ -98,6 +124,9 @@ export const useAuth = () => {
     updateProfile,
     changePassword,
     logout,
+    listSessions,
+    revokeSession,
+    revokeOtherSessions,
     apiFetch,
   }
 }

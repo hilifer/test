@@ -41,3 +41,14 @@ class Token(BaseModel):
 class LoginRequest(BaseModel):
     username: str
     password: str
+
+
+class SessionResponse(BaseModel):
+    id: int
+    device_info: str
+    ip_address: str
+    is_current: bool = False
+    created_at: datetime | None = None
+    last_active_at: datetime | None = None
+
+    model_config = {"from_attributes": True}

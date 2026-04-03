@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from app.database import engine, Base
 from app.models.user import User  # noqa: F401 - ensure model is registered
-from app.routers import auth, users
+from app.models.session import UserSession  # noqa: F401 - ensure model is registered
+from app.routers import auth, users, sessions
 from app.utils.security import hash_password
 from app.database import SessionLocal
 
@@ -11,6 +12,7 @@ app = FastAPI(title="User Management API", version="1.0.0", docs_url="/api/docs"
 
 app.include_router(auth.router)
 app.include_router(users.router)
+app.include_router(sessions.router)
 
 
 @app.on_event("startup")

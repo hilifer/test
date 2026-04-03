@@ -9,6 +9,7 @@
           <nav v-if="isLoggedIn" class="flex items-center gap-4">
             <NuxtLink to="/dashboard" class="text-sm hover:text-primary">Dashboard</NuxtLink>
             <NuxtLink to="/profile" class="text-sm hover:text-primary">Profile</NuxtLink>
+            <NuxtLink to="/sessions" class="text-sm hover:text-primary">Sessions</NuxtLink>
             <NuxtLink v-if="isAdmin" to="/admin/users" class="text-sm hover:text-primary">
               User Admin
             </NuxtLink>
