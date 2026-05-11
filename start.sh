@@ -3,7 +3,7 @@
 set -e
 cd "$(dirname "$0")"
 
-PORT="${PORT:-8080}"
+PORT="${PORT:-80}"
 PID_FILE="run/server.pid"
 LOG_FILE="logs/server.log"
 
@@ -28,6 +28,12 @@ sleep 1
 if ! kill -0 "$PID" 2>/dev/null; then
   echo "启动失败，查看日志: $LOG_FILE"
   tail -20 "$LOG_FILE" 2>/dev/null
+  if [ "$PORT" -lt 1024 ] && [ "$(id -u)" -ne 0 ] && grep -q "EACCES" "$LOG_FILE" 2>/dev/null; then
+    echo
+    echo "看起来是绑 $PORT 端口权限不足。两种修法："
+    echo "  1) 用 root 跑：sudo ./start.sh"
+    echo "  2) 一次性授权 node 绑低端口：sudo setcap 'cap_net_bind_service=+ep' \$(which node)"
+  fi
   rm -f "$PID_FILE"
   exit 1
 fi
