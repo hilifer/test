@@ -155,10 +155,21 @@ async function becomeHost(initialFiles) {
 
   $('copyBtn').onclick = () => {
     const inp = $('shareLink');
+    inp.focus();
     inp.select();
-    navigator.clipboard?.writeText(inp.value);
-    $('copyBtn').textContent = '已复制';
-    setTimeout(() => ($('copyBtn').textContent = '复制'), 1500);
+    inp.setSelectionRange(0, inp.value.length);
+    let ok = false;
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(inp.value);
+        ok = true;
+      }
+    } catch {}
+    if (!ok) {
+      try { ok = document.execCommand('copy'); } catch {}
+    }
+    $('copyBtn').textContent = ok ? '已复制' : '请按 Ctrl+C';
+    setTimeout(() => ($('copyBtn').textContent = '复制'), 1800);
   };
   $('addMoreBtn').onclick = () => {
     const inp = document.createElement('input');

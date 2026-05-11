@@ -36,6 +36,26 @@ Sharer ⟷ Guest 2   WebRTC DataChannel (直连)
   - 启动时 STUN 探测：用两台 STUN 比对 srflx 端口判断是否对称型 NAT
 - `scripts/screenshot.mjs` — Playwright 端到端冒烟测试 + 截图
 
+## 公网部署（HTTP）
+
+WebRTC DataChannel 本身不强制 HTTPS，本项目在纯 HTTP 下完全可用。最小公网部署：
+
+```bash
+# 在 VPS 上
+git clone <your-repo>
+cd p2p && npm ci
+PORT=80 node server.js
+# 或用 pm2 / systemd 守护
+pm2 start server.js --name p2p -- --port 80
+```
+
+防火墙放行 80（或你选的端口）的 TCP，把 `http://your-server/` 给别人就行。
+
+**HTTP 下的小注意**：
+- 复制按钮已做兜底（不支持 `navigator.clipboard` 时降级到 `execCommand('copy')`，再不行就提示按 Ctrl+C）
+- Chrome 地址栏会显示「不安全」，但功能不受影响
+- 公网若想跨对称型 NAT，需配 TURN（自建 `coturn` 或买 Twilio TURN）
+
 ## 已知限制
 
 - 无 TURN 中继。对称型 NAT 下可能连不通（前端会提示）。
