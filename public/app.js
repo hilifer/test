@@ -1,4 +1,4 @@
-import qrcode from '/qrcode.mjs';
+import qrcode from 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.5.0/qrcode.mjs';
 
 const CHUNK_SIZE = 64 * 1024;
 const HIGH_WATERMARK = 4 * 1024 * 1024;
@@ -95,7 +95,7 @@ async function probeNat(timeoutMs = 2500) {
     const hostA = candsA.find((c) => c.type === 'host');
 
     if (!srflxA && !srflxB) {
-      if (hostA) return { ok: true, type: 'lan' }; // no internet but local works (e.g. test env / pure LAN)
+      if (hostA) return { ok: true, type: 'lan' };
       return { ok: false, reason: 'stun_unreachable' };
     }
     if (srflxA && srflxB && srflxA.address === srflxB.address && srflxA.port !== srflxB.port) {
@@ -104,7 +104,7 @@ async function probeNat(timeoutMs = 2500) {
     return { ok: true, type: srflxA ? 'nat' : 'open' };
   } catch (e) {
     console.warn('probeNat failed', e);
-    return { ok: true, type: 'lan' }; // be lenient
+    return { ok: true, type: 'lan' };
   }
 }
 
@@ -143,9 +143,9 @@ function startHome() {
 // ───────────────────────── HOST ─────────────────────────
 
 const host = {
-  files: new Map(), // fileId -> File
+  files: new Map(),
   nextFileId: 1,
-  peers: new Map(), // peerId -> { pc, dc, sendQueue: [], sending: boolean }
+  peers: new Map(),
 };
 
 async function becomeHost(initialFiles) {
@@ -191,7 +191,6 @@ function renderQr(url) {
   const qr = qrcode(0, 'M');
   qr.addData(url);
   qr.make();
-  // cellSize 5, margin 0 — outer CSS provides whitespace
   $('qrcode').innerHTML = qr.createSvgTag({ cellSize: 5, margin: 0, scalable: true });
 }
 
@@ -218,7 +217,6 @@ function addHostFile(file) {
   li.querySelector('.fi-meta').textContent = fmtBytes(file.size);
   $('hostFiles').appendChild(li);
 
-  // Broadcast updated list to existing peers
   for (const p of host.peers.values()) {
     if (p.dc && p.dc.readyState === 'open') sendList(p.dc);
   }
@@ -336,8 +334,8 @@ async function streamFile(dc, fileId, file) {
 const guest = {
   pc: null,
   dc: null,
-  current: null, // { id, name, size, received, chunks, entry }
-  entriesById: new Map(), // fileId -> dom entry refs
+  current: null,
+  entriesById: new Map(),
 };
 
 async function startGuest(code) {
@@ -421,7 +419,6 @@ function onGuestChannelMessage(data) {
 function renderGuestList(files) {
   const ul = $('guestFiles');
   $('guestEmpty')?.remove();
-  // diff: add new files only
   for (const f of files) {
     if (guest.entriesById.has(f.id)) continue;
     const li = document.createElement('li');
@@ -459,7 +456,6 @@ function renderGuestList(files) {
           a.href = url; a.download = f.name;
           document.body.appendChild(a); a.click(); a.remove();
         };
-        // Auto-trigger first download
         btn.onclick();
       },
     };
