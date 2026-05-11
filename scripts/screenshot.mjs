@@ -2,7 +2,7 @@ import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const URL = 'http://localhost:5001';
+const URL = process.env.APP_URL || 'http://localhost:8080';
 const OUT = path.resolve('screenshots');
 fs.mkdirSync(OUT, { recursive: true });
 
