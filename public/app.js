@@ -1,4 +1,4 @@
-import qrcode from '/qrcode.mjs';
+import qrcode from 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.5.0/qrcode.mjs';
 
 const CHUNK_SIZE = 64 * 1024;
 const HIGH_WATERMARK = 4 * 1024 * 1024;
