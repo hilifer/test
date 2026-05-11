@@ -3,7 +3,7 @@
 set -e
 cd "$(dirname "$0")"
 
-PORT="${PORT:-5001}"
+PORT="${PORT:-8080}"
 PID_FILE="run/server.pid"
 LOG_FILE="logs/server.log"
 

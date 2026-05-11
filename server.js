@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const PORT = process.env.PORT || 5001;
+const PORT = process.env.PORT || 8080;
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
 const MIME = {
