@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>P2P 文件传输</title>
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>P2P 文件传输</h1>
+    <p class="sub">基于 WebRTC DataChannel · 文件不经服务器</p>
+  </header>
+
+  <section class="card">
+    <div class="row">
+      <div class="me">
+        <div class="label">你的 ID</div>
+        <div class="id" id="myId">····</div>
+      </div>
+      <div class="status">
+        <span class="dot" id="dot"></span>
+        <span id="statusText">连接中…</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="label">连接对方</div>
+    <div class="connect-row">
+      <input id="peerInput" type="text" maxlength="4" placeholder="输入对方 4 位 ID" autocomplete="off" />
+      <button id="connectBtn">连接</button>
+    </div>
+  </section>
+
+  <section class="card drop" id="drop">
+    <input type="file" id="fileInput" hidden />
+    <div class="drop-inner">
+      <div class="drop-icon">⇪</div>
+      <div class="drop-text">拖拽文件到此处<br/>或 <a id="pickBtn">点击选择</a></div>
+    </div>
+  </section>
+
+  <section class="card log-card">
+    <div class="label">传输记录</div>
+    <ul class="log" id="log"></ul>
+  </section>
+</div>
+<script type="module" src="/app.js"></script>
+</body>
+</html>
