@@ -7,57 +7,47 @@ const OUT = path.resolve('screenshots');
 fs.mkdirSync(OUT, { recursive: true });
 
 const browser = await chromium.launch({ args: ['--no-sandbox'] });
-const ctxA = await browser.newContext({ viewport: { width: 640, height: 900 } });
-const ctxB = await browser.newContext({ viewport: { width: 640, height: 900 } });
-const pageA = await ctxA.newPage();
-const pageB = await ctxB.newPage();
+const ctxA = await browser.newContext({ viewport: { width: 600, height: 900 } });
+const ctxB = await browser.newContext({ viewport: { width: 600, height: 900 } });
+const host = await ctxA.newPage();
+const guest = await ctxB.newPage();
+host.on('console', (m) => console.log('[host]', m.type(), m.text()));
+guest.on('console', (m) => console.log('[guest]', m.type(), m.text()));
 
-pageA.on('console', (m) => console.log('[A]', m.type(), m.text()));
-pageB.on('console', (m) => console.log('[B]', m.type(), m.text()));
+// 1. open home
+await host.goto(URL);
+await host.waitForSelector('#view-home:not(.hidden)');
+await host.screenshot({ path: path.join(OUT, '01-home.png') });
 
-await pageA.goto(URL);
-await pageB.goto(URL);
+// 2. host picks file -> becomes host
+const sample = path.join(OUT, '..', 'sample.txt');
+fs.writeFileSync(sample, 'P2P 文件分享演示。\n'.repeat(6000));
+const sample2 = path.join(OUT, '..', 'notes.txt');
+fs.writeFileSync(sample2, '第二个文件，更小一点。\n'.repeat(200));
 
-// Wait for IDs to appear
-await pageA.waitForFunction(() => document.getElementById('myId').textContent.length === 4);
-await pageB.waitForFunction(() => document.getElementById('myId').textContent.length === 4);
+await host.setInputFiles('#fileInput', [sample, sample2]);
+await host.waitForSelector('#view-host:not(.hidden)');
+await host.waitForFunction(() => $('shareLink')?.value?.includes('/r/'), null, { timeout: 5000 }).catch(() => {});
+await host.waitForFunction(() => document.getElementById('shareLink').value.includes('/r/'));
+const shareUrl = await host.locator('#shareLink').inputValue();
+console.log('shareUrl:', shareUrl);
+await host.screenshot({ path: path.join(OUT, '02-host-created.png') });
 
-const idA = await pageA.locator('#myId').textContent();
-const idB = await pageB.locator('#myId').textContent();
-console.log('IDs:', idA, idB);
+// 3. guest opens link
+await guest.goto(shareUrl);
+await guest.waitForSelector('#view-guest:not(.hidden)');
+// wait for file list
+await guest.waitForSelector('#guestFiles li.file');
+await guest.waitForFunction(() => document.querySelectorAll('#guestFiles li.file').length >= 2, null, { timeout: 10000 });
+// host should reflect 1 connected peer
+await host.waitForFunction(() => document.getElementById('peerCount').textContent.includes('1'));
+await guest.screenshot({ path: path.join(OUT, '03-guest-joined.png') });
+await host.screenshot({ path: path.join(OUT, '03-host-peer-online.png') });
 
-// Screenshot initial state
-await pageA.screenshot({ path: path.join(OUT, '01-initial.png') });
+// 4. guest clicks download on first file
+await guest.click('#guestFiles li.file:first-child button');
+await guest.waitForSelector('#guestFiles li.file.done', { timeout: 15000 });
+await guest.screenshot({ path: path.join(OUT, '04-guest-downloaded.png') });
 
-// A connects to B
-await pageA.fill('#peerInput', idB);
-await pageA.click('#connectBtn');
-
-// Wait for the data channel to open on both sides
-await pageA.waitForFunction(() => document.getElementById('dot').classList.contains('connected'), null, { timeout: 10000 });
-await pageB.waitForFunction(() => document.getElementById('dot').classList.contains('connected'), null, { timeout: 10000 });
-console.log('Both peers connected.');
-
-await pageA.screenshot({ path: path.join(OUT, '02-connected-A.png') });
-await pageB.screenshot({ path: path.join(OUT, '02-connected-B.png') });
-
-// Send a real file from A to B
-const tmpFile = path.join(OUT, '..', 'sample.txt');
-const sample = 'Hello from P2P!\n'.repeat(8000); // ~128KB
-fs.writeFileSync(tmpFile, sample);
-
-const fileInputA = await pageA.locator('#fileInput');
-await fileInputA.setInputFiles(tmpFile);
-
-// Wait for the receive log entry on B to appear and complete
-await pageB.waitForSelector('.log li.recv', { timeout: 10000 });
-await pageB.waitForSelector('.log li.recv.done', { timeout: 15000 });
-await pageA.waitForSelector('.log li.send.done', { timeout: 15000 });
-console.log('Transfer completed.');
-
-await pageA.screenshot({ path: path.join(OUT, '03-sent-A.png') });
-await pageB.screenshot({ path: path.join(OUT, '03-received-B.png') });
-
-// Side-by-side composite via two viewports stitched in HTML? Easier: just provide both.
 await browser.close();
 console.log('Screenshots written to', OUT);

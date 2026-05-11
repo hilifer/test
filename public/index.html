@@ -3,48 +3,60 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>P2P 文件传输</title>
+<title>P2P 文件分享</title>
 <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
 <div class="app">
   <header>
-    <h1>P2P 文件传输</h1>
-    <p class="sub">基于 WebRTC DataChannel · 文件不经服务器</p>
+    <h1>P2P 文件分享</h1>
+    <p class="sub">创建分享 · 转发链接 · 浏览器直连下载</p>
   </header>
 
-  <section class="card">
-    <div class="row">
-      <div class="me">
-        <div class="label">你的 ID</div>
-        <div class="id" id="myId">····</div>
+  <div id="netBanner" class="banner hidden"></div>
+
+  <!-- 主页：创建分享 -->
+  <section class="card view" id="view-home">
+    <div class="label">分享你的文件</div>
+    <div class="drop" id="drop">
+      <input type="file" id="fileInput" hidden multiple />
+      <div class="drop-inner">
+        <div class="drop-icon">⇪</div>
+        <div class="drop-text">把文件拖到此处<br/>或 <a id="pickBtn">点击选择</a></div>
       </div>
-      <div class="status">
-        <span class="dot" id="dot"></span>
-        <span id="statusText">连接中…</span>
-      </div>
     </div>
+    <p class="hint">文件只在你浏览器里，不会上传到服务器。关闭页面则分享失效。</p>
   </section>
 
-  <section class="card">
-    <div class="label">连接对方</div>
-    <div class="connect-row">
-      <input id="peerInput" type="text" maxlength="4" placeholder="输入对方 4 位 ID" autocomplete="off" />
-      <button id="connectBtn">连接</button>
+  <!-- 分享者视图 -->
+  <section class="card view hidden" id="view-host">
+    <div class="label">分享链接</div>
+    <div class="link-row">
+      <input id="shareLink" type="text" readonly />
+      <button id="copyBtn">复制</button>
     </div>
+    <div class="host-status">
+      <span class="dot" id="hostDot"></span>
+      <span id="hostStatusText">就绪</span>
+      <span class="spacer"></span>
+      <span class="peers" id="peerCount">在线 0</span>
+    </div>
+
+    <div class="label" style="margin-top:18px">已分享的文件</div>
+    <ul class="file-list" id="hostFiles"></ul>
+    <button class="ghost" id="addMoreBtn">+ 继续添加文件</button>
   </section>
 
-  <section class="card drop" id="drop">
-    <input type="file" id="fileInput" hidden />
-    <div class="drop-inner">
-      <div class="drop-icon">⇪</div>
-      <div class="drop-text">拖拽文件到此处<br/>或 <a id="pickBtn">点击选择</a></div>
+  <!-- 接收者视图 -->
+  <section class="card view hidden" id="view-guest">
+    <div class="label">来自分享者</div>
+    <div class="host-status">
+      <span class="dot" id="guestDot"></span>
+      <span id="guestStatusText">连接中…</span>
     </div>
-  </section>
-
-  <section class="card log-card">
-    <div class="label">传输记录</div>
-    <ul class="log" id="log"></ul>
+    <ul class="file-list" id="guestFiles">
+      <li class="empty" id="guestEmpty">等待分享者上传文件…</li>
+    </ul>
   </section>
 </div>
 <script type="module" src="/app.js"></script>
