@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "start:daemon": "bash start.sh",
+    "stop": "bash stop.sh"
   },
   "dependencies": {
     "ws": "^8.18.0"

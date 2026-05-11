@@ -38,16 +38,41 @@ Sharer ⟷ Guest 2   WebRTC DataChannel (直连)
 
 ## 公网部署（HTTP）
 
-WebRTC DataChannel 本身不强制 HTTPS，本项目在纯 HTTP 下完全可用。最小公网部署：
+WebRTC DataChannel 本身不强制 HTTPS，本项目在纯 HTTP 下完全可用。
 
+**最小部署（一次性）**：
 ```bash
-# 在 VPS 上
-git clone <your-repo>
-cd p2p && npm ci
-PORT=80 node server.js
-# 或用 pm2 / systemd 守护
-pm2 start server.js --name p2p -- --port 80
+# 在 VPS 上（确保已安装 Node 18+ 和 git）
+git clone https://github.com/hilifer/test.git p2p
+cd p2p
+PORT=80 ./start.sh        # 后台启动，写 PID 到 run/server.pid，日志到 logs/server.log
 ```
+
+**管理**：
+```bash
+./start.sh        # 启动（已启动则报告 PID）
+./stop.sh         # 停止（先 SIGTERM，5s 没退出再 SIGKILL）
+tail -f logs/server.log
+```
+
+**绑 80 端口的两种方式**：
+- 用 root 直接 `PORT=80 ./start.sh`
+- 或允许普通用户绑低端口：`sudo setcap 'cap_net_bind_service=+ep' $(which node)`
+
+**开机自启**：把启动放进 systemd
+```ini
+# /etc/systemd/system/p2p.service
+[Unit]
+After=network.target
+[Service]
+WorkingDirectory=/opt/p2p
+Environment=PORT=80
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+[Install]
+WantedBy=multi-user.target
+```
+`sudo systemctl enable --now p2p`
 
 防火墙放行 80（或你选的端口）的 TCP，把 `http://your-server/` 给别人就行。
 
