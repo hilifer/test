@@ -1,3 +1,5 @@
+import qrcode from '/qrcode.mjs';
+
 const CHUNK_SIZE = 64 * 1024;
 const HIGH_WATERMARK = 4 * 1024 * 1024;
 const LOW_WATERMARK = 512 * 1024;
@@ -185,6 +187,14 @@ function setHostStatus(text, cls) {
   $('hostDot').className = 'dot' + (cls ? ' ' + cls : '');
 }
 
+function renderQr(url) {
+  const qr = qrcode(0, 'M');
+  qr.addData(url);
+  qr.make();
+  // cellSize 5, margin 0 — outer CSS provides whitespace
+  $('qrcode').innerHTML = qr.createSvgTag({ cellSize: 5, margin: 0, scalable: true });
+}
+
 function fileIcon(name) {
   const ext = (name.split('.').pop() || '').slice(0, 4).toUpperCase();
   return ext || '·';
@@ -230,6 +240,7 @@ function onHostMessage(msg) {
   if (msg.type === 'room_created') {
     const url = `${location.origin}/r/${msg.code}`;
     $('shareLink').value = url;
+    renderQr(url);
     history.replaceState(null, '', `/?host=${msg.code}`);
   } else if (msg.type === 'peer_joined') {
     addClientPeer(msg.peerId);
