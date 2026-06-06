@@ -185,6 +185,10 @@ class BillSettlementTool:
     _KEEP_KEYWORD = "结算单"
     _EXCLUDE_KEYWORD = "电量"
 
+    # —— 只处理这些可渲染的文档类型 —— #
+    # 目录里若混入 .zip/.rar/.7z 等压缩包或其它格式，会被直接排除，避免解析崩溃。
+    SUPPORTED_EXT = {".pdf", ".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff"}
+
     # —— 字段识别用正则 —— #
     _MONTH_RE = re.compile(r"(20\d{2})\D+?(\d{1,2})\D*月")   # 购电月份 2026年01月
     _ID_RE = re.compile(r"^\d{14,18}$")                       # 编号：14~18 位纯数字
@@ -213,8 +217,11 @@ class BillSettlementTool:
     # ================================================================== #
     @classmethod
     def is_bill_file(cls, filename: str) -> bool:
-        """文件名是否属于「电费结算单」（排除电量结算单 / 核算单等）。"""
+        """文件名是否属于「电费结算单」（排除电量结算单 / 核算单 / 压缩包等）。"""
         name = os.path.basename(filename)
+        ext = os.path.splitext(name)[1].lower()
+        if ext not in cls.SUPPORTED_EXT:          # 压缩包等不可渲染的文件直接排除
+            return False
         return (cls._KEEP_KEYWORD in name) and (cls._EXCLUDE_KEYWORD not in name)
 
     @classmethod
@@ -273,7 +280,16 @@ class BillSettlementTool:
         :return: 该文件的 BillRecord 列表。
         """
         records: List[BillRecord] = []
-        images = self._render_pages(path)
+        ext = os.path.splitext(path)[1].lower()
+        if ext not in self.SUPPORTED_EXT:
+            if verbose:
+                print(f"跳过(不支持的类型 {ext or '无扩展名'}) {os.path.basename(path)}")
+            return records
+        try:
+            images = self._render_pages(path)
+        except Exception as e:                     # 损坏 / 加密 / 伪装的压缩包等
+            print(f"[警告] 无法解析 {os.path.basename(path)}，已跳过：{e}")
+            return records
         if verbose:
             print(f"解析 {os.path.basename(path)}  （{len(images)} 页）")
         for page_idx, image in enumerate(images):
@@ -312,6 +328,53 @@ class BillSettlementTool:
     def extract_from_dir(self, root_dir: str) -> List[BillRecord]:
         """便捷方法：方法 1 + 方法 2 一步到位。"""
         return self.extract_records(self.filter_bill_files(root_dir))
+
+    # ================================================================== #
+    # 在指定文件中，按编号反查它在第几页
+    # ================================================================== #
+    def find_page_in_file(
+        self,
+        path: str,
+        bill_id: str,
+        verbose: bool = False,
+    ) -> List[int]:
+        """在**指定文件**中，根据编号反查它位于第几页。
+
+        会对该文件做一次提取（PDF 逐页 OCR），返回编号所在的页码列表。
+        一般一个编号在一份文件里只出现一次，列表通常只有一个元素；
+        没找到则返回空列表。
+
+        :param path:    指定的电费结算单文件（PDF / PNG / JPG）。
+        :param bill_id: 要查的编号。
+        :param verbose: 为 True 时打印逐页提取过程。
+        :return: 命中的页码列表（从 1 开始）。
+        """
+        target = str(bill_id).strip()
+        records = self.extract_file(path, verbose=verbose)
+        return [r.page for r in records if (r.bill_id or "").strip() == target]
+
+    def locate_in_file(self, path: str, bill_id: str) -> str:
+        """在指定文件中按编号反查，返回可读字符串（在第几页），便于直接打印。"""
+        pages = self.find_page_in_file(path, bill_id)
+        name = os.path.basename(path)
+        if not pages:
+            return f"编号 {bill_id} 不在 {name} 中"
+        loc = "、".join(f"第 {p} 页" for p in pages)
+        return f"编号 {bill_id} 在 {name} 的 {loc}"
+
+    @staticmethod
+    def find_page_in_records(
+        records: List[BillRecord],
+        bill_id: str,
+    ) -> List[int]:
+        """已有某文件的提取结果时，直接从记录里查页码（不重复 OCR）。
+
+        :param records: 同一个文件的提取结果（extract_file 的返回值）。
+        :param bill_id: 要查的编号。
+        :return: 命中的页码列表。
+        """
+        target = str(bill_id).strip()
+        return [r.page for r in records if (r.bill_id or "").strip() == target]
 
     # ---- 渲染：PDF 多页 / 图片单页 -> RGB numpy 数组 ---- #
     def _render_pages(self, path: str) -> List[np.ndarray]:

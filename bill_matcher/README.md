@@ -28,6 +28,23 @@
 > 一个文件可能含多条记录：例如华尔特的一份 PDF 有 13 页 = 13 个编号，
 > 每页各产出一条记录。
 
+### 按编号反查页码：`find_page_in_file(path, bill_id)`
+在**指定文件**中按编号查它在第几页（返回页码列表，没找到返回空）。
+`locate_in_file(path, bill_id)` 返回可读字符串；若已提取过该文件，
+可用 `find_page_in_records(records, bill_id)` 直接查、不重复 OCR。
+
+```python
+tool.find_page_in_file("洲千2026年1月电费结算单.pdf", "0948030044344072")  # -> [9]
+print(tool.locate_in_file("洲千2026年1月电费结算单.pdf", "0948030044344072"))
+# 编号 0948030044344072 在 洲千2026年1月电费结算单.pdf 的 第 9 页
+```
+
+### 健壮性：压缩包 / 损坏文件不崩溃
+- 目录里混入 `.zip/.rar/.7z` 等**压缩包**会被扩展名白名单
+  （`SUPPORTED_EXT` = pdf/png/jpg/jpeg/bmp/tif/tiff）直接排除；
+- 损坏 / 加密 / 伪装成 pdf 的文件，`extract_file` 会捕获异常、打印警告并跳过，
+  不会中断整批处理。
+
 ### 比对：`match_with_excel(records, xlsx)`
 - Excel 中**备注为「新丰」的行不参与**（去掉新丰，剩余 **76 条**）；
 - **编号、购电月份、电价 三项完全相等**才算命中（是相等，不是约等于）；
