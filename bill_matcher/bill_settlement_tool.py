@@ -94,6 +94,41 @@ class ExcelRow:
 
 
 @dataclass
+class RowDetail:
+    """单条 Excel 行与提取数据的逐项对比明细。"""
+
+    excel: ExcelRow                       # Excel 基准行
+    got_id: Optional[str]                 # 提取到的编号（用于对比的那条记录）
+    got_month: Optional[YearMonth]        # 提取到的购电月份
+    got_price: Optional[float]            # 提取到的电价
+    id_ok: bool                           # 编号是否相等
+    month_ok: bool                        # 购电月份是否相等
+    price_ok: bool                        # 电价是否相等
+    source: str = ""                      # 提取来源（文件:页）
+
+    @property
+    def matched(self) -> bool:
+        return self.id_ok and self.month_ok and self.price_ok
+
+    @staticmethod
+    def _ym(ym: Optional[YearMonth]) -> str:
+        return f"{ym[0]}-{ym[1]:02d}" if ym else "—"
+
+    def line(self) -> str:
+        mark = lambda ok: "✅" if ok else "❌"
+        gid = self.got_id or "—"
+        gprice = "—" if self.got_price is None else f"{self.got_price:.6f}".rstrip("0").rstrip(".")
+        eprice = f"{self.excel.price:.6f}".rstrip("0").rstrip(".")
+        return (
+            f"[{'✅' if self.matched else '❌'}] "
+            f"编号 {self.excel.bill_id}{mark(self.id_ok)}={gid}  "
+            f"购电月份 {self._ym(self.excel.month)}{mark(self.month_ok)}={self._ym(self.got_month)}  "
+            f"电价 {eprice}{mark(self.price_ok)}={gprice}  "
+            f"[{self.excel.note}] {self.source}"
+        )
+
+
+@dataclass
 class MatchResult:
     """比对结果汇总。"""
 
@@ -101,6 +136,7 @@ class MatchResult:
     matched: int
     unmatched_rows: List[ExcelRow] = field(default_factory=list)
     extracted_records: List[BillRecord] = field(default_factory=list)
+    details: List[RowDetail] = field(default_factory=list)
 
     @property
     def success(self) -> bool:
@@ -121,6 +157,19 @@ class MatchResult:
                 )
             head += "\n" + "\n".join(lines)
         return head
+
+    def detail_report(self, only_fail: bool = False) -> str:
+        """逐项对比明细：把 Excel 每一条与提取值并排打印，三项各标 ✅/❌。
+
+        :param only_fail: 仅打印未匹配的行（默认 False，全部打印）。
+        """
+        rows = [d for d in self.details if (not only_fail or not d.matched)]
+        lines = [f"逐项对比明细（共 {len(self.details)} 条，显示 {len(rows)} 条）："]
+        for i, d in enumerate(rows, 1):
+            lines.append(f"{i:>3}. {d.line()}")
+        lines.append("")
+        lines.append(self.summary())
+        return "\n".join(lines)
 
 
 # ----------------------------------------------------------------------------- #
@@ -388,26 +437,50 @@ class BillSettlementTool:
         """
         excel_rows = self.load_excel(xlsx_path, sheet=sheet)
 
-        # 用提取记录建索引（可能多条 -> 用 set 即可判断存在性）
-        extracted_keys = {
-            r.compare_key()
-            for r in records
-            if r.bill_id and r.month is not None
-        }
+        valid = [r for r in records if r.bill_id and r.month is not None]
+        # 三项全等的精确索引
+        exact_keys = {r.compare_key() for r in valid}
+        # 退化索引：用于在未命中时挑一条最接近的记录展示逐项差异
+        by_id_month: Dict[Tuple[str, YearMonth], BillRecord] = {}
+        by_id: Dict[str, BillRecord] = {}
+        for r in valid:
+            by_id_month.setdefault((r.bill_id.strip(), r.month), r)
+            by_id.setdefault(r.bill_id.strip(), r)
 
         matched = 0
         unmatched: List[ExcelRow] = []
+        details: List[RowDetail] = []
         for row in excel_rows:
-            if row.compare_key() in extracted_keys:
+            if row.compare_key() in exact_keys:
                 matched += 1
+                # 命中：取同 (编号,月份) 的记录展示其值
+                rec = by_id_month.get((row.bill_id, row.month))
+                details.append(self._make_detail(row, rec, full_match=True))
             else:
                 unmatched.append(row)
+                # 未命中：优先按 (编号,月份) 找，再按 编号 找，作为对照展示
+                rec = by_id_month.get((row.bill_id, row.month)) or by_id.get(row.bill_id)
+                details.append(self._make_detail(row, rec, full_match=False))
 
         return MatchResult(
             total_excel=len(excel_rows),
             matched=matched,
             unmatched_rows=unmatched,
             extracted_records=records,
+            details=details,
+        )
+
+    @staticmethod
+    def _make_detail(row: ExcelRow, rec: Optional[BillRecord], full_match: bool) -> RowDetail:
+        if rec is None:
+            return RowDetail(row, None, None, None, False, False, False, "未提取到对应编号")
+        id_ok = (rec.bill_id or "").strip() == row.bill_id.strip()
+        month_ok = rec.month == row.month
+        price_ok = round(float(rec.price), 6) == row.price
+        src = f"{os.path.basename(rec.source_file)}:p{rec.page}"
+        return RowDetail(
+            row, rec.bill_id, rec.month, round(float(rec.price), 6),
+            id_ok, month_ok, price_ok, src,
         )
 
     # ================================================================== #
@@ -424,12 +497,17 @@ class BillSettlementTool:
 # 命令行入口
 # ----------------------------------------------------------------------------- #
 def _main(argv: List[str]) -> int:
-    if len(argv) < 3:
+    args = [a for a in argv[1:] if not a.startswith("-")]
+    flags = {a for a in argv[1:] if a.startswith("-")}
+    if len(args) < 2:
         print(__doc__)
-        print("用法: python bill_settlement_tool.py <文件根目录> <对比用Excel.xlsx> [sheet名]")
+        print(
+            "用法: python bill_settlement_tool.py <文件根目录> <对比用Excel.xlsx> "
+            "[sheet名] [--detail] [--fail-only]"
+        )
         return 1
-    root_dir, xlsx_path = argv[1], argv[2]
-    sheet = argv[3] if len(argv) > 3 else None
+    root_dir, xlsx_path = args[0], args[1]
+    sheet = args[2] if len(args) > 2 else None
 
     tool = BillSettlementTool(dpi=300)
 
@@ -439,10 +517,14 @@ def _main(argv: List[str]) -> int:
     print("[方法2] OCR 提取中（PDF 多页较慢，请稍候）...")
     records = tool.extract_records(files)
     print(f"[方法2] 共提取记录: {len(records)} 条")
+    print()
 
     result = tool.match_with_excel(records, xlsx_path, sheet=sheet)
-    print()
-    print(result.summary())
+    # 默认打印逐项对比明细；--fail-only 只看未匹配的
+    if "--fail-only" in flags:
+        print(result.detail_report(only_fail=True))
+    else:
+        print(result.detail_report(only_fail=False))
     return 0 if result.success else 2
 
 
