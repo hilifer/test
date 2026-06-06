@@ -262,10 +262,38 @@ class BillSettlementTool:
     # ================================================================== #
     # 方法 2：从文件中提取 编号 / 购电月份 / 电价
     # ================================================================== #
-    def extract_records(self, files: List[str], verbose: bool = False) -> List[BillRecord]:
-        """方法 2：从方法 1 得到的文件中提取数据。
+    def extract_file(self, path: str, verbose: bool = False) -> List[BillRecord]:
+        """从单个文件提取数据。
 
-        一个文件可能有多页（PDF），每页产出一条记录。
+        一个文件可能有多页（如华尔特 PDF 一份 13 页 = 13 条记录），
+        因此返回的是该文件的记录列表；单页文件则只有一条。
+
+        :param path:    单个电费结算单文件路径（PDF / PNG / JPG）。
+        :param verbose: 为 True 时打印该文件每一页的提取结果。
+        :return: 该文件的 BillRecord 列表。
+        """
+        records: List[BillRecord] = []
+        images = self._render_pages(path)
+        if verbose:
+            print(f"解析 {os.path.basename(path)}  （{len(images)} 页）")
+        for page_idx, image in enumerate(images):
+            tokens = self._ocr_tokens(image)
+            rec = self._parse_page(tokens)
+            rec.source_file = path
+            rec.page = page_idx + 1
+            records.append(rec)
+            if verbose:
+                ym = f"{rec.month[0]}-{rec.month[1]:02d}" if rec.month else "—"
+                print(
+                    f"      p{rec.page}: 编号={rec.bill_id or '—'}  "
+                    f"购电月份={ym}  电价={rec.price}"
+                )
+        return records
+
+    def extract_records(self, files: List[str], verbose: bool = False) -> List[BillRecord]:
+        """方法 2：从方法 1 得到的（多个）文件中提取数据。
+
+        内部对每个文件调用 :meth:`extract_file`。
 
         :param files:   方法 1 返回的文件列表。
         :param verbose: 为 True 时打印每个文件 / 每一页的提取过程。
@@ -274,22 +302,9 @@ class BillSettlementTool:
         records: List[BillRecord] = []
         total = len(files)
         for fi, path in enumerate(files, 1):
-            name = os.path.basename(path)
-            images = self._render_pages(path)
             if verbose:
-                print(f"[{fi}/{total}] 解析 {name}  （{len(images)} 页）")
-            for page_idx, image in enumerate(images):
-                tokens = self._ocr_tokens(image)
-                rec = self._parse_page(tokens)
-                rec.source_file = path
-                rec.page = page_idx + 1
-                records.append(rec)
-                if verbose:
-                    ym = f"{rec.month[0]}-{rec.month[1]:02d}" if rec.month else "—"
-                    print(
-                        f"      p{rec.page}: 编号={rec.bill_id or '—'}  "
-                        f"购电月份={ym}  电价={rec.price}"
-                    )
+                print(f"[{fi}/{total}] ", end="")
+            records.extend(self.extract_file(path, verbose=verbose))
         if verbose:
             print(f"-- 提取完成，共 {len(records)} 条记录 --\n")
         return records

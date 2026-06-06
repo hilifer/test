@@ -12,8 +12,12 @@
   因此 `电量结算单`、`核算单 / 分布式光伏发电补贴核算单` 等都会被排除；
 - 去掉**内容完全相同**（SHA-256 字节级）的重复文件。
 
-### 方法 2：`extract_records(files)`
-从方法 1 的文件中，逐页 OCR 提取三项：
+### 方法 2：`extract_records(files)` / `extract_file(path)`
+- `extract_file(path)`：**单文件提取**的可复用最小单元，返回该文件的记录列表
+  （多页 PDF 则多条）；
+- `extract_records(files)`：批量提取，内部对每个文件复用 `extract_file`。
+
+从文件中逐页 OCR 提取三项：
 
 | 数据项 | 来源 | 规则 |
 |--------|------|------|
