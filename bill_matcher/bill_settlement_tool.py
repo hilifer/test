@@ -218,14 +218,16 @@ class BillSettlementTool:
         return (cls._KEEP_KEYWORD in name) and (cls._EXCLUDE_KEYWORD not in name)
 
     @classmethod
-    def filter_bill_files(cls, root_dir: str) -> List[str]:
+    def filter_bill_files(cls, root_dir: str, verbose: bool = False) -> List[str]:
         """方法 1：递归过滤所有电费结算单文件，并去掉内容完全相同的重复文件。
 
         :param root_dir: 待扫描的根目录。
+        :param verbose:  为 True 时打印命中 / 去重过程。
         :return: 去重后的电费结算单文件路径列表（按路径排序、内容唯一）。
         """
         seen_hashes: Dict[str, str] = {}
         result: List[str] = []
+        dup = 0
         for dir_path, _dirs, files in os.walk(root_dir):
             for fname in sorted(files):
                 if not cls.is_bill_file(fname):
@@ -233,10 +235,17 @@ class BillSettlementTool:
                 full = os.path.join(dir_path, fname)
                 digest = cls._file_sha256(full)
                 if digest in seen_hashes:
+                    dup += 1
+                    if verbose:
+                        print(f"  跳过(内容重复) {os.path.relpath(full, root_dir)}")
                     continue          # 内容相同的文件，跳过
                 seen_hashes[digest] = full
                 result.append(full)
+                if verbose:
+                    print(f"  命中 {os.path.relpath(full, root_dir)}")
         result.sort()
+        if verbose:
+            print(f"-- 命中 {len(result)} 个，去重跳过 {dup} 个 --\n")
         return result
 
     @staticmethod
@@ -253,22 +262,36 @@ class BillSettlementTool:
     # ================================================================== #
     # 方法 2：从文件中提取 编号 / 购电月份 / 电价
     # ================================================================== #
-    def extract_records(self, files: List[str]) -> List[BillRecord]:
+    def extract_records(self, files: List[str], verbose: bool = False) -> List[BillRecord]:
         """方法 2：从方法 1 得到的文件中提取数据。
 
         一个文件可能有多页（PDF），每页产出一条记录。
 
-        :param files: 方法 1 返回的文件列表。
+        :param files:   方法 1 返回的文件列表。
+        :param verbose: 为 True 时打印每个文件 / 每一页的提取过程。
         :return: BillRecord 列表。
         """
         records: List[BillRecord] = []
-        for path in files:
-            for page_idx, image in enumerate(self._render_pages(path)):
+        total = len(files)
+        for fi, path in enumerate(files, 1):
+            name = os.path.basename(path)
+            images = self._render_pages(path)
+            if verbose:
+                print(f"[{fi}/{total}] 解析 {name}  （{len(images)} 页）")
+            for page_idx, image in enumerate(images):
                 tokens = self._ocr_tokens(image)
                 rec = self._parse_page(tokens)
                 rec.source_file = path
                 rec.page = page_idx + 1
                 records.append(rec)
+                if verbose:
+                    ym = f"{rec.month[0]}-{rec.month[1]:02d}" if rec.month else "—"
+                    print(
+                        f"      p{rec.page}: 编号={rec.bill_id or '—'}  "
+                        f"购电月份={ym}  电价={rec.price}"
+                    )
+        if verbose:
+            print(f"-- 提取完成，共 {len(records)} 条记录 --\n")
         return records
 
     def extract_from_dir(self, root_dir: str) -> List[BillRecord]:
@@ -509,15 +532,18 @@ def _main(argv: List[str]) -> int:
     root_dir, xlsx_path = args[0], args[1]
     sheet = args[2] if len(args) > 2 else None
 
+    # 默认打印过程；--quiet 关闭
+    verbose = "--quiet" not in flags
+
     tool = BillSettlementTool(dpi=300)
 
-    files = tool.filter_bill_files(root_dir)
-    print(f"[方法1] 过滤+去重后电费结算单文件: {len(files)} 个")
+    print("[方法1] 过滤电费结算单文件（排除电量结算单）并按内容去重：")
+    files = tool.filter_bill_files(root_dir, verbose=verbose)
+    print(f"[方法1] 过滤+去重后电费结算单文件: {len(files)} 个\n")
 
-    print("[方法2] OCR 提取中（PDF 多页较慢，请稍候）...")
-    records = tool.extract_records(files)
-    print(f"[方法2] 共提取记录: {len(records)} 条")
-    print()
+    print("[方法2] OCR 提取 编号/购电月份/电价（PDF 多页较慢，请稍候）：")
+    records = tool.extract_records(files, verbose=verbose)
+    print(f"[方法2] 共提取记录: {len(records)} 条\n")
 
     result = tool.match_with_excel(records, xlsx_path, sheet=sheet)
     # 默认打印逐项对比明细；--fail-only 只看未匹配的
