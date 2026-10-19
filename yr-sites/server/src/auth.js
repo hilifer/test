@@ -25,7 +25,7 @@ const RULES = [
   [/^\/admin\/shipments/, 'shipments'], [/^\/admin\/rma/, 'rma'], [/^\/admin\/(skus|inventory)/, 'inventory'],
   [/^\/admin\/(content|geo)/, 'content'], [/^\/admin\/settings/, 'settings'], [/^\/admin\/(products|categories|media)/, 'catalog'],
   [/^\/admin\/shop\/[^/]+\/refund/, 'shop.refund'], [/^\/admin\/shop\/[^/]+\/(fulfil|ship)/, 'shop.fulfil'], [/^\/admin\/shop/, 'shop'],
-  [/^\/admin\/(coupons|reviews|marketing)/, 'marketing'],
+  [/^\/admin\/(coupons|reviews|marketing)/, 'marketing'], [/^\/admin\/dashboard/, 'orders'],
   [/^\/admin\/(ops|me|logout)/, null], // any logged-in user
 ];
 

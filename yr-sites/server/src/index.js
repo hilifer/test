@@ -19,6 +19,8 @@ import { mountShop } from './shop/storefront.js';
 import { startShopJobs } from './shop/checkout.js';
 import { mountShopAdmin } from './shop/admin-shop.js';
 import { startTrackingJob } from './shop/tracking.js';
+import { mountMarketingAdmin } from './shop/admin-marketing.js';
+import { startMarketingJobs } from './shop/marketing.js';
 import { mediaDir } from './catalog/store.js';
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -170,6 +172,7 @@ mountOpsAdmin(app);
 mountCatalogAdmin(app);
 mountShop(app, { ipOf });
 mountShopAdmin(app);
+mountMarketingAdmin(app);
 app.post('/admin/lead/:id/status', async (c) => {
   const f = await c.req.parseBody();
   const status = String(f.status || '');
@@ -182,6 +185,7 @@ startScheduler();
 startErpSync();
 startShopJobs();
 startTrackingJob();
+startMarketingJobs();
 serve({ fetch: app.fetch, port: config.port }, () => {
   console.log(`[${config.site}] sales server on :${config.port} — mode: ${aiEnabled() ? `AI (${config.llm.provider}/${config.llm.model})` : 'rules (no LLM key)'}`);
 });

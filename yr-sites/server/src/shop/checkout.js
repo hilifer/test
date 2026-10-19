@@ -8,6 +8,7 @@ import { viewCart } from './cart.js';
 import { quoteShipping } from './freight.js';
 import { validateAddress } from './accounts.js';
 import { alertOps } from '../alerts.js';
+import { applyCoupon } from './marketing.js';
 import './schema.js';
 
 migrate([{ id: '2026-10-21-order-access', up: () => addColumn('orders', 'access_token', 'TEXT') }]);
@@ -24,7 +25,7 @@ export class CheckoutError extends Error { constructor(code, message, extra = {}
  * cannot both take the last units.
  * input = { cartId, customer?, email, address, zoneId, payment, note, lang }
  */
-export function placeOrder({ cartId, customer = null, email, address, zoneId, payment, note = '', lang = 'en' }) {
+export function placeOrder({ cartId, customer = null, email, address, zoneId, payment, note = '', coupon = '', lang = 'en' }) {
   if (!PAY_METHODS.includes(payment)) throw new CheckoutError('bad_payment', 'Choose a payment method');
   const addr = validateAddress(address, lang);
   const mail = String(customer?.email || email || '').trim().toLowerCase();
@@ -39,16 +40,17 @@ export function placeOrder({ cartId, customer = null, email, address, zoneId, pa
     if (!option) throw new CheckoutError('bad_shipping', lang === 'zh' ? '请选择可用的配送方式' : 'Please choose an available shipping method');
     const cust = customer || findOrCreateCustomer({ email: mail, contact: addr.name, company: addr.company, country: addr.country, phone: addr.phone, lang });
     const lines = cart.items.map((i) => ({ sku: i.sku, name: i.name, variant: i.label || '', unit: i.unit, qty: i.qty, unit_price: i.unitPrice, amount: i.lineTotal }));
-    const total = r2(cart.subtotal + option.fee);
+    const promo = String(coupon || '').trim() ? applyCoupon(coupon, cart, { customerId: cust.id, lang }) : { code: null, discount: 0 };
+    const total = r2(cart.subtotal - promo.discount + option.fee);
     const id = randomUUID();
     const number = nextNumber('order');
     const token = randomBytes(18).toString('base64url');
     const expires = new Date(Date.now() + UNPAID_MINUTES[payment] * 60e3).toISOString();
     db.prepare(`INSERT INTO orders (id, number, quote_id, customer_id, status, currency, lines, total, paid, deposit_due, incoterm, port, payment_terms, created_at, updated_at,
-      channel, shipping_address, shipping_fee, shipping_method, subtotal, discount, payment_method, expires_at, customer_note, access_token)
-      VALUES (?,?,?,?,?,?,?,?,0,?,?,?,?,?,?,'shop',?,?,?,?,0,?,?,?,?)`).run(
+      channel, shipping_address, shipping_fee, shipping_method, subtotal, discount, coupon, payment_method, expires_at, customer_note, access_token)
+      VALUES (?,?,?,?,?,?,?,?,0,?,?,?,?,?,?,'shop',?,?,?,?,?,?,?,?,?,?)`).run(
       id, number, null, cust.id, 'pending_payment', cart.currency, JSON.stringify(lines), total, total, 'DAP', addr.city, 'tt100', now(), now(),
-      JSON.stringify(addr), option.fee, `${option.name} (${option.days[0]}–${option.days[1]} days)`, cart.subtotal, payment, expires, String(note).slice(0, 1000), token);
+      JSON.stringify(addr), option.fee, `${option.name} (${option.days[0]}–${option.days[1]} days)`, cart.subtotal, promo.discount, promo.code, payment, expires, String(note).slice(0, 1000), token);
     db.prepare('UPDATE carts SET converted_order_id = ? WHERE id = ?').run(id, cartId);
     db.exec('COMMIT');
     logEvent('order', id, 'created', { to: 'pending_payment', actor: 'customer', note: `${number} · ${payment}` });

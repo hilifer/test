@@ -76,3 +76,46 @@ test('E2E-S03 products sold by quotation only show no buy box', async ({ page, r
   }
   await expect(page.getByRole('button', { name: 'Add to quote list' }).first()).toBeVisible();
 });
+
+test('E2E-S04 marketing staff creates a coupon in the admin; the buyer gets the discount at checkout', async ({ browser, page }) => {
+  const ctx = await browser.newContext();
+  const admin = await ctx.newPage();
+  await admin.goto(LED + '/admin/login');
+  await admin.locator('input[name="username"]').fill('admin');
+  await admin.locator('input[name="password"]').fill('e2e-pass');
+  await admin.getByRole('button', { name: '登录' }).click();
+  await admin.waitForURL(/\/admin/);
+  await admin.goto(LED + '/admin/coupons');
+  await admin.locator('input[name="code"]').fill('E2E10');
+  await admin.locator('select[name="kind"]').selectOption('percent');
+  await admin.locator('input[name="value"]').fill('10');
+  await admin.getByRole('button', { name: '保存' }).click();
+  await expect(admin.locator('main')).toContainText('已保存 E2E10');
+  await ctx.close();
+
+  await page.goto(LED + '/products/ufo-high-bay-u2/');
+  await page.locator('[data-buy-box] [data-add]').click();
+  await expect(page.locator('[data-buy-box] [data-msg]')).toContainText('Added to cart');
+  await page.goto(LED + '/shop/checkout?country=US');
+  for (const [k, v] of [['email', 'coupon@shop.test'], ['name', 'Coupon Buyer'], ['phone', '+1 512 555 0111'], ['line1', '1 Main St'], ['city', 'Austin']]) await page.locator(`input[name="${k}"]`).fill(v);
+  await page.locator('input[name="payment"][value="tt"]').check();
+  await page.locator('input[name="coupon"]').fill('WRONG');
+  await page.getByRole('button', { name: 'Place order' }).click();
+  await expect(page.locator('main')).toContainText('This coupon code is not valid.');
+  await page.locator('input[name="coupon"]').fill('e2e10');
+  await page.locator('input[name="payment"][value="tt"]').check();
+  await page.getByRole('button', { name: 'Place order' }).click();
+  await expect(page).toHaveURL(/\/shop\/order\/SO-/);
+  await expect(page.locator('main')).toContainText('Discount E2E10');
+});
+
+test('E2E-S05 product page shows reviews, related products and a wishlist button that asks guests to log in @mobile', async ({ page }) => {
+  await page.goto(LED + '/products/ufo-high-bay-u2/');
+  const ex = page.locator('[data-shop-extras]');
+  await expect(ex).toBeVisible();
+  await expect(ex).toContainText('Customer reviews');
+  await expect(ex).toContainText('You may also like');
+  await expect(ex.locator('.extras__rel a').first()).toHaveAttribute('href', /\/products\/.+\//);
+  await ex.locator('[data-wish]').click();
+  await expect(ex.locator('[data-wishmsg] a')).toHaveText('Log in to save products');
+});
