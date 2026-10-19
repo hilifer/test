@@ -96,7 +96,7 @@ export function validate(d, { lang, allowed, sourceUrls, existingSlugs }) {
 }
 
 /** Generate one article. Returns {id, status, issues, notes}. */
-export async function generateArticle({ lang = 'en', topic = '' } = {}) {
+export async function generateArticle({ lang = 'en', topic = '', productIds = [] } = {}) {
   if (!contentReady()) throw new Error('No LLM configured for content (set LLM_* or CONTENT_LLM_*).');
   const cc = config.profile.content;
   const existing = listArticles();
@@ -107,7 +107,7 @@ export async function generateArticle({ lang = 'en', topic = '' } = {}) {
   const numbered = items.map((it, i) => ({ n: i + 1, title: it.title, source: it.source, date: it.date.toISOString().slice(0, 10), summary: it.summary, url: it.link }));
 
   let plan;
-  if (topic) plan = { kind: 'evergreen', item_ids: [], topic, target_question: topic, angle: '', product_ids: [] };
+  if (topic) plan = { kind: 'evergreen', item_ids: [], topic, target_question: topic, angle: '', product_ids: productIds };
   else {
     plan = parseJson(await complete({ system: PLAN_SYS(lang), user: JSON.stringify({ news_items: numbered.map(({ url, ...x }) => x), evergreen_queue: queue, recent_titles: recent, catalog_categories: config.catalog.categories.map((c) => c.name) }), maxTokens: 600, temperature: 0.4, llm: llmOpts() }));
   }

@@ -71,12 +71,14 @@ export const config = {
     tz: env.CONTENT_TZ || 'Asia/Shanghai',
     postsPerRun: Number(env.CONTENT_POSTS_PER_RUN || 1),
     autoPublish: env.CONTENT_AUTO_PUBLISH === 'true', // false = drafts wait for approval in /admin/content
+    promoteNew: env.CONTENT_PROMOTE_NEW !== 'false', // write an article about each newly published product
     langs: (env.CONTENT_LANGS || (SITE === 'grid' ? 'en,zh' : 'en')).split(',').map((s) => s.trim()),
     newsDir: env.NEWS_DIR || resolve(here, `../../sites/${SITE}/src/content/news`),
     siteDir: env.SITE_DIR || resolve(here, `../../sites/${SITE}`),
     releasesDir: env.RELEASES_DIR || '', // e.g. /srv/site — builds go to releases/<ts>, "current" symlink is swapped
     buildCmd: env.BUILD_CMD || 'npx astro build',
     indexNowKey: env.INDEXNOW_KEY || '',
+    indexNowEndpoint: env.INDEXNOW_ENDPOINT || 'https://api.indexnow.org/indexnow',
     llm: { provider: env.CONTENT_LLM_PROVIDER, apiKey: env.CONTENT_LLM_API_KEY, baseUrl: env.CONTENT_LLM_BASE_URL, model: env.CONTENT_LLM_MODEL },
   },
   geo: {

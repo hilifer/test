@@ -21,6 +21,7 @@ import { mountShopAdmin } from './shop/admin-shop.js';
 import { startTrackingJob } from './shop/tracking.js';
 import { mountMarketingAdmin } from './shop/admin-marketing.js';
 import { startMarketingJobs } from './shop/marketing.js';
+import { startAutolistJobs } from './catalog/autolist.js';
 import { mediaDir } from './catalog/store.js';
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -186,6 +187,7 @@ startErpSync();
 startShopJobs();
 startTrackingJob();
 startMarketingJobs();
+startAutolistJobs();
 serve({ fetch: app.fetch, port: config.port }, () => {
   console.log(`[${config.site}] sales server on :${config.port} — mode: ${aiEnabled() ? `AI (${config.llm.provider}/${config.llm.model})` : 'rules (no LLM key)'}`);
 });

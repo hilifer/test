@@ -17,7 +17,18 @@ const mock = {
   async pullInventory(materialToSku) {
     return listSkus().map((s, i) => ({ sku: s.sku, material: s.erp_number || s.sku, warehouse: i % 2 ? '成品仓' : '外贸仓', qty: 200 + ((i * 137) % 900) })).map((r) => ({ ...r, sku: materialToSku(r.material) || r.sku }));
   },
-  async pullMaterials() { return listSkus().map((s) => ({ number: s.erp_number || s.sku, name: s.name, spec: s.variant })); },
+  // existing SKUs + two materials that are not on the website yet (to demo AI auto-listing)
+  async pullMaterials() { return [...listSkus().map((s) => ({ number: s.erp_number || s.sku, name: s.name, spec: s.variant })), ...(MOCK_NEW[config.site] || [])]; },
+};
+const MOCK_NEW = {
+  led: [
+    { number: 'MAT-LED-9001', name: 'LED 防爆灯 100W Explosion-proof light', spec: 'Power: 100W; Efficacy: 130lm/W; IP66; CCT: 5000K; Ex d IIC T6 Gb' },
+    { number: 'MAT-LED-9002', name: 'LED Tunnel Light 150W', spec: 'Power: 150W; Efficacy: 140lm/W; IP66; IK08; Beam: 30x70' },
+  ],
+  grid: [
+    { number: 'MAT-GRID-9001', name: '户用储能电池 10kWh Home battery', spec: 'Capacity: 10.24kWh; Voltage: 51.2V; Cycles: 6000; LiFePO4; IP65' },
+    { number: 'MAT-GRID-9002', name: 'Portable Power Station 2kWh', spec: 'Capacity: 2048Wh; AC output: 2200W; LiFePO4; Weight: 22kg' },
+  ],
 };
 
 export function adapter() {

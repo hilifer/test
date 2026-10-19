@@ -54,3 +54,28 @@ test('E2E-P01 create → upload photo → save & publish → live on the website
   expect(await (await request.get(SITE + '/products/e2e-garden-bollard-20w.md')).text()).toContain('Height | 800 mm');
   expect(await (await request.get(SITE + '/llms.txt')).text()).toContain('E2E Garden Bollard 20W');
 });
+
+test('E2E-P02 AI auto-listing: paste product data → process queue → review the draft → it goes live', async ({ page, request }) => {
+  test.setTimeout(120_000);
+  await page.goto(SITE + '/admin/login');
+  await page.locator('input[name="username"]').fill('admin');
+  await page.locator('input[name="password"]').fill('e2e-pass');
+  await page.getByRole('button', { name: '登录' }).click();
+  await page.waitForURL(/\/admin/);
+  await page.goto(SITE + '/admin/products/autolist');
+  await page.locator('textarea[name="text"]').fill('E2E-AUTO-50 Canopy light 50W\nPower: 50W\nIP rating: IP65\nCCT: 5000K');
+  await page.getByRole('button', { name: '加入队列' }).click();
+  await expect(page.locator('main')).toContainText('已加入队列');
+  await page.getByRole('button', { name: /AI 处理队列/ }).click();
+  await expect(page.locator('main')).toContainText('草稿待审核');
+  await page.getByRole('link', { name: '审核并上架' }).first().click();
+  await expect(page).toHaveURL(/\/admin\/products\/E2E-AUTO-50/);
+  await expect(page.locator('[name="id"]')).toHaveValue('E2E-AUTO-50');
+  await expect(page.locator('[name="name"]')).toHaveValue('Canopy light 50W');
+  await expect(page.locator('[name="specs"]')).toHaveValue(/Power: 50W[\s\S]*IP rating: IP65[\s\S]*CCT: 5000K/);
+  await page.getByRole('button', { name: '上架' }).click();
+  await page.locator('.pub').getByRole('button', { name: '发布到网站' }).click();
+  await expect.poll(async () => (await request.get(SITE + '/api/shop/product/E2E-AUTO-50')).status(), { timeout: 30_000 }).toBe(200);
+  await page.goto(SITE + '/admin/products/autolist');
+  await expect(page.locator('main')).toContainText('E2E-AUTO-50');
+});

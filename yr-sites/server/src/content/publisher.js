@@ -59,7 +59,7 @@ export async function indexNow(paths) {
   const base = config.publicBaseUrl;
   const host = new URL(base).host;
   try {
-    const r = await fetch('https://api.indexnow.org/indexnow', {
+    const r = await fetch(config.content.indexNowEndpoint, {
       method: 'POST', headers: { 'content-type': 'application/json; charset=utf-8' },
       body: JSON.stringify({ host, key, keyLocation: `${base}/${key}.txt`, urlList: paths.map((p) => base + p) }),
       signal: AbortSignal.timeout(15000),

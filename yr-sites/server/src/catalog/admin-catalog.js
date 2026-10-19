@@ -8,6 +8,10 @@ import { STATUSES, specsText, bandsText, productToRow, rowToProduct, toCsv, pars
 import { rebuild, indexNow, buildRunning } from '../content/publisher.js';
 import { recentRuns } from '../content/store.js';
 import { seedSkus, stockView } from '../ops/service.js';
+import { publishAndPromote } from './autolist.js';
+import * as AL from './autolist.js';
+import { erpLabel } from '../ops/erp/index.js';
+import { aiEnabled } from '../config.js';
 
 const ILLUS = { led: ['ufo', 'linear-hb', 'shoebox', 'street', 'solar', 'flood', 'sports', 'wallpack', 'canopy', 'panel', 'triproof'], grid: ['cabinet', 'cabinet-small', 'home-battery', 'inverter', 'module', 'wallbox', 'dc-charger'] };
 const MODES = { both: '在线购买 + 询价', shop: '仅在线购买', inquiry: '仅询价（不在线销售）' };
@@ -21,7 +25,7 @@ const CSS = `<style>
 .n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}.vt td{padding:4px}.vt input{min-width:70px}.sub{display:flex;gap:6px;flex-wrap:wrap;margin:-6px 0 16px}.sub a{padding:4px 10px;border:1px solid var(--line);border-radius:999px;background:#fff;text-decoration:none;color:#1d2733;font-size:13px}
 .pub{display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:#fff;border:1px solid var(--line);border-left:4px solid #2e7d32;border-radius:8px;padding:10px 14px;margin-bottom:14px}.pub.dirty{border-left-color:#ef8f00}
 </style>`;
-const SUB = `<div class="sub">${[['/admin/products', '商品列表'], ['/admin/products/new', '新增商品'], ['/admin/products/import', '批量导入'], ['/admin/products/export.csv', '导出全部'], ['/admin/categories', '品类'], ['/admin/settings', '站点设置']].map(([h, l]) => `<a href="${h}">${l}</a>`).join('')}</div>`;
+const SUB = `<div class="sub">${[['/admin/products', '商品列表'], ['/admin/products/new', '新增商品'], ['/admin/products/autolist', 'AI 自动上架'], ['/admin/products/import', '批量导入'], ['/admin/products/export.csv', '导出全部'], ['/admin/categories', '品类'], ['/admin/settings', '站点设置']].map(([h, l]) => `<a href="${h}">${l}</a>`).join('')}</div>`;
 const view = (title, body, c) => shell(title, CSS + SUB + publishBar() + flashes(c) + body);
 const flashes = (c) => `${c?.req.query('m') ? `<div class="flash">${esc(c.req.query('m'))}</div>` : ''}${c?.req.query('w') ? `<div class="flash warn">${esc(c.req.query('w'))}</div>` : ''}${c?.req.query('e') ? `<div class="flash err">${esc(c.req.query('e'))}</div>` : ''}`;
 const back = (c, path, { m, e, w } = {}) => c.redirect(path + '?' + new URLSearchParams(Object.entries({ m, e, w }).filter(([, v]) => v)).toString());
@@ -128,11 +132,43 @@ async function storeUploads(uploads) {
   return urls;
 }
 
+// Publish + rebuild + IndexNow; products going live for the first time are promoted (article, GEO questions).
 async function publishNow() {
-  const snap = C.publishCatalog();
-  seedSkus();
-  rebuild().then(() => indexNow(['/products/', '/llms.txt', '/sitemap.xml', ...snap.products.slice(0, 50).map((p) => `/products/${p.slug}/`)])).catch(() => {});
-  return snap;
+  return (await publishAndPromote()).snap;
+}
+
+// ---------------------------------------------------------------- AI auto-listing
+const JOB_ST = { queued: '排队中', drafted: '待审核（草稿）', published: '已自动上架', failed: '失败', skipped: '已跳过' };
+function autolistPage(c) {
+  const s = AL.autolistSettings();
+  const jobs = AL.listJobs(c.req.query('status') || '');
+  const promos = AL.listPromotions(20);
+  const chk = (n, v, l) => `<label style="display:flex;gap:6px;align-items:center"><input type="checkbox" name="${n}" value="1"${v ? ' checked' : ''}> ${l}</label>`;
+  return view('AI 自动上架', `<h2>AI 自动上架</h2>
+<p class="mute">把金蝶物料、供应商规格表或产品资料交给 AI，自动写好中英文标题、简介、卖点、参数和搜索关键词。AI 只负责写文案：认证和参数数字必须能在原始资料里找到，找不到的会被删除并标出；价格、起订量、质保、交期只取原始资料或下面的默认值。
+${aiEnabled() ? '' : '<b>当前未配置大模型，将按规则生成草稿，需要人工润色。</b>'}</p>
+<div class="grid2">
+<div class="card"><h3 style="margin-top:0">1. 从金蝶拉取新物料</h3><p class="mute">${esc(erpLabel())}。只拉取还没有建 SKU 的启用物料。</p><form method="post" action="/admin/products/autolist/erp"><button class="btn">拉取新物料</button></form></div>
+<div class="card"><h3 style="margin-top:0">2. 上传规格表</h3><p class="mute">CSV 或 Excel，第一行是表头，任意列名都可以（能识别 型号/名称/售价/重量/起订量/质保 等）。每行一个产品。</p>
+<form method="post" action="/admin/products/autolist/sheet" enctype="multipart/form-data" class="acts"><input type="file" name="file" accept=".csv,.xlsx" required><button class="btn">上传</button></form></div>
+<div class="card"><h3 style="margin-top:0">3. 粘贴产品资料</h3><form method="post" action="/admin/products/autolist/text">${area('型号、名称、参数、认证等（一个产品）', 'text', '', 'rows="5" required')}<div class="acts"><button class="btn">加入队列</button></div></form></div>
+</div>
+<div class="acts"><form method="post" action="/admin/products/autolist/run"><button class="btn g">AI 处理队列（${jobs.filter((j) => j.status === 'queued').length} 个排队）</button></form>
+${Object.entries(JOB_ST).map(([k, l]) => `<a href="/admin/products/autolist?status=${k}">${l}</a>`).join(' · ')} · <a href="/admin/products/autolist">全部</a></div>
+<div class="wrap"><table><thead><tr><th>时间</th><th>来源</th><th>原始资料</th><th>状态</th><th>生成方式</th><th>需要核对</th><th></th></tr></thead><tbody>
+${jobs.map((j) => `<tr><td>${fmt(j.created_at)}<div class="mute">${esc(j.created_by || '')}</div></td><td>${({ erp: '金蝶物料', sheet: '规格表', text: '粘贴资料' })[j.source] || esc(j.source)}<div class="mute">${esc(j.source_ref)}</div></td>
+<td style="max-width:280px" class="mute">${esc(Object.entries(j.raw).map(([k, v]) => `${k}: ${v}`).join(' · ').slice(0, 220))}</td><td>${JOB_ST[j.status] || esc(j.status)}${j.error ? `<div style="color:#c62828">${esc(j.error)}</div>` : ''}</td><td>${j.mode === 'ai' ? 'AI' : j.mode === 'rules' ? '规则' : ''}</td>
+<td style="max-width:320px">${j.issues.map((i) => `<div>· ${esc(i)}</div>`).join('') || (j.product_id ? '<span class="mute">无</span>' : '')}${j.notes.map((i) => `<div class="mute">（提示）${esc(i)}</div>`).join('')}</td>
+<td>${j.product_id ? `<a href="/admin/products/${encodeURIComponent(j.product_id)}">${j.status === 'drafted' ? '审核并上架' : '查看商品'}</a>` : ''}${['queued', 'failed'].includes(j.status) ? `<form method="post" action="/admin/products/autolist/${j.id}/run" style="display:inline"><button class="btn l">${j.status === 'failed' ? '重试' : '立即处理'}</button></form> <form method="post" action="/admin/products/autolist/${j.id}/skip" style="display:inline"><button class="btn r">跳过</button></form>` : ''}</td></tr>`).join('') || '<tr><td colspan="7" class="mute">队列是空的</td></tr>'}</tbody></table></div>
+<h3>新品推广记录（GEO）</h3><p class="mute">商品第一次发布上线时自动执行：通知搜索引擎收录（IndexNow），把买家会问 AI 的问题加入 GEO 监测${config.content.promoteNew ? '，并让内容智能体写一篇产品文章（按内容设置决定直接发布或待审核）' : ''}。</p>
+<div class="wrap"><table><thead><tr><th>时间</th><th>商品</th><th>执行内容</th><th>结果</th></tr></thead><tbody>${promos.map((r) => `<tr><td>${fmt(r.ts)}</td><td><a href="/admin/products/${encodeURIComponent(r.product_id)}">${esc(r.product_id)}</a></td><td>${r.actions.map((a) => `<div>${esc({ indexnow: a.skipped ? '搜索引擎收录通知（未配置 INDEXNOW_KEY，已跳过）' : '搜索引擎收录通知', geo_questions: `GEO 监测问题 ${a.count ?? ''} 个`, article: `产品文章（${a.lang}）${a.id ? `：${a.id}，${a.status === 'published' ? '已发布' : '草稿待审核'}` : ''}` }[a.kind] || a.kind)}${a.error ? ` <span style="color:#c62828">失败：${esc(a.error)}</span>` : ''}</div>`).join('')}</td><td>${r.status === 'ok' ? '完成' : '部分失败'}</td></tr>`).join('') || '<tr><td colspan="4" class="mute">暂无</td></tr>'}</tbody></table></div>
+<h3>自动上架设置</h3><form method="post" action="/admin/products/autolist/settings" class="card">
+${s.fromCatalog ? '<div class="flash warn">还没有保存过设置，下面的默认值取自现有商品，请确认后保存。</div>' : ''}
+${chk('autoPublish', s.autoPublish, '<b>自动上架</b>：AI 生成且没有任何需要核对的问题时直接发布（否则留作草稿）')}
+${chk('erpAuto', s.erpAuto, '每 6 小时自动从金蝶拉取新物料并处理')}
+${chk('promote', s.promote, '新品上线后自动做 GEO 推广')}
+<div class="grid2" style="margin-top:10px">${inp('默认质保', 'warranty', s.warranty)}${inp('默认单位', 'unit', s.unit)}${inp('默认起订量', 'moq', s.moq)}${inp('生产交期最短（天）', 'lead_min', s.leadTimeDays?.[0])}${inp('生产交期最长（天）', 'lead_max', s.leadTimeDays?.[1])}${inp('样品最短（天）', 'sample_min', s.sampleDays?.[0])}${inp('样品最长（天）', 'sample_max', s.sampleDays?.[1])}</div>
+<div class="acts"><button class="btn">保存设置</button></div></form>`, c);
 }
 
 // ---------------------------------------------------------------- import
@@ -258,6 +294,38 @@ export function mountCatalogAdmin(app) {
     } catch (e) {
       return c.html(editPage(c, { ...input, _status: status, _salesMode: salesMode }, { isNew: true, errors: e.errors || [e.message], warnings: e.warnings || [], variants }), 400);
     }
+  });
+  app.get('/admin/products/autolist', (c) => c.html(autolistPage(c)));
+  app.post('/admin/products/autolist/erp', async (c) => {
+    try { const n = await AL.queueFromErp(); return back(c, '/admin/products/autolist', { m: n ? `已加入 ${n} 个新物料，点"AI 处理队列"生成商品` : '没有新的物料' }); } catch (e) { return back(c, '/admin/products/autolist', { e: `拉取失败：${e.message}` }); }
+  });
+  app.post('/admin/products/autolist/sheet', limit, async (c) => {
+    const f = await c.req.parseBody();
+    const file = f.file;
+    if (!file || typeof file !== 'object' || !file.size) return back(c, '/admin/products/autolist', { e: '请选择文件' });
+    const buf = Buffer.from(await file.arrayBuffer());
+    let rows;
+    try { rows = /\.xlsx$/i.test(file.name) || buf.subarray(0, 2).toString() === 'PK' ? parseXlsx(buf) : parseCsv(buf.toString('utf8')); } catch (e) { return back(c, '/admin/products/autolist', { e: `无法读取文件：${e.message}` }); }
+    const n = AL.queueFromRows(rows, file.name);
+    return back(c, '/admin/products/autolist', n ? { m: `已加入 ${n} 个产品，点"AI 处理队列"生成商品` } : { e: '文件里没有新的产品行（已排队或已处理过的型号会跳过）' });
+  });
+  app.post('/admin/products/autolist/text', async (c) => {
+    const f = await c.req.parseBody();
+    try { AL.queueFromText(f.text); return back(c, '/admin/products/autolist', { m: '已加入队列' }); } catch (e) { return back(c, '/admin/products/autolist', { e: e.message }); }
+  });
+  app.post('/admin/products/autolist/run', async (c) => {
+    const out = await AL.runQueue();
+    const n = (s) => out.filter((j) => j.status === s).length;
+    return back(c, '/admin/products/autolist', { m: out.length ? `处理 ${out.length} 个：${n('published')} 个已自动上架，${n('drafted')} 个草稿待审核` : '队列是空的', e: n('failed') ? `${n('failed')} 个失败，见下表` : undefined });
+  });
+  app.post('/admin/products/autolist/:id/run', async (c) => {
+    const j = await AL.draftJob(c.req.param('id'));
+    if (j?.status === 'published') await publishAndPromote();
+    return back(c, '/admin/products/autolist', j?.status === 'failed' ? { e: j.error } : { m: j?.status === 'published' ? '已自动上架' : '已生成草稿' });
+  });
+  app.post('/admin/products/autolist/:id/skip', (c) => { AL.skipJob(c.req.param('id')); return back(c, '/admin/products/autolist', { m: '已跳过' }); });
+  app.post('/admin/products/autolist/settings', async (c) => {
+    try { AL.saveAutolistSettings(await c.req.parseBody()); return back(c, '/admin/products/autolist', { m: '设置已保存' }); } catch (e) { return back(c, '/admin/products/autolist', { e: e.message }); }
   });
   app.get('/admin/products/:id', (c) => {
     const p = C.getProduct(c.req.param('id'));

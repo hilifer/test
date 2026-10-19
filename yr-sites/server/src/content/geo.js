@@ -8,7 +8,10 @@ import { logRun } from './store.js';
 
 export async function runGeoCheck() {
   const g = config.profile.content.geo || {};
-  const qs = g.questions || [];
+  // + questions added automatically for newly published products (catalog/autolist.js)
+  let extra = [];
+  try { extra = JSON.parse(db.prepare("SELECT value FROM settings WHERE key = 'geo_extra_questions'").get()?.value || '[]'); } catch { /* no settings table yet */ }
+  const qs = [...(g.questions || []), ...extra];
   const llm = config.geo.llm.apiKey ? config.geo.llm : {};
   const names = [config.profile.brand, ...(g.brandAliases || [])].map((s) => s.toLowerCase());
   const comps = g.competitors || [];
