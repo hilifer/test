@@ -9,7 +9,7 @@
 	}
 
 	# AI sales backend, MCP endpoint, customer portal and admin
-	@app path /api/* /mcp /admin /admin/* /portal /portal/* /media/*
+	@app path /api/* /mcp /admin /admin/* /portal /portal/* /media/* /shop /shop/*
 	handle @app {
 		reverse_proxy app:8787
 	}

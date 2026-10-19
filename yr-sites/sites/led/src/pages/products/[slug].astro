@@ -45,6 +45,7 @@ const watts = p.wattMin === p.wattMax ? `${p.wattMin} W` : `${p.wattMin}–${p.w
         <div><dt>Samples</dt><dd>{p.sampleDays[0]}–{p.sampleDays[1]} days</dd></div>
         <div><dt>Warranty</dt><dd>{p.warranty}</dd></div>
       </dl>
+      <div data-buy-box data-product={p.id} data-lang="en" hidden></div>
       <div class="actions">
         <button class="btn btn--signal" data-add-quote data-id={p.id} data-name={p.name} data-moq={p.moq} data-unit={p.unit}>Add to quote list</button>
         <button class="btn btn--line" data-chat-open data-chat-prompt={showPrice ? `I'm interested in the ${p.name}. What's the price for my quantity?` : `I'm interested in the ${p.name}. Can you help with specs and a quotation?`}>{showPrice ? 'Get an instant reference price' : 'Ask the assistant'}</button>

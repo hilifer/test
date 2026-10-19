@@ -4,5 +4,5 @@ import { fileURLToPath } from 'node:url';
 const root = new URL('../../../shared/', import.meta.url);
 const out = new URL('../public/assets/', import.meta.url);
 mkdirSync(out, { recursive: true });
-for (const f of ['chat-widget.js', 'sales-engine.js']) cpSync(fileURLToPath(new URL(f, root)), fileURLToPath(new URL(f, out)));
+for (const f of ['chat-widget.js', 'sales-engine.js', 'shop-widget.js']) cpSync(fileURLToPath(new URL(f, root)), fileURLToPath(new URL(f, out)));
 console.log('synced shared assets');

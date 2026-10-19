@@ -47,6 +47,7 @@ const chatCfg = {
   {ld.map((x) => <script type="application/ld+json" set:html={JSON.stringify(x)} />)}
   <script is:inline define:vars={{ chatCfg }}>window.YR_CHAT = chatCfg;</script>
   <script type="module" src="/assets/chat-widget.js"></script>
+  <script type="module" src="/assets/shop-widget.js"></script>
 </head>
 <body>
   {(site.demo || catalog.sample) && <div class="demo">{s.demo}</div>}
@@ -57,6 +58,7 @@ const chatCfg = {
         <span>YR GRID</span>
       </a>
       <nav aria-label="Main"><ul>{nav.map((n) => <li><a href={n.href} aria-current={current === n.key ? 'page' : undefined}>{n.label}</a></li>)}</ul></nav>
+      <a class="cartlink" href={lang === 'zh' ? '/shop/cart?lang=zh' : '/shop/cart'} data-cart-link>{lang === 'zh' ? '购物车' : 'Cart'}<span data-cart-count hidden>0</span></a>
       {!noAlt && <a class="lang" href={lang === 'zh' ? enPath : zhPath} hreflang={lang === 'zh' ? 'en' : 'zh-CN'}>{s.otherlang}</a>}
       <a class="btn btn--lime top__cta" href={lp(lang, '/contact/')}>{s.cta_quote}</a>
       <details class="menu">
@@ -95,6 +97,12 @@ const chatCfg = {
 </body>
 </html>
 <style>
+  .buybox { margin: 18px 0; padding: 16px 18px; border: 1px solid var(--line, #dde3e8); border-radius: 12px; background: #fff; display: grid; gap: 8px; }
+  .buybox__h { margin: 0; font-weight: 700; } .buybox__price { margin: 0; font-size: 22px; } .buybox__price s { color: #8a96a3; font-size: 15px; margin-left: 6px; }
+  .buybox__meta, .buybox__tiers { margin: 0; font-size: 13.5px; color: #5f6b77; } .buybox__row { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; }
+  .buybox__f { display: grid; gap: 4px; font-size: 13px; font-weight: 600; } .buybox__f input, .buybox__f select { font: inherit; padding: 9px 10px; border: 1px solid #c3ccd5; border-radius: 8px; min-width: 110px; }
+  .buybox__msg { margin: 0; font-size: 14px; } .cartlink { white-space: nowrap; } .cartlink span { background: var(--signal, #ffb000); color: #111; border-radius: 999px; padding: 0 7px; font-size: 12px; font-weight: 700; margin-left: 4px; }
+  .cartlink { color: inherit; text-decoration: none; font-weight: 600; }
   .demo { background: #f4f9d6; color: #3d4a00; font-size: 13.5px; text-align: center; padding: 6px 16px; }
   .top { background: var(--navy); position: sticky; top: 0; z-index: 50; border-bottom: 3px solid var(--lime); }
   .top__in { display: flex; align-items: center; gap: 26px; height: 72px; }

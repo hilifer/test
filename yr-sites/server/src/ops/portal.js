@@ -65,7 +65,7 @@ function homePage(c, lang) {
 function orderPage(c, o, lang, msg = '', err = '') {
   const t = T[lang];
   const ships = shipmentsFor(o.id);
-  const tl = DICT.order.timeline;
+  const tl = o.channel === 'shop' ? DICT.order.timelineShop : DICT.order.timeline;
   const idx = tl.indexOf(o.status);
   const steps = o.status === 'cancelled' ? `<p><span class="pill warn">${label('order', 'cancelled', lang)}</span></p>` : `<ol class="steps">${tl.map((s, i) => `<li class="${i <= idx ? 'done' : ''} ${i === idx ? 'cur' : ''}">${esc(label('order', s, lang))}</li>`).join('')}</ol>`;
   return page(lang, o.number, `<p><a href="../?lang=${lang}">← ${t.back}</a></p><h1>${esc(o.number)}</h1>

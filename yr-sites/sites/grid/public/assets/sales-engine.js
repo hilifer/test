@@ -17,12 +17,14 @@ export function publicCatalog(catalog) {
 }
 
 const norm = (s) => String(s || '').toLowerCase();
+// Words that say nothing about which product is meant (would otherwise match every summary).
+const STOP = new Set('a an and are as at be can do does for from have how i in is it me much my need of on or our please price prices quote quotation send the to we what with you your pcs pc units unit sets set nos qty quantity want looking buy order cost'.split(' '));
 export const isCJK = (s) => /[㐀-鿿]/.test(String(s || ''));
 
 /** Search products by free text + structured filters. Returns scored list. */
 export function searchProducts(catalog, f = {}) {
   const q = norm(f.query);
-  const words = q.split(/[^a-z0-9㐀-鿿.]+/).filter((w) => w.length > 1);
+  const words = q.split(/[^a-z0-9㐀-鿿.]+/).filter((w) => w.length > 1 && !STOP.has(w));
   const out = [];
   for (const p of catalog.products) {
     if (f.category && p.category !== f.category) continue;
@@ -32,8 +34,9 @@ export function searchProducts(catalog, f = {}) {
     if (f.application && !p.applications.some((a) => norm(a).includes(norm(f.application)))) continue;
     const cat = catalog.categories.find((c) => c.id === p.category) || {};
     const hay = norm([p.name, p.nameZh, p.summary, p.category, cat.name, cat.nameZh, ...(cat.keywords || []), ...(p.keywords || []), ...p.applications, ...p.certifications].join(' '));
+    const title = norm(`${p.id} ${p.name} ${p.nameZh || ''}`);
     let score = 0;
-    for (const w of words) if (hay.includes(w)) score += 1;
+    for (const w of words) if (title.includes(w)) score += 3; else if (hay.includes(w)) score += 1;
     if (f.watt && p.wattMin <= f.watt && p.wattMax >= f.watt) score += 3;
     if (!words.length && !f.watt) score = 1;
     if (score > 0) out.push({ p, score });

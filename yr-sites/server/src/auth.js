@@ -67,6 +67,7 @@ function checkPassword(pw, stored) {
   const b = Buffer.from(hash, 'hex');
   return a.length === b.length && timingSafeEqual(a, b);
 }
+export const verifyPassword = (pw, stored) => checkPassword(pw, stored);
 export function passwordProblem(pw) {
   if (String(pw).length < 10) return '密码至少 10 位';
   if (!/[A-Za-z]/.test(pw) || !/\d/.test(pw)) return '密码需同时包含字母和数字';

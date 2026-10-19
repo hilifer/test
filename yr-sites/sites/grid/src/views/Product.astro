@@ -45,6 +45,7 @@ const hl = pick(lang, p.highlights, p.highlightsZh) as string[];
         <div><dt>{s.samples}</dt><dd>{p.sampleDays[0]}–{p.sampleDays[1]} {s.days}</dd></div>
         <div><dt>{s.warranty}</dt><dd>{p.warranty}</dd></div>
       </dl>
+      <div data-buy-box data-product={p.id} data-lang={lang} hidden></div>
       <div class="actions">
         <button class="btn btn--lime" data-chat-open data-chat-prompt={zh ? `我想了解 ${name}，按我的数量报个参考价。` : `I'm interested in the ${p.name}. What's the price for my quantity?`}>{s.instant}</button>
         <a class="btn btn--line" href="#quote">{s.formal}</a>

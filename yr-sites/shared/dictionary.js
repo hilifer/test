@@ -19,6 +19,7 @@ export const DICT = {
   order: {
     prefix: 'SO',
     states: {
+      pending_payment: { zh: '待付款', en: 'Awaiting payment' }, // online shop orders
       awaiting_deposit: { zh: '待付定金', en: 'Awaiting deposit' },
       in_production: { zh: '生产/备货中', en: 'In production' },
       ready_to_ship: { zh: '待发货', en: 'Ready to ship' },
@@ -28,6 +29,7 @@ export const DICT = {
       cancelled: { zh: '已取消', en: 'Cancelled' },
     },
     transitions: {
+      pending_payment: ['ready_to_ship', 'in_production', 'cancelled'],
       awaiting_deposit: ['in_production', 'cancelled'],
       in_production: ['ready_to_ship', 'cancelled'],
       ready_to_ship: ['shipped'],
@@ -38,9 +40,10 @@ export const DICT = {
     },
     // which statuses customers see on the portal timeline
     timeline: ['awaiting_deposit', 'in_production', 'ready_to_ship', 'shipped', 'delivered', 'completed'],
+    timelineShop: ['pending_payment', 'ready_to_ship', 'shipped', 'delivered', 'completed'],
   },
   payment: {
-    kinds: { deposit: { zh: '定金', en: 'Deposit' }, balance: { zh: '尾款', en: 'Balance' }, refund: { zh: '退款', en: 'Refund' }, other: { zh: '其他', en: 'Other' } },
+    kinds: { online: { zh: '在线支付', en: 'Online payment' }, deposit: { zh: '定金', en: 'Deposit' }, balance: { zh: '尾款', en: 'Balance' }, refund: { zh: '退款', en: 'Refund' }, other: { zh: '其他', en: 'Other' } },
   },
   shipment: {
     prefix: 'SH',

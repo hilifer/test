@@ -96,7 +96,7 @@ export function stockView() {
   const onHand = new Map();
   if (erp) for (const r of db.prepare('SELECT sku, SUM(qty) q, MAX(synced_at) s FROM inventory GROUP BY sku').all()) onHand.set(r.sku, { q: r.q, s: r.s });
   const reserved = new Map();
-  for (const o of db.prepare("SELECT lines FROM orders WHERE status IN ('awaiting_deposit','in_production','ready_to_ship')").all())
+  for (const o of db.prepare("SELECT lines FROM orders WHERE status IN ('pending_payment','awaiting_deposit','in_production','ready_to_ship')").all())
     for (const l of J(o.lines)) reserved.set(l.sku, (reserved.get(l.sku) || 0) + Number(l.qty || 0));
   return listSkus().map((s) => {
     const oh = erp ? onHand.get(s.sku)?.q ?? 0 : s.stock_local || 0;
@@ -242,6 +242,8 @@ export function recordPayment(orderId, { kind = 'deposit', amount, ref = '' }, a
   logEvent('order', orderId, 'payment', { actor, note: `${label('payment', kind)} ${o.currency} ${amt} ${ref}`.trim() });
   // deposit received → start production automatically
   if (o.status === 'awaiting_deposit' && paid >= o.deposit_due - 0.01) setOrderStatus(orderId, 'in_production', { actor: 'system', note: '定金已到账' });
+  // online shop orders: paid in full → ready to ship from stock
+  if (o.status === 'pending_payment' && paid >= o.total - 0.01) setOrderStatus(orderId, 'ready_to_ship', { actor: 'system', note: '已付款' });
   return getOrder(orderId);
 }
 DICT.payment.states = DICT.payment.kinds; // so label('payment', kind) works

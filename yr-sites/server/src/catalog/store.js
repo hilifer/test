@@ -43,6 +43,9 @@ const markDirty = () => setSetting('catalog_dirty', true);
 export const isDirty = () => Boolean(getSetting('catalog_dirty', false));
 
 // ---------------------------------------------------------------- seed (first start only)
+// SAMPLE shipping weights per product type, so the demo shop can quote freight. Replace with real weights in the admin.
+const SAMPLE_WEIGHT_KG = { ufo: 3.5, 'linear-hb': 4.5, shoebox: 8, street: 7, solar: 12, flood: 5, sports: 18, wallpack: 3, canopy: 2.5, panel: 2.8, triproof: 1.8,
+  cabinet: 2400, 'cabinet-small': 900, 'home-battery': 40, inverter: 30, module: 28, wallbox: 6, 'dc-charger': 380 };
 function seed() {
   if (db.prepare('SELECT COUNT(*) n FROM products').get().n) return;
   const file = config.catalog;
@@ -55,9 +58,9 @@ function seed() {
         .run(p.id, 'published', 'both', JSON.stringify(p), i, now(), now(), now(), 'seed');
       // one default SKU per product; shop price = top of the first reference band (SAMPLE until finance sets real prices)
       const b = p.priceBands || [];
-      db.prepare(`INSERT INTO skus (sku, product_id, name, variant, unit, ref_price, price, tier_prices, min_qty, active, updated_at) VALUES (?,?,?,?,?,?,?,?,?,1,?)
-        ON CONFLICT(sku) DO UPDATE SET price = COALESCE(skus.price, excluded.price), tier_prices = COALESCE(skus.tier_prices, excluded.tier_prices), min_qty = excluded.min_qty`)
-        .run(p.id, p.id, p.name, '', p.unit || 'pcs', b[0] ? r2((b[0].low + b[0].high) / 2) : null, b[0] ? b[0].high : null, JSON.stringify(b.slice(1).map((x) => ({ minQty: x.minQty, price: x.high }))), p.moq || 1, now());
+      db.prepare(`INSERT INTO skus (sku, product_id, name, variant, unit, ref_price, price, tier_prices, min_qty, weight_kg, active, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,1,?)
+        ON CONFLICT(sku) DO UPDATE SET price = COALESCE(skus.price, excluded.price), tier_prices = COALESCE(skus.tier_prices, excluded.tier_prices), min_qty = excluded.min_qty, weight_kg = COALESCE(skus.weight_kg, excluded.weight_kg)`)
+        .run(p.id, p.id, p.name, '', p.unit || 'pcs', b[0] ? r2((b[0].low + b[0].high) / 2) : null, b[0] ? b[0].high : null, JSON.stringify(b.slice(1).map((x) => ({ minQty: x.minQty, price: x.high }))), p.moq || 1, SAMPLE_WEIGHT_KG[p.illus] ?? null, now());
     });
     setSetting('catalog_meta', meta);
     const siteFile = process.env.SITE_JSON || resolve(here, `../../../sites/${config.site}/src/data/site.json`);

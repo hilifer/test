@@ -15,6 +15,9 @@ import { startScheduler } from './content/scheduler.js';
 import { mountOpsAdmin } from './ops/admin-ops.js';
 import { mountPortal } from './ops/portal.js';
 import { mountCatalogAdmin } from './catalog/admin-catalog.js';
+import { mountShop } from './shop/storefront.js';
+import { startShopJobs } from './shop/checkout.js';
+import { mountShopAdmin } from './shop/admin-shop.js';
 import { mediaDir } from './catalog/store.js';
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -103,6 +106,9 @@ app.get('/media/:file', (c) => {
   return c.body(readFileSync(path));
 });
 
+// Online shop: cart, checkout, payments, customer accounts
+// (mounted below, after the same-origin guard is defined)
+
 // Customer self-service portal (public, token links)
 mountPortal(app);
 
@@ -120,6 +126,8 @@ const sameOrigin = async (c, next) => {
   await next();
 };
 app.use('/admin/*', sameOrigin);
+app.use('/shop/*', sameOrigin); // customer forms (cart, checkout, account)
+app.use('/api/shop/*', sameOrigin);
 app.use('/admin', sameOrigin);
 // Staff login (sessions) — Basic auth is also accepted for scripts, with the same users and lockout.
 ensureBootstrapAdmin();
@@ -159,6 +167,8 @@ app.get('/admin/leads.csv', (c) => { c.header('content-type', 'text/csv; charset
 mountContentAdmin(app);
 mountOpsAdmin(app);
 mountCatalogAdmin(app);
+mountShop(app, { ipOf });
+mountShopAdmin(app);
 app.post('/admin/lead/:id/status', async (c) => {
   const f = await c.req.parseBody();
   const status = String(f.status || '');
@@ -169,6 +179,7 @@ app.post('/admin/lead/:id/status', async (c) => {
 
 startScheduler();
 startErpSync();
+startShopJobs();
 serve({ fetch: app.fetch, port: config.port }, () => {
   console.log(`[${config.site}] sales server on :${config.port} — mode: ${aiEnabled() ? `AI (${config.llm.provider}/${config.llm.model})` : 'rules (no LLM key)'}`);
 });
