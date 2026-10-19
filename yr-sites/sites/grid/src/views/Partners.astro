@@ -1,0 +1,24 @@
+---
+import Base from '../layouts/Base.astro';
+import PageHead from '../components/PageHead.astro';
+import QuoteForm from '../components/QuoteForm.astro';
+import { type Lang } from '../i18n';
+const { lang } = Astro.props as { lang: Lang };
+const zh = lang === 'zh';
+const items = zh
+  ? [['区域经销', '按区域授权经销，享渠道价格与样机支持。'], ['EPC 与安装商', '项目供货、系统设计支持、现场调试指导。'], ['充电运营商', '批量采购直流/交流桩，OCPP 平台对接支持。'], ['OEM / ODM', '外观、配置、品牌和包装定制。']]
+  : [['Regional distributors', 'Territory-based distribution with channel pricing and demo units.'], ['EPC contractors and installers', 'Project supply, system design support and commissioning guidance.'], ['Charging operators', 'Volume DC/AC chargers with OCPP platform integration support.'], ['OEM / ODM', 'Custom housing, configuration, branding and packaging.']];
+const gets = zh ? ['渠道价格与项目报价支持', '产品与安装技术培训', '营销资料与样机', '备件库存与售后响应'] : ['Channel pricing and project quote support', 'Product and installation training', 'Marketing material and demo units', 'Spare parts and after-sales response'];
+---
+<Base lang={lang} title={zh ? '经销商与 EPC 合作' : 'Distributor and EPC partnership'} description={zh ? '成为 YR GRID 储能和充电桩的区域经销商、EPC 合作伙伴或 OEM 客户。' : 'Become a YR GRID distributor, EPC partner, charging operator customer or OEM client for storage and EV chargers.'} current="/partners/">
+  <PageHead title={zh ? '渠道合作' : 'Partner with YR GRID'} lede={zh ? '我们在找经销商、EPC 和安装商、充电运营商以及 OEM 客户。合作申请直接由渠道经理处理。' : 'We work with distributors, EPC contractors and installers, charging operators and OEM clients. Applications go straight to a channel manager.'} />
+  <section class="wrap two">
+    <div>
+      <div class="types">{items.map(([h, d]) => <div><h2>{h}</h2><p>{d}</p></div>)}</div>
+      <h2 class="h">{zh ? '合作伙伴可以获得' : 'What partners get'}</h2>
+      <ul>{gets.map((g) => <li>{g}</li>)}</ul>
+    </div>
+    <div><h2 class="h">{zh ? '申请合作' : 'Apply'}</h2><QuoteForm lang={lang} source="partner" extraHint={zh ? '所在区域、现有业务、年采购量预估…' : 'Territory, current business, estimated yearly volume…'} /></div>
+  </section>
+</Base>
+<style>.two{display:grid;grid-template-columns:1fr 1fr;gap:48px;padding-top:40px;padding-bottom:72px;align-items:start}.types{display:grid;grid-template-columns:1fr 1fr;gap:14px}.types div{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--sky);border-radius:10px;padding:16px}.types h2{font-size:1.35rem;margin-bottom:6px}.types p{margin:0;font-size:15px;color:var(--ink-2)}.h{font-size:1.8rem;margin-top:28px}@media(max-width:900px){.two{grid-template-columns:1fr}}@media(max-width:520px){.types{grid-template-columns:1fr}}</style>

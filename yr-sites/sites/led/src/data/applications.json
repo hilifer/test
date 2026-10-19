@@ -1,0 +1,11 @@
+[
+  { "id": "warehouse", "label": "Warehouse & factory", "kw": ["warehouse", "factory", "distribution center", "aisle"] },
+  { "id": "parking", "label": "Parking lot & campus", "kw": ["parking lot", "campus", "parking garage"] },
+  { "id": "street", "label": "Street & road", "kw": ["street", "road", "highway", "municipal"] },
+  { "id": "sports", "label": "Sports field", "kw": ["stadium", "sports field", "tennis court", "court", "high mast", "gym"] },
+  { "id": "exterior", "label": "Building exterior", "kw": ["perimeter", "loading dock", "facade", "building", "security", "yard"] },
+  { "id": "gas", "label": "Gas station & canopy", "kw": ["gas station", "canopy", "drive-through"] },
+  { "id": "office", "label": "Office & school", "kw": ["office", "school", "hospital", "retail"] },
+  { "id": "wet", "label": "Cold storage & car park", "kw": ["cold storage", "car park", "food processing", "tunnel"] },
+  { "id": "offgrid", "label": "Off-grid & solar", "kw": ["off-grid", "village"] }
+]

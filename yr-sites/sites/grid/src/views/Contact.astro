@@ -1,0 +1,17 @@
+---
+import Base from '../layouts/Base.astro';
+import PageHead from '../components/PageHead.astro';
+import QuoteForm from '../components/QuoteForm.astro';
+import site from '../data/site.json';
+import { t, type Lang } from '../i18n';
+const { lang } = Astro.props as { lang: Lang };
+const s = t(lang); const zh = lang === 'zh';
+---
+<Base lang={lang} title={s.cta_quote} description={zh ? '与 AI 销售顾问即时沟通获取参考价，或提交需求获取正式报价。' : 'Chat with our AI sales assistant for an instant reference price, or request a formal quotation.'} current="/contact/">
+  <PageHead title={s.cta_quote} lede={zh ? '两种方式：现在就和 AI 顾问聊，拿型号和参考价；或者提交表单，由业务工程师发送正式 PI。' : 'Two ways: chat with the assistant now for models and a reference price, or send the form for a formal PI from a sales engineer.'} />
+  <section class="wrap q">
+    <div><h2>{zh ? '即时参考价' : 'Instant reference price'}</h2><div data-chat-inline></div></div>
+    <div><h2>{s.q_title}</h2><QuoteForm lang={lang} source="contact" /><p class="mute direct">Email: <a href={`mailto:${site.email}`}>{site.email}</a> · WhatsApp {site.whatsapp}</p></div>
+  </section>
+</Base>
+<style>.q{display:grid;grid-template-columns:1fr 1fr;gap:40px;padding-top:40px;padding-bottom:72px;align-items:start}.q h2{font-size:1.7rem}.direct{margin-top:14px;font-size:15px}@media(max-width:900px){.q{grid-template-columns:1fr}}</style>

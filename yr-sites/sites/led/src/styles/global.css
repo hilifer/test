@@ -1,0 +1,94 @@
+@import '@fontsource-variable/archivo/wdth.css';
+
+/* YAORONG — "light, measured". Cool paper, ink navy, one amber signal, and the
+   Kelvin scale (2700K → 6500K) as the signature device. One family (Archivo),
+   personality from its width axis: expanded for display, normal for reading. */
+:root {
+  --ink: #14202e;
+  --ink-2: #2b3a4b;
+  --steel: #556474;
+  --paper: #f2f4f6;
+  --surface: #ffffff;
+  --line: #d8dee4;
+  --signal: #ffb000;
+  --signal-ink: #1a1300;
+  --link: #0b5cad;
+  --kelvin: linear-gradient(90deg, #ff9f43 0%, #ffc987 18%, #ffe8c7 36%, #fff8ee 50%, #eef4ff 64%, #cfe0ff 82%, #a9c6ff 100%);
+  --font: 'Archivo Variable', 'Helvetica Neue', Arial, sans-serif;
+  --radius-s: 6px;
+  --radius-m: 10px;
+  --wrap: 1200px;
+  --gutter: clamp(16px, 4vw, 40px);
+
+  --chat-accent: var(--ink);
+  --chat-on-accent: #fff;
+  --chat-accent2: var(--signal);
+  --chat-font: var(--font);
+  --chat-live: #6fdc8c;
+  color-scheme: light;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  font-family: var(--font);
+  font-size: 17px;
+  line-height: 1.55;
+  color: var(--ink);
+  background: var(--paper);
+  font-variation-settings: 'wdth' 100;
+}
+img, svg { max-width: 100%; display: block; }
+a { color: var(--link); text-underline-offset: 3px; }
+:focus-visible { outline: 3px solid var(--link); outline-offset: 2px; border-radius: 2px; }
+
+h1, h2, h3 { line-height: 1.08; margin: 0 0 .5em; font-weight: 720; letter-spacing: -0.01em; }
+h1 { font-size: clamp(2.3rem, 5.2vw, 4.1rem); font-variation-settings: 'wdth' 118; }
+h2 { font-size: clamp(1.7rem, 3vw, 2.5rem); font-variation-settings: 'wdth' 112; }
+h3 { font-size: 1.2rem; font-variation-settings: 'wdth' 105; }
+p { margin: 0 0 1em; max-width: 68ch; }
+.lede { font-size: 1.15rem; color: var(--ink-2); max-width: 58ch; }
+.mute { color: var(--steel); }
+.num { font-variant-numeric: tabular-nums; }
+
+.wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 var(--gutter); }
+.section { padding: clamp(56px, 8vw, 104px) 0; }
+.section--white { background: var(--surface); }
+.section--ink { background: var(--ink); color: #e9eef3; }
+.section--ink a { color: #ffd27a; }
+.section-head { display: flex; justify-content: space-between; align-items: end; gap: 24px; margin-bottom: 32px; flex-wrap: wrap; }
+.section-head p { margin: 0; }
+
+.kelvin { height: 6px; background: var(--kelvin); }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 13px 22px; border-radius: var(--radius-s); border: 2px solid transparent; font: 650 16px/1.1 var(--font); text-decoration: none; cursor: pointer; font-variation-settings: 'wdth' 106; }
+.btn--signal { background: var(--signal); color: var(--signal-ink); }
+.btn--signal:hover { background: #ffc233; }
+.btn--ink { background: var(--ink); color: #fff; }
+.btn--ink:hover { background: var(--ink-2); }
+.btn--line { border-color: currentColor; color: inherit; background: transparent; }
+
+.chip { display: inline-flex; align-items: center; padding: 7px 13px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink); font: 500 14px/1.2 var(--font); cursor: pointer; }
+.chip[aria-pressed='true'] { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+.grid { display: grid; gap: 20px; }
+.tag { display: inline-block; font-size: 12.5px; font-weight: 600; padding: 2px 8px; border-radius: 4px; background: #e8edf2; color: var(--ink-2); }
+.tag--sample { background: #fff1cc; color: #6b4a00; }
+
+table.spec { width: 100%; border-collapse: collapse; font-size: 15.5px; }
+table.spec th, table.spec td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.spec th { width: 38%; font-weight: 550; color: var(--steel); }
+
+.prose { max-width: 70ch; }
+.prose h2 { font-size: 1.6rem; margin-top: 1.6em; }
+.prose h3 { margin-top: 1.4em; }
+.prose li { margin-bottom: .35em; }
+
+input, select, textarea { font: inherit; }
+.field { display: grid; gap: 6px; font-size: 14.5px; font-weight: 550; }
+.field input, .field select, .field textarea { padding: 11px 12px; border: 1px solid #c3ccd5; border-radius: var(--radius-s); background: #fff; color: var(--ink); font-weight: 400; }
+
+.visually-hidden { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }

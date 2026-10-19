@@ -1,0 +1,24 @@
+---
+import Base from '../layouts/Base.astro';
+import PageHead from '../components/PageHead.astro';
+import site from '../data/site.json';
+import { lp, type Lang } from '../i18n';
+const { lang } = Astro.props as { lang: Lang };
+const zh = lang === 'zh';
+---
+<Base lang={lang} title={zh ? '关于 YR GRID' : 'About YR GRID'} description={zh ? site.summaryZh : site.summary} current="/about/">
+  <PageHead title={zh ? '关于 YR GRID' : 'About YR GRID'} lede={zh ? 'YR GRID 是深圳市耀嵘科技有限公司的光伏、储能与充电业务品牌。' : 'YR GRID is the solar, storage and EV-charging brand of Shenzhen Yaorong Technology Co., Ltd.'} />
+  <section class="wrap ab">
+    <div class="prose">
+      <h2>{zh ? '我们做什么' : 'What we do'}</h2>
+      <p>{zh ? site.summaryZh : site.summary}</p>
+      <h2>{zh ? '资质' : 'Credentials'}</h2>
+      <ul>{(zh ? site.credentialsZh : site.credentials).map((c) => <li>{c}</li>)}</ul>
+      <h2>{zh ? '项目经验' : 'Project experience'}</h2>
+      <p>{zh ? '在国内，我们开发和建设工商业屋顶分布式光伏与储能项目，包括由投资方出资、业主按折扣电价付费的合同能源管理（EMC）项目，以及市政智慧路灯项目供货。案例资料可向销售索取。' : 'In China we develop and build commercial rooftop solar and storage projects, including energy-management (EMC) projects where the investor funds the system and the building owner pays a discounted rate, and supply municipal smart street-lighting projects. Case details are available from our sales team.'}</p>
+      <p><a class="btn btn--navy" href={lp(lang, '/contact/')}>{zh ? '联系我们' : 'Contact us'}</a></p>
+    </div>
+    <figure class="logo"><img src="/brand/yr-grid-logo-512.webp" width="512" height="512" alt="YR GRID — Photovoltaic, storage, EV charging station" /></figure>
+  </section>
+</Base>
+<style>.ab{display:grid;grid-template-columns:1.4fr 1fr;gap:48px;padding-top:40px;padding-bottom:72px;align-items:start}.logo{margin:0}.logo img{border-radius:16px;width:100%;height:auto}@media(max-width:900px){.ab{grid-template-columns:1fr}.logo{max-width:360px}}</style>

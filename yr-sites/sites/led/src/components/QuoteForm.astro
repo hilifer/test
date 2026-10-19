@@ -1,0 +1,88 @@
+---
+import catalog from '../data/catalog.json';
+interface Props { productId?: string; productName?: string; source?: string; hint?: string; submitLabel?: string; }
+const { productId = '', productName = '', source = 'quote-form', hint = '', submitLabel = 'Send request' } = Astro.props;
+---
+<form class="qf" data-lead-form data-source={source} novalidate>
+  <div class="qf__row">
+    <label class="field">Name<input name="name" autocomplete="name" /></label>
+    <label class="field">Company<input name="company" autocomplete="organization" /></label>
+  </div>
+  <div class="qf__row">
+    <label class="field">Work email<input name="email" type="email" autocomplete="email" /></label>
+    <label class="field">WhatsApp or phone<input name="whatsapp" autocomplete="tel" /></label>
+  </div>
+  <div class="qf__row">
+    <label class="field">Country<input name="country" autocomplete="country-name" /></label>
+    <label class="field">You are
+      <select name="buyer_type">
+        <option value="">Choose one</option><option>Importer / distributor</option><option>Lighting contractor</option><option>End user / facility owner</option><option>Brand (OEM/ODM)</option><option>Other</option>
+      </select>
+    </label>
+  </div>
+  <div class="qf__row">
+    <label class="field">Product
+      <select name="product_id">
+        <option value="">Not sure yet</option>
+        {catalog.products.map((p) => <option value={p.id} selected={p.id === productId}>{p.name}</option>)}
+      </select>
+    </label>
+    <div class="qf__row qf__row--tight">
+      <label class="field">Quantity<input name="quantity" inputmode="numeric" /></label>
+      <label class="field">Buying
+        <select name="timeline"><option value="">When?</option><option>Within 1 month</option><option>In 2–3 months</option><option>Later this year</option><option>Just researching</option></select>
+      </label>
+    </div>
+  </div>
+  <slot />
+  <label class="field">Project details<textarea name="needs" rows="4" placeholder={hint || (productName ? `Wattage, CCT, optics, destination port for the ${productName}…` : 'Application, specs, destination port, or paste your bill of materials…')}></textarea></label>
+  <input type="text" name="website" tabindex="-1" autocomplete="off" class="visually-hidden" aria-hidden="true" />
+  <label class="qf__consent"><input type="checkbox" name="consent" /> I agree that YAORONG may contact me about this request. See the <a href="/privacy/">privacy notice</a>.</label>
+  <button class="btn btn--ink" type="submit">{submitLabel}</button>
+  <p class="qf__msg" role="status"></p>
+</form>
+<script>
+  document.querySelectorAll<HTMLFormElement>('[data-lead-form]').forEach((f) => {
+    f.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const msg = f.querySelector<HTMLElement>('.qf__msg')!;
+      const d: Record<string, any> = Object.fromEntries(new FormData(f));
+      d.consent = !!d.consent;
+      d.source = f.dataset.source;
+      // project details from specialised forms (fields named x_*) and the quote list
+      const extra: Record<string, any> = {};
+      for (const [k, v] of Object.entries(d)) if (k.startsWith('x_')) { extra[k.slice(2)] = v; delete d[k]; }
+      const items = (window as any).YRQuote?.items?.() || [];
+      if (items.length) {
+        extra.lines = items.map((i: any) => ({ sku: i.id, qty: i.qty, note: i.note }));
+        d.needs = `Quote list: ${items.map((i: any) => `${i.qty} × ${i.name}${i.note ? ` (${i.note})` : ''}`).join('; ')}\n${d.needs || ''}`.trim();
+        if (!d.product_id) d.product_id = items[0].id;
+        if (!d.quantity) d.quantity = items.reduce((a: number, i: any) => a + Number(i.qty || 0), 0);
+      }
+      if (Object.keys(extra).length) d.extra = { ...extra, page: location.pathname };
+      if (!d.email && !d.whatsapp) { msg.textContent = 'Add a work email or WhatsApp number so we can send the quotation.'; return; }
+      if (!d.consent) { msg.textContent = 'Tick the consent box so we can contact you.'; return; }
+      msg.textContent = 'Sending…';
+      try {
+        const r = await fetch('/api/leads', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(d) });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(j.message || 'Request failed');
+        f.reset();
+        (window as any).YRQuote?.clear?.();
+        msg.textContent = 'Request sent. A sales engineer will email your quotation, normally within one business day.';
+      } catch (err: any) {
+        msg.textContent = location.protocol === 'file:' || !navigator.onLine ? 'Offline: request not sent.' : `Not sent: ${err.message === 'Failed to fetch' ? 'the server is not reachable in this preview' : err.message}. You can also email us directly.`;
+      }
+    });
+  });
+</script>
+<style>
+  .qf { display: grid; gap: 14px; background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 22px; }
+  .qf__row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .qf__row--tight { gap: 10px; }
+  .qf__consent { font-size: 14px; display: flex; gap: 8px; align-items: flex-start; }
+  .qf__consent input { margin-top: 4px; }
+  .qf__msg { margin: 0; font-size: 14.5px; font-weight: 550; min-height: 1.4em; }
+  .qf .btn { justify-self: start; }
+  @media (max-width: 560px) { .qf__row { grid-template-columns: 1fr; } }
+</style>

@@ -1,0 +1,18 @@
+{
+  "_note": "SAMPLE ASSUMPTIONS — replace with verified local tariffs, solar yield and installed cost before launch.",
+  "regions": [
+    { "id": "ph", "name": "Philippines", "nameZh": "菲律宾", "currency": "USD", "tariff": 0.20, "yield": 1350, "pvCost": 0.70, "storageCost": 300, "exportRatio": 0.4, "co2": 0.69 },
+    { "id": "vn", "name": "Vietnam", "nameZh": "越南", "currency": "USD", "tariff": 0.09, "yield": 1300, "pvCost": 0.60, "storageCost": 300, "exportRatio": 0.3, "co2": 0.68 },
+    { "id": "th", "name": "Thailand", "nameZh": "泰国", "currency": "USD", "tariff": 0.13, "yield": 1400, "pvCost": 0.60, "storageCost": 300, "exportRatio": 0.4, "co2": 0.47 },
+    { "id": "my", "name": "Malaysia", "nameZh": "马来西亚", "currency": "USD", "tariff": 0.12, "yield": 1300, "pvCost": 0.65, "storageCost": 300, "exportRatio": 0.5, "co2": 0.58 },
+    { "id": "id", "name": "Indonesia", "nameZh": "印度尼西亚", "currency": "USD", "tariff": 0.10, "yield": 1350, "pvCost": 0.65, "storageCost": 320, "exportRatio": 0.3, "co2": 0.76 },
+    { "id": "ae", "name": "Middle East (UAE)", "nameZh": "中东（阿联酋）", "currency": "USD", "tariff": 0.09, "yield": 1750, "pvCost": 0.55, "storageCost": 300, "exportRatio": 0.5, "co2": 0.45 },
+    { "id": "cn", "name": "China (Guangdong)", "nameZh": "中国（广东）", "currency": "CNY", "tariff": 0.75, "yield": 1150, "pvCost": 3.2, "storageCost": 1100, "exportRatio": 0.5, "co2": 0.58 }
+  ],
+  "m2PerKwp": 5.5,
+  "storageKwhPerKwp": 1.0,
+  "storageExtraSelfUse": 0.25,
+  "degradation": 0.004,
+  "tariffEscalation": 0.02,
+  "years": 25
+}

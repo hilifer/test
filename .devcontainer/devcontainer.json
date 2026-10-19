@@ -1,0 +1,22 @@
+// GitHub Codespaces / Dev Containers for yr-sites.
+// After the codespace starts:  cd yr-sites && pnpm test        (unit + API)
+//                              pnpm build && pnpm test:e2e     (browser E2E)
+//                              pnpm stack                      (LED :4311, GRID :4312, admin = admin / e2e-pass)
+{
+  "name": "yr-sites",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "postCreateCommand": "cd yr-sites && corepack enable && corepack prepare pnpm@10.28.0 --activate && pnpm install --frozen-lockfile && pnpm exec playwright install --with-deps chromium && pnpm build",
+  "forwardPorts": [4311, 4312, 8791, 8792],
+  "portsAttributes": {
+    "4311": { "label": "YAORONG LED site", "onAutoForward": "openBrowser" },
+    "4312": { "label": "YR GRID site" },
+    "8791": { "label": "LED sales API" },
+    "8792": { "label": "GRID sales API" }
+  },
+  "customizations": {
+    "vscode": { "extensions": ["astro-build.astro-vscode", "ms-playwright.playwright"] }
+  }
+}

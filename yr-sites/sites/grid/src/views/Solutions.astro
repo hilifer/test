@@ -1,0 +1,59 @@
+---
+import Base from '../layouts/Base.astro';
+import PageHead from '../components/PageHead.astro';
+import Illus from '../components/Illus.astro';
+import catalog from '../data/catalog.json';
+import { lp, pick, type Lang } from '../i18n';
+const { lang } = Astro.props as { lang: Lang };
+const zh = lang === 'zh';
+const sols = [
+  { id: 'ci', k: 'roof', cats: ['pv-module', 'ci-storage', 'inverter'],
+    t: zh ? '工商业光伏 + 储能' : 'Solar + storage for factories and buildings',
+    d: zh ? '适合白天用电多、电价高或有需量电费的工厂、商场、冷库和园区。屋顶光伏先满足白天负荷，储能把午间富余电量转到傍晚高峰，并在峰谷价差大的地区每天两充两放。' : 'For factories, malls, cold stores and campuses with high daytime load, high tariffs or demand charges. Rooftop solar covers daytime use first; the battery shifts midday surplus into the evening peak and, where peak/off-peak spreads are wide, cycles daily for arbitrage.',
+    pts: zh ? ['按 12 个月电费单和负荷曲线设计容量', '投资模式：业主自投，或合同能源管理（EMC）零投入', '远程监控与运维'] : ['Sized from 12 months of bills and load data', 'Own the system, or pay nothing upfront under an energy-management (EMC) agreement', 'Remote monitoring and O&M'] },
+  { id: 'charging', k: 'dc-charger', cats: ['ev-dc', 'ev-ac', 'ci-storage'],
+    t: zh ? '充电场站与车队充电' : 'Charging hubs and fleet depots',
+    d: zh ? '直流快充服务公交、物流和网约车车队，交流桩服务酒店、写字楼和住宅。配置缓冲储能后，可以在不扩容变压器的前提下增加充电功率。' : 'DC fast chargers for buses, logistics and ride-hailing fleets; AC chargers for hotels, offices and homes. Buffer storage adds charging capacity without a transformer upgrade.',
+    pts: zh ? ['OCPP 1.6J 对接主流运营平台', '动态功率分配，按车辆需求分配功率', '刷卡、扫码、POS 多种支付'] : ['OCPP 1.6J for major charging platforms', 'Dynamic power sharing between guns', 'RFID, QR code and card payment'] },
+  { id: 'carport', k: 'carport', cats: ['pv-module', 'ev-ac', 'inverter'],
+    t: zh ? '光伏车棚' : 'Solar carports',
+    d: zh ? '停车场顶部铺设光伏，车棚下安装充电桩。同一块场地同时实现遮阳、发电和充电，适合园区、商场和公共停车场。' : 'PV on top of parking structures, chargers underneath. One site gives shade, generation and charging: a good fit for campuses, malls and public car parks.',
+    pts: zh ? ['双面组件提升发电量', '光伏余电优先充电模式', '可选储能，夜间也能用上光伏电'] : ['Bifacial modules for extra yield', 'Solar-surplus charging mode on wallboxes', 'Optional storage to use solar power at night'] },
+  { id: 'home', k: 'home-battery', cats: ['home-storage', 'inverter', 'pv-module'],
+    t: zh ? '户用光储' : 'Home solar and backup',
+    d: zh ? '面向经销商和安装商：混合逆变器 + 可堆叠电池 + 组件的标准套装，适合停电频繁或电价高的市场。' : 'For distributors and installers: hybrid inverter, stackable battery and modules as standard kits, for markets with frequent outages or high tariffs.',
+    pts: zh ? ['5–30 kWh 灵活扩容', '10 ms 内切换备电', 'App 远程监控'] : ['5–30 kWh, expandable', 'Backup switchover under 10 ms', 'App monitoring'] },
+];
+const prods = (cats: string[]) => catalog.products.filter((p) => cats.includes(p.category));
+---
+<Base lang={lang} title={zh ? '光储充解决方案' : 'Solar, storage and EV charging solutions'} description={zh ? '工商业光伏储能、充电场站、光伏车棚和户用光储的系统方案。' : 'System solutions for commercial solar + storage, EV charging hubs, solar carports and home backup.'} current="/solutions/">
+  <PageHead title={zh ? '解决方案' : 'Solutions'} lede={zh ? '按场景配置的四类系统。每个项目都不同，把电费单或场地资料发给我们，工程师会给出具体配置。' : 'Four system types we configure most often. Every site is different, so send us bills or site details and our engineers will propose a configuration.'}>
+    <nav class="jump">{sols.map((x) => <a href={`#${x.id}`}>{x.t}</a>)}</nav>
+  </PageHead>
+  {sols.map((x, i) => (
+    <section class={`sol ${i % 2 ? 'sol--alt' : ''}`} id={x.id}>
+      <div class="wrap sol__grid">
+        <div class="sol__img"><Illus kind={x.k} label={x.t} /></div>
+        <div>
+          <h2>{x.t}</h2><p>{x.d}</p>
+          <ul>{x.pts.map((p) => <li>{p}</li>)}</ul>
+          <p class="prods">{prods(x.cats).map((p) => <a href={lp(lang, `/products/${p.slug}/`)}>{pick(lang, p.name, p.nameZh)}</a>)}</p>
+          <div class="acts">
+            {x.id === 'ci' && <a class="btn btn--lime" href={lp(lang, '/calculator/')}>{zh ? '测算回本周期' : 'Estimate payback'}</a>}
+            <button class="btn btn--navy" data-chat-open data-chat-prompt={zh ? `我有一个${x.t}项目，想咨询方案。` : `I have a ${x.t.toLowerCase()} project and want a proposal.`}>{zh ? '咨询此方案' : 'Ask about this'}</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  ))}
+</Base>
+<style>
+  .jump{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:8px;font-size:15px}
+  .sol{padding:56px 0;scroll-margin-top:84px}.sol--alt{background:var(--surface)}
+  .sol__grid{display:grid;grid-template-columns:1fr 1.4fr;gap:48px;align-items:center}
+  .sol__img{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:28px}.sol--alt .sol__img{background:var(--paper)}
+  .sol ul{padding-left:1.1em}.sol li{margin-bottom:6px}
+  .prods{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:15px}
+  .acts{display:flex;gap:12px;flex-wrap:wrap}
+  @media(max-width:900px){.sol__grid{grid-template-columns:1fr}}
+</style>

@@ -1,0 +1,39 @@
+---
+import Base from '../layouts/Base.astro';
+import PageHead from '../components/PageHead.astro';
+import site from '../data/site.json';
+---
+<Base title="Factory and company" description="YAORONG is a brand of Shenzhen Yaorong Technology Co., Ltd., a National High-Tech Enterprise with its own LED lighting factory in Guangdong, China." current="/factory/">
+  <PageHead title="Factory and company" lede={`${site.brandFull} is the export lighting brand of ${site.company}, headquartered in Shenzhen with its own factory in Guangdong.`} />
+  <section class="wrap f">
+    <div class="prose">
+      <h2>Who we are</h2>
+      <p>Shenzhen Yaorong Technology is recognised in China as a National High-Tech Enterprise and a “specialized, refined, distinctive and innovative” (专精特新) enterprise. Besides export lighting, the group builds commercial solar and energy-storage projects and municipal street-lighting projects in China.</p>
+      <h2>What happens in our factory</h2>
+      <ul>
+        <li><strong>Die-casting.</strong> Aluminium housings and heat sinks, the part that decides how cool the LEDs run.</li>
+        <li><strong>Injection molding.</strong> Lenses, diffusers and covers.</li>
+        <li><strong>SMT.</strong> LED boards and electronic assemblies.</li>
+        <li><strong>Metal fabrication.</strong> Brackets, arms and fittings.</li>
+        <li><strong>Assembly and testing.</strong> Final assembly, inspection and packing.</li>
+      </ul>
+      <h2>Quality checks</h2>
+      <p>Incoming inspection of LEDs, drivers and housings; in-process checks on each line; and final inspection of photometric, electrical and sealing performance before packing. Third-party inspection before shipment is welcome.</p>
+      <h2>Visit or audit</h2>
+      <p>Buyers are welcome to visit or send an auditor. Video factory tours can be arranged with a sales engineer.</p>
+      <p><button class="btn btn--ink" data-chat-open data-chat-prompt="I'd like to arrange a factory visit or video tour.">Arrange a visit or video tour</button></p>
+    </div>
+    <aside class="ph" aria-label="Photo placeholders">
+      <div>Factory photo<br /><span>replace with real image</span></div>
+      <div>Production line photo<br /><span>replace with real image</span></div>
+      <div>Testing lab photo<br /><span>replace with real image</span></div>
+    </aside>
+  </section>
+</Base>
+<style>
+  .f{display:grid;grid-template-columns:1.4fr 1fr;gap:48px;padding-top:40px;padding-bottom:72px}
+  .ph{display:grid;gap:16px;align-content:start}
+  .ph div{aspect-ratio:4/3;border:2px dashed #b9c3cd;border-radius:12px;display:grid;place-content:center;text-align:center;color:var(--steel);font-weight:600;background:repeating-linear-gradient(135deg,#f7f9fb 0 12px,#eef2f5 12px 24px)}
+  .ph span{font-weight:400;font-size:13.5px}
+  @media(max-width:900px){.f{grid-template-columns:1fr}}
+</style>

@@ -1,0 +1,17 @@
+{
+  "_todo": "Confirm contacts before launch (fields marked TODO).",
+  "brand": "YAORONG",
+  "brandFull": "YAORONG Lighting",
+  "company": "Shenzhen Yaorong Technology Co., Ltd.",
+  "about": "Factory-direct commercial and industrial LED lighting — high bays, area and street lights, flood and sports lights, wall packs and indoor fixtures — made in our own factory in Guangdong, China, for importers, distributors and lighting contractors.",
+  "contact": {
+    "email": "sales@86yr.com",
+    "whatsapp": "+86 000 0000 0000",
+    "phone": "+86 755 0000 0000",
+    "address": "Shenzhen, Guangdong, China",
+    "factory": "Guangdong, China",
+    "salesHours": "Mon–Sat, 9:00–18:00 China time (UTC+8)"
+  },
+  "corporateSite": "https://www.86yr.com",
+  "demo": true
+}

@@ -1,0 +1,990 @@
+{
+ "sample": true,
+ "_note": "SAMPLE DATA — replace every product, spec, certification and price band with verified data before launch. Never put cost or floor prices in this file: it is public and read by the AI.",
+ "currency": "USD",
+ "priceTerm": "FOB Shenzhen",
+ "priceNote": "Reference only — subject to the formal PI.",
+ "categories": [
+  {
+   "id": "high-bay",
+   "name": "High Bay",
+   "blurb": "Warehouses, factories and gyms with 6–15 m mounting heights.",
+   "keywords": [
+    "ufo",
+    "warehouse",
+    "factory",
+    "industrial",
+    "gym",
+    "highbay",
+    "linear high bay"
+   ],
+   "slug": "led-high-bay-lights",
+   "title": "LED High Bay Lights"
+  },
+  {
+   "id": "area",
+   "name": "Area & Street",
+   "blurb": "Parking lots, roadways and campuses, including solar-powered poles.",
+   "keywords": [
+    "street",
+    "parking",
+    "shoebox",
+    "road",
+    "pole",
+    "area light",
+    "solar street"
+   ],
+   "slug": "led-area-street-lights",
+   "title": "LED Area, Parking Lot and Street Lights"
+  },
+  {
+   "id": "flood",
+   "name": "Flood & Sports",
+   "blurb": "Façades, yards, courts and stadium fields.",
+   "keywords": [
+    "flood",
+    "stadium",
+    "sports",
+    "court",
+    "field",
+    "floodlight"
+   ],
+   "slug": "led-flood-sports-lights",
+   "title": "LED Flood and Sports Lights"
+  },
+  {
+   "id": "wall-canopy",
+   "name": "Wall Pack & Canopy",
+   "blurb": "Building perimeters, loading docks and gas station canopies.",
+   "keywords": [
+    "wall pack",
+    "canopy",
+    "gas station",
+    "perimeter",
+    "dock"
+   ],
+   "slug": "led-wall-pack-canopy-lights",
+   "title": "LED Wall Packs and Canopy Lights"
+  },
+  {
+   "id": "indoor",
+   "name": "Panels & Linear",
+   "blurb": "Offices, schools, car parks and wet locations.",
+   "keywords": [
+    "panel",
+    "troffer",
+    "office",
+    "tri-proof",
+    "vapor tight",
+    "linear",
+    "batten",
+    "car park"
+   ],
+   "slug": "led-panel-vapor-tight-lights",
+   "title": "LED Panels and Vapor Tight Lights"
+  }
+ ],
+ "products": [
+  {
+   "id": "YR-HB-U2",
+   "slug": "ufo-high-bay-u2",
+   "category": "high-bay",
+   "illus": "ufo",
+   "name": "UFO High Bay U2",
+   "summary": "Die-cast UFO high bay with field-selectable wattage and CCT, for warehouses and factories.",
+   "highlights": [
+    "Wattage selectable 100/150/200/240 W",
+    "Up to 160 lm/W",
+    "0–10 V dimming, sensor-ready"
+   ],
+   "applications": [
+    "warehouse",
+    "factory",
+    "gym",
+    "retail"
+   ],
+   "wattMin": 100,
+   "wattMax": 240,
+   "specs": {
+    "Power": "100 / 150 / 200 / 240 W (selectable)",
+    "Efficacy": "150–160 lm/W",
+    "Lumen output": "15,000–38,400 lm",
+    "CCT": "4000 / 5000 / 5700 K (selectable)",
+    "CRI": "≥80",
+    "Beam angle": "90° / 120° (optional 60° lens)",
+    "Input voltage": "100–277 VAC (347–480 VAC optional)",
+    "Dimming": "0–10 V",
+    "IP / IK": "IP65 / IK08",
+    "Lifetime": "L70 > 50,000 h",
+    "Operating temp": "-30 °C to +50 °C",
+    "Housing": "Die-cast aluminium, powder coated"
+   },
+   "certifications": [
+    "DLC Premium",
+    "ETL",
+    "FCC",
+    "CE",
+    "RoHS"
+   ],
+   "warranty": "5 years",
+   "moq": 50,
+   "unit": "pcs",
+   "leadTimeDays": [
+    15,
+    25
+   ],
+   "sampleDays": [
+    5,
+    7
+   ],
+   "priceBands": [
+    {
+     "minQty": 50,
+     "maxQty": 499,
+     "low": 39,
+     "high": 52
+    },
+    {
+     "minQty": 500,
+     "maxQty": 1999,
+     "low": 35,
+     "high": 46
+    },
+    {
+     "minQty": 2000,
+     "maxQty": null,
+     "low": 32,
+     "high": 42
+    }
+   ],
+   "keywords": [
+    "ufo",
+    "round high bay",
+    "selectable"
+   ],
+   "features": [
+    "selectable-wattage",
+    "selectable-cct",
+    "dimmable",
+    "motion-sensor",
+    "wet-rated"
+   ],
+   "cct": [
+    4000,
+    5000,
+    5700
+   ]
+  },
+  {
+   "id": "YR-HB-L4",
+   "slug": "linear-high-bay-l4",
+   "category": "high-bay",
+   "illus": "linear-hb",
+   "name": "Linear High Bay L4",
+   "summary": "Slim linear high bay for aisles, distribution centres and sports halls.",
+   "highlights": [
+    "Aisle and wide optics",
+    "Up to 155 lm/W",
+    "Chain or surface mount"
+   ],
+   "applications": [
+    "warehouse",
+    "aisle",
+    "distribution center",
+    "gym"
+   ],
+   "wattMin": 160,
+   "wattMax": 320,
+   "specs": {
+    "Power": "160 / 220 / 320 W",
+    "Efficacy": "145–155 lm/W",
+    "Lumen output": "23,200–49,600 lm",
+    "CCT": "4000 / 5000 K",
+    "CRI": "≥80",
+    "Beam angle": "60° aisle / 110° wide",
+    "Input voltage": "100–277 VAC",
+    "Dimming": "0–10 V",
+    "IP / IK": "IP65 / IK08",
+    "Lifetime": "L70 > 50,000 h",
+    "Operating temp": "-30 °C to +45 °C",
+    "Housing": "Extruded aluminium, PC lens"
+   },
+   "certifications": [
+    "DLC Standard",
+    "ETL",
+    "FCC",
+    "CE",
+    "RoHS"
+   ],
+   "warranty": "5 years",
+   "moq": 50,
+   "unit": "pcs",
+   "leadTimeDays": [
+    18,
+    28
+   ],
+   "sampleDays": [
+    5,
+    7
+   ],
+   "priceBands": [
+    {
+     "minQty": 50,
+     "maxQty": 499,
+     "low": 58,
+     "high": 79
+    },
+    {
+     "minQty": 500,
+     "maxQty": null,
+     "low": 52,
+     "high": 70
+    }
+   ],
+   "keywords": [
+    "linear",
+    "aisle"
+   ],
+   "features": [
+    "dimmable",
+    "wet-rated",
+    "motion-sensor"
+   ],
+   "cct": [
+    4000,
+    5000
+   ]
+  },
+  {
+   "id": "YR-AR-S3",
+   "slug": "area-light-s3",
+   "category": "area",
+   "illus": "shoebox",
+   "name": "Area Light S3",
+   "summary": "Modular shoebox area light for parking lots and roadways, with Type II/III/V optics.",
+   "highlights": [
+    "Type II, III, IV, V optics",
+    "Photocell and 7-pin receptacle",
+    "Slip-fitter or arm mount"
+   ],
+   "applications": [
+    "parking lot",
+    "street",
+    "campus",
+    "road"
+   ],
+   "wattMin": 150,
+   "wattMax": 300,
+   "specs": {
+    "Power": "150 / 200 / 240 / 300 W",
+    "Efficacy": "145–155 lm/W",
+    "Lumen output": "21,750–46,500 lm",
+    "CCT": "3000 / 4000 / 5000 K",
+    "CRI": "≥70",
+    "Optics": "Type II / III / IV / V",
+    "Input voltage": "100–277 VAC (480 VAC optional)",
+    "Dimming": "0–10 V, 7-pin NEMA receptacle",
+    "Surge protection": "10 kV / 10 kA",
+    "IP / IK": "IP66 / IK09",
+    "Lifetime": "L70 > 100,000 h",
+    "Housing": "Die-cast aluminium"
+   },
+   "certifications": [
+    "DLC Premium",
+    "UL",
+    "FCC",
+    "CE",
+    "RoHS"
+   ],
+   "warranty": "5 years",
+   "moq": 30,
+   "unit": "pcs",
+   "leadTimeDays": [
+    20,
+    30
+   ],
+   "sampleDays": [
+    7,
+    10
+   ],
+   "priceBands": [
+    {
+     "minQty": 30,
+     "maxQty": 299,
+     "low": 78,
+     "high": 115
+    },
+    {
+     "minQty": 300,
+     "maxQty": null,
+     "low": 70,
+     "high": 102
+    }
+   ],
+   "keywords": [
+    "shoebox",
+    "parking lot light",
+    "pole light"
+   ],
+   "features": [
+    "dusk-to-dawn",
+    "dimmable",
+    "wet-rated"
+   ],
+   "cct": [
+    3000,
+    4000,
+    5000
+   ]
+  },
+  {
+   "id": "YR-SL-M2",
+   "slug": "street-light-m2",
+   "category": "area",
+   "illus": "street",
+   "name": "Street Light M2",
+   "summary": "Cobra-head street light with tool-less access and smart-city controller socket.",
+   "highlights": [
+    "Zhaga / NEMA controller socket",
+    "Tool-less driver access",
+    "-40 °C cold start"
+   ],
+   "applications": [
+    "street",
+    "road",
+    "municipal",
+    "highway"
+   ],
+   "wattMin": 60,
+   "wattMax": 200,
+   "specs": {
+    "Power": "60 / 100 / 150 / 200 W",
+    "Efficacy": "140–150 lm/W",
+    "Lumen output": "8,400–30,000 lm",
+    "CCT": "3000 / 4000 / 5000 K",
+    "CRI": "≥70",
+    "Optics": "Type II / III",
+    "Input voltage": "100–277 VAC",
+    "Dimming": "0–10 V / DALI",
+    "Surge protection": "10 kV / 10 kA",
+    "IP / IK": "IP66 / IK09",
+    "Lifetime": "L80 > 100,000 h",
+    "Housing": "Die-cast aluminium"
+   },
+   "certifications": [
+    "CE",
+    "RoHS",
+    "CB",
+    "ENEC"
+   ],
+   "warranty": "5 years",
+   "moq": 50,
+   "unit": "pcs",
+   "leadTimeDays": [
+    20,
+    30
+   ],
+   "sampleDays": [
+    7,
+    10
+   ],
+   "priceBands": [
+    {
+     "minQty": 50,
+     "maxQty": 499,
+     "low": 42,
+     "high": 88
+    },
+    {
+     "minQty": 500,
+     "maxQty": null,
+     "low": 38,
+     "high": 79
+    }
+   ],
+   "keywords": [
+    "cobra head",
+    "road lighting",
+    "smart city"
+   ],
+   "features": [
+    "dimmable",
+    "wet-rated",
+    "smart-ready"
+   ],
+   "cct": [
+    3000,
+    4000,
+    5000
+   ]
+  },
+  {
+   "id": "YR-SS-A1",
+   "slug": "solar-street-light-a1",
+   "category": "area",
+   "illus": "solar",
+   "name": "All-in-One Solar Street Light A1",
+   "summary": "Integrated panel, LiFePO4 battery and PIR sensor for off-grid roads and villages.",
+   "highlights": [
+    "LiFePO4 battery, 2–3 rainy days",
+    "PIR + time control",
+    "No trenching or wiring"
+   ],
+   "applications": [
+    "street",
+    "village",
+    "off-grid",
+    "park",
+    "road"
+   ],
+   "wattMin": 30,
+   "wattMax": 100,
+   "specs": {
+    "Power": "30 / 60 / 100 W",
+    "Lumen output": "4,500–15,000 lm",
+    "Solar panel": "Mono 50–150 W",
+    "Battery": "LiFePO4 12.8 V, 30–80 Ah",
+    "Autonomy": "2–3 rainy days",
+    "Control": "Light sensor + PIR + time profile",
+    "CCT": "5000–6500 K",
+    "IP": "IP66",
+    "Mounting height": "6–10 m",
+    "Housing": "Aluminium alloy"
+   },
+   "certifications": [
+    "CE",
+    "RoHS",
+    "IEC 62133 (battery)"
+   ],
+   "warranty": "3 years (battery 3 years)",
+   "moq": 20,
+   "unit": "sets",
+   "leadTimeDays": [
+    15,
+    25
+   ],
+   "sampleDays": [
+    5,
+    7
+   ],
+   "priceBands": [
+    {
+     "minQty": 20,
+     "maxQty": 199,
+     "low": 95,
+     "high": 230
+    },
+    {
+     "minQty": 200,
+     "maxQty": null,
+     "low": 86,
+     "high": 210
+    }
+   ],
+   "keywords": [
+    "solar",
+    "off-grid",
+    "integrated solar"
+   ],
+   "features": [
+    "solar",
+    "motion-sensor",
+    "dusk-to-dawn",
+    "wet-rated"
+   ],
+   "cct": [
+    5000,
+    6500
+   ]
+  },
+  {
+   "id": "YR-FL-F5",
+   "slug": "flood-light-f5",
+   "category": "flood",
+   "illus": "flood",
+   "name": "Flood Light F5",
+   "summary": "Slim flood light with interchangeable optics for façades, yards and signage.",
+   "highlights": [
+    "15° to 120° optics",
+    "Yoke or slip-fitter mount",
+    "Wattage selectable"
+   ],
+   "applications": [
+    "facade",
+    "yard",
+    "billboard",
+    "construction site",
+    "court"
+   ],
+   "wattMin": 50,
+   "wattMax": 400,
+   "specs": {
+    "Power": "50 / 100 / 200 / 300 / 400 W",
+    "Efficacy": "140–150 lm/W",
+    "CCT": "3000 / 4000 / 5000 K",
+    "CRI": "≥70",
+    "Beam angle": "15° / 30° / 60° / 90° / 120°",
+    "Input voltage": "100–277 VAC",
+    "Dimming": "0–10 V (optional)",
+    "IP / IK": "IP66 / IK08",
+    "Lifetime": "L70 > 50,000 h",
+    "Housing": "Die-cast aluminium"
+   },
+   "certifications": [
+    "ETL",
+    "DLC Standard",
+    "FCC",
+    "CE",
+    "RoHS"
+   ],
+   "warranty": "5 years",
+   "moq": 50,
+   "unit": "pcs",
+   "leadTimeDays": [
+    15,
+    25
+   ],
+   "sampleDays": [
+    5,
+    7
+   ],
+   "priceBands": [
+    {
+     "minQty": 50,
+     "maxQty": 499,
+     "low": 18,
+     "high": 96
+    },
+    {
+     "minQty": 500,
+     "maxQty": null,
+     "low": 16,
+     "high": 86
+    }
+   ],
+   "keywords": [
+    "floodlight",
+    "facade lighting"
+   ],
+   "features": [
+    "selectable-wattage",
+    "dimmable",
+    "wet-rated"
+   ],
+   "cct": [
+    3000,
+    4000,
+    5000
+   ]
+  },
+  {
+   "id": "YR-SP-X8",
+   "slug": "sports-light-x8",
+   "category": "flood",
+   "illus": "sports",
+   "name": "Sports Light X8",
+   "summary": "Modular high-mast sports light for football, tennis and baseball fields.",
+   "highlights": [
+    "Glare-control visors",
+    "Flicker-free for broadcast",
+    "Asymmetric optics"
+   ],
+   "applications": [
+    "stadium",
+    "sports field",
+    "tennis court",
+    "high mast",
+    "port"
+   ],
+   "wattMin": 500,
+   "wattMax": 1500,
+   "specs": {
+    "Power": "500 / 1000 / 1500 W",
+    "Efficacy": "140–150 lm/W",
+    "CCT": "4000 / 5000 / 5700 K",
+    "CRI": "≥80 (≥90 optional)",
+    "Beam angle": "15° / 25° / 40° / 60° / asymmetric",
+    "Flicker": "< 1% (TV broadcast)",
+    "Input voltage": "200–480 VAC",
+    "Dimming": "DALI / DMX (optional)",
+    "IP / IK": "IP66 / IK08",
+    "Lifetime": "L80 > 80,000 h"
+   },
+   "certifications": [
+    "CE",
+    "RoHS",
+    "ETL"
+   ],
+   "warranty": "5 years",
+   "moq": 10,
+   "unit": "pcs",
+   "leadTimeDays": [
+    25,
+    35
+   ],
+   "sampleDays": [
+    10,
+    15
+   ],
+   "priceBands": [
+    {
+     "minQty": 10,
+     "maxQty": 99,
+     "low": 260,
+     "high": 690
+    },
+    {
+     "minQty": 100,
+     "maxQty": null,
+     "low": 235,
+     "high": 620
+    }
+   ],
+   "keywords": [
+    "stadium light",
+    "high mast",
+    "field lighting"
+   ],
+   "features": [
+    "flicker-free",
+    "dimmable",
+    "wet-rated"
+   ],
+   "cct": [
+    4000,
+    5000,
+    5700
+   ]
+  },
+  {
+   "id": "YR-WP-W2",
+   "slug": "wall-pack-w2",
+   "category": "wall-canopy",
+   "illus": "wallpack",
+   "name": "Wall Pack W2",
+   "summary": "Full cut-off wall pack for building perimeters and loading docks, with built-in photocell.",
+   "highlights": [
+    "Full cut-off, dark-sky friendly",
+    "Built-in photocell",
+    "Wattage & CCT selectable"
+   ],
+   "applications": [
+    "perimeter",
+    "loading dock",
+    "building",
+    "security"
+   ],
+   "wattMin": 40,
+   "wattMax": 120,
+   "specs": {
+    "Power": "40 / 60 / 80 / 120 W (selectable)",
+    "Efficacy": "135–145 lm/W",
+    "CCT": "3000 / 4000 / 5000 K (selectable)",
+    "CRI": "≥70",
+    "Input voltage": "100–277 VAC",
+    "Dimming": "0–10 V",
+    "Control": "Photocell (on/off switch)",
+    "IP": "IP65",
+    "Lifetime": "L70 > 50,000 h",
+    "Housing": "Die-cast aluminium"
+   },
+   "certifications": [
+    "DLC Premium",
+    "ETL",
+    "FCC"
+   ],
+   "warranty": "5 years",
+   "moq": 50,
+   "unit": "pcs",
+   "leadTimeDays": [
+    15,
+    25
+   ],
+   "sampleDays": [
+    5,
+    7
+   ],
+   "priceBands": [
+    {
+     "minQty": 50,
+     "maxQty": 499,
+     "low": 26,
+     "high": 44
+    },
+    {
+     "minQty": 500,
+     "maxQty": null,
+     "low": 23,
+     "high": 40
+    }
+   ],
+   "keywords": [
+    "wallpack",
+    "full cutoff"
+   ],
+   "features": [
+    "selectable-wattage",
+    "selectable-cct",
+    "dusk-to-dawn",
+    "dimmable",
+    "wet-rated"
+   ],
+   "cct": [
+    3000,
+    4000,
+    5000
+   ]
+  },
+  {
+   "id": "YR-CN-C1",
+   "slug": "canopy-light-c1",
+   "category": "wall-canopy",
+   "illus": "canopy",
+   "name": "Canopy Light C1",
+   "summary": "Low-profile canopy light for gas stations, drive-throughs and parking garages.",
+   "highlights": [
+    "Recessed or surface mount",
+    "Wide 120° distribution",
+    "IP66 wet rated"
+   ],
+   "applications": [
+    "gas station",
+    "canopy",
+    "parking garage",
+    "drive-through"
+   ],
+   "wattMin": 75,
+   "wattMax": 150,
+   "specs": {
+    "Power": "75 / 100 / 150 W",
+    "Efficacy": "140 lm/W",
+    "CCT": "4000 / 5000 K",
+    "CRI": "≥70",
+    "Beam angle": "120°",
+    "Input voltage": "100–277 VAC",
+    "Dimming": "0–10 V",
+    "IP": "IP66",
+    "Lifetime": "L70 > 50,000 h",
+    "Housing": "Die-cast aluminium"
+   },
+   "certifications": [
+    "DLC Standard",
+    "ETL",
+    "FCC"
+   ],
+   "warranty": "5 years",
+   "moq": 50,
+   "unit": "pcs",
+   "leadTimeDays": [
+    15,
+    25
+   ],
+   "sampleDays": [
+    5,
+    7
+   ],
+   "priceBands": [
+    {
+     "minQty": 50,
+     "maxQty": 499,
+     "low": 34,
+     "high": 55
+    },
+    {
+     "minQty": 500,
+     "maxQty": null,
+     "low": 30,
+     "high": 49
+    }
+   ],
+   "keywords": [
+    "petrol station",
+    "gas station canopy"
+   ],
+   "features": [
+    "dimmable",
+    "wet-rated"
+   ],
+   "cct": [
+    4000,
+    5000
+   ]
+  },
+  {
+   "id": "YR-PN-B6",
+   "slug": "backlit-panel-b6",
+   "category": "indoor",
+   "illus": "panel",
+   "name": "Backlit Panel B6",
+   "summary": "Back-lit flat panel for offices, schools and healthcare, drop-ceiling or surface mount.",
+   "highlights": [
+    "UGR < 19 option",
+    "Wattage & CCT selectable",
+    "Flicker-free driver"
+   ],
+   "applications": [
+    "office",
+    "school",
+    "hospital",
+    "retail"
+   ],
+   "wattMin": 20,
+   "wattMax": 50,
+   "specs": {
+    "Size": "2×2 ft / 2×4 ft / 600×600 mm",
+    "Power": "20–50 W (selectable)",
+    "Efficacy": "125–135 lm/W",
+    "CCT": "3500 / 4000 / 5000 K (selectable)",
+    "CRI": "≥80 (≥90 optional)",
+    "UGR": "< 19 (prismatic diffuser option)",
+    "Input voltage": "100–277 VAC",
+    "Dimming": "0–10 V",
+    "Lifetime": "L70 > 50,000 h"
+   },
+   "certifications": [
+    "DLC Premium",
+    "ETL",
+    "FCC",
+    "CE"
+   ],
+   "warranty": "5 years",
+   "moq": 100,
+   "unit": "pcs",
+   "leadTimeDays": [
+    15,
+    25
+   ],
+   "sampleDays": [
+    5,
+    7
+   ],
+   "priceBands": [
+    {
+     "minQty": 100,
+     "maxQty": 999,
+     "low": 14,
+     "high": 27
+    },
+    {
+     "minQty": 1000,
+     "maxQty": null,
+     "low": 12,
+     "high": 24
+    }
+   ],
+   "keywords": [
+    "troffer",
+    "flat panel",
+    "ceiling panel"
+   ],
+   "features": [
+    "selectable-wattage",
+    "selectable-cct",
+    "dimmable",
+    "flicker-free"
+   ],
+   "cct": [
+    3500,
+    4000,
+    5000
+   ]
+  },
+  {
+   "id": "YR-TP-V3",
+   "slug": "vapor-tight-v3",
+   "category": "indoor",
+   "illus": "triproof",
+   "name": "Vapor Tight V3",
+   "summary": "Tri-proof linear fixture for car parks, cold storage, food processing and washdown areas.",
+   "highlights": [
+    "IP66 / IK10",
+    "Link-able up to 20 units",
+    "Optional emergency pack"
+   ],
+   "applications": [
+    "car park",
+    "cold storage",
+    "food processing",
+    "tunnel",
+    "farm"
+   ],
+   "wattMin": 20,
+   "wattMax": 80,
+   "specs": {
+    "Length": "4 ft (1.2 m) / 8 ft (2.4 m)",
+    "Power": "20–80 W (selectable)",
+    "Efficacy": "130–140 lm/W",
+    "CCT": "4000 / 5000 K (selectable)",
+    "CRI": "≥80",
+    "Input voltage": "100–277 VAC",
+    "Options": "Microwave sensor, emergency battery 90 min",
+    "IP / IK": "IP66 / IK10",
+    "Operating temp": "-30 °C to +45 °C",
+    "Housing": "PC body and diffuser, stainless clips"
+   },
+   "certifications": [
+    "DLC Standard",
+    "ETL",
+    "CE",
+    "RoHS"
+   ],
+   "warranty": "5 years",
+   "moq": 100,
+   "unit": "pcs",
+   "leadTimeDays": [
+    15,
+    25
+   ],
+   "sampleDays": [
+    5,
+    7
+   ],
+   "priceBands": [
+    {
+     "minQty": 100,
+     "maxQty": 999,
+     "low": 11,
+     "high": 29
+    },
+    {
+     "minQty": 1000,
+     "maxQty": null,
+     "low": 10,
+     "high": 26
+    }
+   ],
+   "keywords": [
+    "tri-proof",
+    "triproof",
+    "vapor proof",
+    "batten",
+    "washdown"
+   ],
+   "features": [
+    "selectable-wattage",
+    "selectable-cct",
+    "motion-sensor",
+    "emergency",
+    "wet-rated"
+   ],
+   "cct": [
+    4000,
+    5000
+   ]
+  }
+ ],
+ "priceDisplay": "ranges",
+ "_priceDisplayNote": "ranges = show public reference price ranges; hidden = no prices anywhere (site, Markdown, JSON, AI) — every price question becomes a quote request. Use hidden if public factory prices would conflict with distributor partners.",
+ "features": {
+  "selectable-wattage": "Wattage selectable",
+  "selectable-cct": "CCT selectable",
+  "dimmable": "Dimmable",
+  "motion-sensor": "Motion sensor",
+  "dusk-to-dawn": "Dusk-to-dawn photocell",
+  "wet-rated": "Wet location rated",
+  "flicker-free": "Flicker-free",
+  "solar": "Solar powered",
+  "emergency": "Emergency backup",
+  "smart-ready": "Smart control ready"
+ }
+}

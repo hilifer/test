@@ -1,0 +1,29 @@
+---
+import Base from '../layouts/Base.astro';
+import PageHead from '../components/PageHead.astro';
+import ProductCard from '../components/ProductCard.astro';
+import catalog from '../data/catalog.json';
+import { t, pick, type Lang } from '../i18n';
+const { lang } = Astro.props as { lang: Lang };
+const s = t(lang);
+const list = { '@context': 'https://schema.org', '@type': 'ItemList', itemListElement: catalog.products.map((p, i) => ({ '@type': 'ListItem', position: i + 1, url: new URL(`/products/${p.slug}/`, Astro.site).href, name: p.name })) };
+---
+<Base lang={lang} title={lang === 'zh' ? '储能、逆变器、组件与充电桩' : 'Energy storage, inverters, PV modules and EV chargers'} description={s.products_lede} current="/products/" jsonld={list}>
+  <PageHead title={s.nav_products} lede={s.products_lede}>
+    <nav class="jump">{catalog.categories.map((c) => <a href={`#${c.id}`}>{pick(lang, c.name, c.nameZh)}</a>)}</nav>
+  </PageHead>
+  {catalog.categories.map((c) => (
+    <section class="fam" id={c.id}>
+      <div class="wrap">
+        <div class="fam__head"><h2>{pick(lang, c.name, c.nameZh)}</h2><p class="mute">{pick(lang, c.blurb, c.blurbZh)}</p></div>
+        <div class="cards">{catalog.products.filter((p) => p.category === c.id).map((p) => <ProductCard p={p} lang={lang} />)}</div>
+      </div>
+    </section>
+  ))}
+  <div class="wrap" style="padding:32px var(--gutter) 72px"><button class="btn btn--navy" data-chat-open>{lang === 'zh' ? '找不到合适型号？问 AI 顾问' : "Can't find the right model? Ask the assistant"}</button></div>
+</Base>
+<style>
+  .jump{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:8px;font-size:15px}
+  .fam{padding:44px 0 8px;scroll-margin-top:90px}.fam__head{display:flex;align-items:baseline;gap:18px;flex-wrap:wrap;margin-bottom:18px}.fam__head h2{margin:0;font-size:2rem}.fam__head p{margin:0}
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:18px}
+</style>

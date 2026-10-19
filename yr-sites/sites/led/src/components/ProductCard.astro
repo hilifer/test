@@ -1,0 +1,47 @@
+---
+import Illus from './Illus.astro';
+import catalog from '../data/catalog.json';
+import apps from '../data/applications.json';
+const { p, order = 0 } = Astro.props;
+const showPrice = catalog.priceDisplay !== 'hidden';
+const lo = Math.min(...p.priceBands.map((b: any) => b.low));
+const watts = p.wattMin === p.wattMax ? `${p.wattMin} W` : `${p.wattMin}–${p.wattMax} W`;
+const appIds = apps.filter((a) => p.applications.some((x: string) => a.kw.includes(x))).map((a) => a.id);
+const feats = (p.features || []).slice(0, 3).map((f: string) => (catalog.features as Record<string, string>)[f]);
+---
+<article class="pc" data-id={p.id} data-cat={p.category} data-apps={appIds.join(' ')} data-wmin={p.wattMin} data-wmax={p.wattMax}
+  data-cct={(p.cct || []).join(' ')} data-certs={p.certifications.join('|')} data-features={(p.features || []).join(' ')} data-price={showPrice ? lo : ''} data-order={order}>
+  <a href={`/products/${p.slug}/`} class="pc__img" tabindex="-1" aria-hidden="true">{p.image ? <img src={p.image} alt="" loading="lazy" /> : <Illus kind={p.illus} label={p.name} />}</a>
+  <div class="pc__body">
+    <h3><a href={`/products/${p.slug}/`}>{p.name}</a></h3>
+    <p class="pc__w num">{watts}<span>{(p.cct || []).map((k: number) => `${k / 1000}K`).join(' / ')}</span></p>
+    <p class="pc__sum">{p.summary}</p>
+    <ul class="pc__feat">{feats.map((f: string) => <li>{f}</li>)}</ul>
+    <ul class="pc__certs">{p.certifications.slice(0, 4).map((c: string) => <li class="tag">{c}</li>)}</ul>
+    <p class="pc__meta num"><span>MOQ {p.moq} {p.unit}</span>{showPrice ? <span>From {catalog.currency} {lo}</span> : <span>Price on request</span>}</p>
+    <div class="pc__acts">
+      <button type="button" class="btn btn--ink pc__add" data-add-quote data-id={p.id} data-name={p.name} data-moq={p.moq} data-unit={p.unit}>Add to quote list</button>
+      <label class="pc__cmp"><input type="checkbox" data-compare={p.id} /> Compare</label>
+    </div>
+  </div>
+</article>
+<style>
+  .pc { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-m); overflow: hidden; display: flex; flex-direction: column; }
+  .pc[hidden] { display: none; }
+  .pc__img { display: block; background: linear-gradient(180deg, #f7f9fb, #eef2f5); padding: 18px 22px 6px; border-bottom: 1px solid var(--line); }
+  .pc__body { padding: 16px 18px 16px; display: flex; flex-direction: column; flex: 1; }
+  .pc h3 { margin: 0 0 2px; font-size: 1.12rem; }
+  .pc h3 a { color: var(--ink); text-decoration: none; }
+  .pc h3 a:hover { text-decoration: underline; text-decoration-color: var(--signal); text-decoration-thickness: 3px; text-underline-offset: 4px; }
+  .pc__w { margin: 0 0 8px; color: var(--steel); font-weight: 600; font-size: 14.5px; display: flex; justify-content: space-between; gap: 8px; }
+  .pc__w span { font-weight: 500; }
+  .pc__sum { font-size: 15px; color: var(--ink-2); margin: 0 0 10px; }
+  .pc__feat { list-style: none; padding: 0; margin: 0 0 10px; display: grid; gap: 3px; font-size: 14px; }
+  .pc__feat li::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--signal); margin-right: 8px; vertical-align: 1px; }
+  .pc__certs { list-style: none; padding: 0; margin: 0 0 12px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .pc__meta { margin: auto 0 12px; display: flex; justify-content: space-between; gap: 8px; font-size: 14px; font-weight: 600; padding-top: 12px; border-top: 1px dashed var(--line); }
+  .pc__acts { display: grid; gap: 8px; }
+  .pc__add { padding: 10px 14px; font-size: 14.5px; width: 100%; white-space: nowrap; }
+  .pc__add.is-added { background: #2e6b3f; }
+  .pc__cmp { font-size: 14px; color: var(--steel); display: flex; gap: 6px; align-items: center; justify-content: center; cursor: pointer; }
+</style>

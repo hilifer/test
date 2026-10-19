@@ -1,0 +1,5 @@
+---
+const { title, lede } = Astro.props;
+---
+<section class="ph"><div class="wrap"><h1>{title}</h1>{lede && <p class="lede">{lede}</p>}<slot /></div></section>
+<style>.ph{background:var(--surface);padding:52px 0 36px;border-bottom:1px solid var(--line)}.ph h1{max-width:22ch}</style>

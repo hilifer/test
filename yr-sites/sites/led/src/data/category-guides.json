@@ -1,0 +1,66 @@
+{
+  "high-bay": {
+    "intro": "LED high bays light warehouses, factories, gyms and workshops with ceilings from about 15 ft to 45 ft. Pick the lumen package from your mounting height, then choose UFO or linear by the layout of the space.",
+    "sections": [
+      { "h": "Size by mounting height", "p": "A common starting point for general warehouse work: 100–150 W up to 20 ft, 150–240 W from 20 to 30 ft, and 240 W or more from 30 to 45 ft. Tasks that need more light, such as inspection or assembly, call for tighter spacing or the next wattage up." },
+      { "h": "UFO or linear", "p": "UFO high bays hang from one hook and suit open floors. Linear high bays with aisle optics keep light on the shelf faces between tall racking and spread it more evenly along the aisle." },
+      { "h": "Selectable wattage and CCT", "p": "Field-selectable models let one SKU cover several ceiling heights and colour preferences. Distributors carry less stock, and contractors can adjust on site." },
+      { "h": "Controls and rebates", "p": "Motion sensors and 0–10 V dimming cut energy use in low-traffic zones. Most North American utility rebates require a DLC listing, so check the listing for the exact model on the quotation." }
+    ],
+    "faq": [
+      { "q": "How many LED high bays do I need for a warehouse?", "a": "It depends on floor area, mounting height and target light level. As a rough start, fixtures are often spaced about 1 to 1.5 times the mounting height apart. A free photometric layout gives the exact count." },
+      { "q": "What wattage high bay replaces a 400W metal halide?", "a": "Most 400 W metal halide fixtures are replaced by 150–200 W LED high bays, depending on the light level you want and the age of the existing lamps." },
+      { "q": "Should I choose 4000K or 5000K for a warehouse?", "a": "5000K is the most common choice for warehouses and factories. 4000K suits spaces where a warmer look is preferred, such as retail back rooms or gyms." }
+    ]
+  },
+  "area": {
+    "intro": "Area and street lights cover parking lots, roads, campuses and villages. Choose the optic (Type II to Type V) for the shape of the space, the wattage for pole height, and the mount for your existing poles.",
+    "sections": [
+      { "h": "Pick the optic by layout", "p": "Type III throws light forward and suits lot edges and roadsides. Type V spreads light evenly in all directions for the middle of open lots. Type II is for narrow roads and paths." },
+      { "h": "Match wattage to pole height", "p": "Lower poles around 15–20 ft typically use 100–150 W heads; 25–30 ft poles often use 200–300 W. Spacing and target light levels decide the final choice." },
+      { "h": "Mounting and controls", "p": "Check whether poles take a slip fitter (round tenon) or a direct arm mount. A 7-pin NEMA receptacle accepts a photocell now and networked controls later." },
+      { "h": "Off-grid sites", "p": "All-in-one solar street lights need no trenching or wiring. Size the panel and battery for the local rainy season, not the yearly average." }
+    ],
+    "faq": [
+      { "q": "What is the difference between Type III and Type V optics?", "a": "Type III pushes light forward in an asymmetric pattern, ideal along edges and roads. Type V distributes light in a symmetric, roughly square pattern for open areas." },
+      { "q": "Do parking lot lights need a photocell?", "a": "A photocell switches lights on at dusk and off at dawn without a timer. Fixtures with a 7-pin receptacle let you add one, or a smart controller, at any time." },
+      { "q": "How long do solar street light batteries last?", "a": "LiFePO4 batteries typically last several years of daily cycling. Autonomy for rainy days depends on battery size and the dimming profile." }
+    ]
+  },
+  "flood": {
+    "intro": "Flood lights wash façades, yards, signs and construction sites; sports lights put even, glare-controlled light on courts and fields. The beam angle matters as much as the wattage.",
+    "sections": [
+      { "h": "Choose the beam angle", "p": "Narrow beams (15–30°) reach far, for tall façades or high poles. Medium beams (60°) suit yards and signs. Wide beams (90–120°) cover nearby areas evenly." },
+      { "h": "Sports fields need a layout", "p": "Court and field lighting depends on the playing area, class of play and pole positions. Asymmetric optics and glare visors keep light on the field and out of players' eyes and neighbours' windows." },
+      { "h": "Broadcast and video", "p": "If the venue is filmed or streamed, specify flicker-free drivers so cameras don't pick up banding." }
+    ],
+    "faq": [
+      { "q": "How many lumens does a tennis court need?", "a": "Recreational courts need far less light than competition courts. The fixture count comes from a layout based on court size, pole height and class of play — ask for a free design." },
+      { "q": "Can flood lights be dimmed?", "a": "Many models support 0–10 V or DALI dimming as an option, which helps for events and energy saving." }
+    ]
+  },
+  "wall-canopy": {
+    "intro": "Wall packs light building perimeters, entrances and loading docks; canopy lights cover gas stations, drive-throughs and parking garages. Full cut-off designs keep light on the ground and meet dark-sky rules.",
+    "sections": [
+      { "h": "Full cut-off for perimeters", "p": "Full cut-off wall packs send no light above the horizontal, reducing glare and light trespass onto neighbouring properties." },
+      { "h": "Built-in photocells", "p": "A built-in dusk-to-dawn photocell avoids separate controls and timers on retrofit jobs." },
+      { "h": "Canopy retrofits", "p": "Low-profile canopy lights can surface mount or fit existing openings. Wet ratings of IP65 or better matter for exposed canopies and coastal sites." }
+    ],
+    "faq": [
+      { "q": "What wattage wall pack replaces a 175W metal halide?", "a": "A 40–60 W LED wall pack typically replaces a 175 W metal halide unit." },
+      { "q": "Are wall packs dark-sky compliant?", "a": "Full cut-off models are designed to meet most dark-sky ordinances. Check the local rules and the exact model's data." }
+    ]
+  },
+  "indoor": {
+    "intro": "Back-lit panels light offices, schools and clinics from drop ceilings; vapor tight linear fixtures handle car parks, cold storage, food processing and other wet or dusty areas.",
+    "sections": [
+      { "h": "Panels for offices and classrooms", "p": "Back-lit panels give even light without visible LEDs. A prismatic diffuser with UGR below 19 reduces glare at desks and screens." },
+      { "h": "Vapor tights for tough spaces", "p": "IP66 and IK10 housings resist water, dust and impact. Linkable models cut installation time on long runs." },
+      { "h": "Selectable options", "p": "Wattage- and CCT-selectable versions reduce the number of SKUs a distributor needs to stock and let contractors match existing lighting." }
+    ],
+    "faq": [
+      { "q": "What does UGR < 19 mean?", "a": "UGR (Unified Glare Rating) measures discomfort glare. Values below 19 are commonly required for offices and classrooms." },
+      { "q": "Can vapor tight fixtures be used in freezers?", "a": "Check the operating temperature range; many vapor tights are rated down to about -30 °C for cold storage." }
+    ]
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "_todo": "Confirm every contact value before launch.",
+  "demo": true,
+  "brand": "YR GRID",
+  "company": "Shenzhen Yaorong Technology Co., Ltd.",
+  "companyZh": "深圳市耀嵘科技有限公司",
+  "email": "grid@86yr.com",
+  "whatsapp": "+86 000 0000 0000",
+  "address": "Shenzhen, Guangdong, China",
+  "addressZh": "中国广东省深圳市",
+  "corporateSite": "https://www.86yr.com",
+  "summary": "YR GRID supplies commercial and residential energy storage, hybrid inverters, PV modules and AC/DC EV chargers, and delivers solar + storage + charging projects for factories, buildings and fleets.",
+  "summaryZh": "YR GRID 提供工商业与户用储能、混合逆变器、光伏组件和交直流充电桩，并为工厂、楼宇和车队交付光伏 + 储能 + 充电一体化项目。",
+  "credentials": ["National High-Tech Enterprise (China)", "专精特新 “Specialized, Refined, Distinctive, Innovative” enterprise", "Develops and builds C&I rooftop solar and storage projects, including energy-management (EMC) models"],
+  "credentialsZh": ["国家高新技术企业", "专精特新企业", "开发并建设工商业屋顶光伏与储能项目，包括合同能源管理（EMC）模式"]
+}

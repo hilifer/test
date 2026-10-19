@@ -1,0 +1,166 @@
+---
+// Solar + storage ROI estimator. Assumptions live in src/data/roi-presets.json (sample values — verify before launch).
+import presets from '../data/roi-presets.json';
+import { lp, type Lang } from '../i18n';
+interface Props { lang: Lang; compact?: boolean; }
+const { lang, compact = false } = Astro.props;
+const zh = lang === 'zh';
+const L = zh
+  ? { region: '项目所在地', bill: '月电费', tariff: '电价（每 kWh）', roof: '可用屋顶面积（㎡）', day: '白天用电占比', storage: '配置储能', adv: '调整造价假设', pv: '光伏造价（每 W）', st: '储能造价（每 kWh）', size: '建议装机', stor: '储能容量', capex: '预计投资', gen: '年发电量', save: '首年节省电费', payback: '静态回本', net: '25 年净收益', co2: '年减碳', yrs: '年', full: '查看完整测算', note: '估算基于所选地区的示例电价、日照和造价，未计储能削峰收益与补贴，仅供参考。正式方案以现场勘察为准。', chart: '累计现金流（25 年）', over: '超过 25 年', emc: '不想先投入？可以了解合同能源管理（EMC）模式：由我们投资建设，您按折扣电价付费。', t: 't CO₂' }
+  : { region: 'Project location', bill: 'Monthly electricity bill', tariff: 'Tariff per kWh', roof: 'Usable roof area (m²)', day: 'Share of power used in daytime', storage: 'Add battery storage', adv: 'Adjust cost assumptions', pv: 'Solar cost per W', st: 'Storage cost per kWh', size: 'Suggested solar size', stor: 'Battery size', capex: 'Estimated investment', gen: 'Yearly generation', save: 'First-year savings', payback: 'Simple payback', net: '25-year net savings', co2: 'CO₂ avoided per year', yrs: 'years', full: 'Open the full estimate', note: 'Estimate based on sample tariff, solar yield and cost figures for the selected region. Excludes storage peak-shaving revenue and incentives. A site survey sets the final design.', chart: 'Cumulative cash position over 25 years', over: 'over 25 years', emc: "Prefer no upfront cost? Ask about our energy-management (EMC) model: we invest and build, you pay a discounted rate for the power you use.", t: 't CO₂' };
+const id = compact ? 'calc-mini' : 'calc';
+---
+<div class={`calc ${compact ? 'calc--mini' : ''}`} id={id} data-lang={lang} data-compact={compact ? '1' : ''}>
+  <div class="calc__in">
+    <label class="field">{L.region}
+      <select name="region">{presets.regions.map((r) => <option value={r.id}>{zh ? r.nameZh : r.name}</option>)}</select>
+    </label>
+    <label class="field"><span>{L.bill} <span class="cur" data-cur></span></span><input name="bill" type="number" min="0" step="100" value="8000" inputmode="numeric" /></label>
+    {!compact && <label class="field"><span>{L.tariff} <span class="cur" data-cur></span></span><input name="tariff" type="number" min="0" step="0.01" /></label>}
+    <label class="field">{L.roof}<input name="roof" type="number" min="0" step="50" value="2000" inputmode="numeric" /></label>
+    {!compact && <>
+      <label class="field"><span>{L.day} <output data-dayout>60%</output></span><input name="day" type="range" min="20" max="95" value="60" /></label>
+      <label class="tog"><input name="storage" type="checkbox" /> {L.storage}</label>
+      <details class="adv"><summary>{L.adv}</summary>
+        <label class="field"><span>{L.pv} <span class="cur" data-cur></span></span><input name="pvCost" type="number" min="0" step="0.01" /></label>
+        <label class="field"><span>{L.st} <span class="cur" data-cur></span></span><input name="storageCost" type="number" min="0" step="10" /></label>
+      </details>
+    </>}
+  </div>
+  <div class="calc__out" aria-live="polite">
+    <div class="big"><span>{L.payback}</span><strong data-o="payback">–</strong></div>
+    <dl class="num">
+      <div><dt>{L.size}</dt><dd data-o="kwp">–</dd></div>
+      {!compact && <div><dt>{L.stor}</dt><dd data-o="kwh">–</dd></div>}
+      <div><dt>{L.capex}</dt><dd data-o="capex">–</dd></div>
+      <div><dt>{L.gen}</dt><dd data-o="gen">–</dd></div>
+      <div><dt>{L.save}</dt><dd data-o="save">–</dd></div>
+      {!compact && <div><dt>{L.net}</dt><dd data-o="net">–</dd></div>}
+      {!compact && <div><dt>{L.co2}</dt><dd data-o="co2">–</dd></div>}
+    </dl>
+    {compact ? <a class="btn btn--lime" data-full href={lp(lang, '/calculator/')}>{L.full}</a> : <>
+      <figure class="chart"><figcaption>{L.chart}</figcaption><svg data-chart viewBox="0 0 500 180" role="img" aria-label={L.chart}></svg></figure>
+      <p class="emc">{L.emc}</p>
+    </>}
+    <p class="note">{L.note}</p>
+  </div>
+</div>
+<script type="application/json" data-presets set:html={JSON.stringify(presets)} />
+<script>
+  type R = { id: string; currency: string; tariff: number; yield: number; pvCost: number; storageCost: number; exportRatio: number; co2: number };
+  const P = JSON.parse(document.querySelector('[data-presets]')!.textContent!);
+  const OM = 0.01; // yearly O&M as share of investment (sample)
+  const fmtMoney = (cur: string, n: number, lang: string) => {
+    const sym = cur === 'CNY' ? '¥' : 'US$';
+    if (lang === 'zh' && cur === 'CNY' && Math.abs(n) >= 10000) return `${sym}${(n / 10000).toFixed(1)} 万`;
+    return sym + Math.round(n).toLocaleString('en-US');
+  };
+  function compute(r: R, v: { bill: number; tariff: number; roof: number; day: number; storage: boolean; pvCost: number; storageCost: number }) {
+    const load = v.tariff > 0 ? (v.bill * 12) / v.tariff : 0;
+    const frac = Math.min(0.9, v.day + (v.storage ? P.storageExtraSelfUse : 0));
+    const kwpRoof = v.roof / P.m2PerKwp;
+    const kwpLoad = (load * frac * 1.15) / r.yield;
+    const kwp = Math.max(0, Math.round(Math.min(kwpRoof, kwpLoad) * 10) / 10);
+    const gen = kwp * r.yield;
+    const self = Math.min(gen, load * frac);
+    const exp = gen - self;
+    const save1 = self * v.tariff + exp * v.tariff * r.exportRatio;
+    const kwh = v.storage ? Math.round(kwp * P.storageKwhPerKwp) : 0;
+    const capex = kwp * 1000 * v.pvCost + kwh * v.storageCost;
+    let cum = -capex; let payback: number | null = null; const series: number[] = [];
+    for (let y = 1; y <= P.years; y++) {
+      const s = save1 * Math.pow(1 - P.degradation, y - 1) * Math.pow(1 + P.tariffEscalation, y - 1) - capex * OM;
+      const prev = cum; cum += s; series.push(cum);
+      if (payback === null && cum >= 0 && s > 0) payback = y - 1 + -prev / s;
+    }
+    return { kwp, kwh, gen, save1, capex, payback, net: cum, co2: (gen * r.co2) / 1000, series };
+  }
+  function chart(svg: SVGElement, series: number[], cur: string, lang: string) {
+    const W = 500, H = 180, pad = { l: 8, r: 8, t: 12, b: 22 };
+    const min = Math.min(0, ...series), max = Math.max(0, ...series);
+    const y = (v: number) => pad.t + (H - pad.t - pad.b) * (max === min ? 0.5 : (max - v) / (max - min));
+    const bw = (W - pad.l - pad.r) / series.length;
+    const bars = series.map((v, i) => `<rect x="${pad.l + i * bw + 1}" y="${Math.min(y(v), y(0))}" width="${bw - 2}" height="${Math.max(1, Math.abs(y(v) - y(0)))}" rx="1.5" fill="${v >= 0 ? '#c8e03c' : '#5b6d7a'}"><title>Year ${i + 1}: ${fmtMoney(cur, v, lang)}</title></rect>`).join('');
+    const ticks = [1, 5, 10, 15, 20, 25].map((n) => `<text x="${pad.l + (n - 0.5) * bw}" y="${H - 6}" font-size="11" text-anchor="middle" fill="#5b6d7a">${n}</text>`).join('');
+    svg.innerHTML = `<line x1="${pad.l}" x2="${W - pad.r}" y1="${y(0)}" y2="${y(0)}" stroke="#12202a" stroke-width="1"/>${bars}${ticks}`;
+  }
+  document.querySelectorAll<HTMLElement>('.calc').forEach((root) => {
+    const lang = root.dataset.lang!;
+    const compact = !!root.dataset.compact;
+    const q = (n: string) => root.querySelector<HTMLInputElement>(`[name="${n}"]`);
+    const region = q('region') as unknown as HTMLSelectElement;
+    const params = new URLSearchParams(location.search);
+    if (!compact) for (const k of ['region', 'bill', 'roof']) { const v = params.get(k); const el = q(k); if (v && el) el.value = v; }
+    let r: R = P.regions.find((x: R) => x.id === region.value);
+    const applyRegion = () => {
+      r = P.regions.find((x: R) => x.id === region.value);
+      root.querySelectorAll('[data-cur]').forEach((e) => (e.textContent = `(${r.currency})`));
+      if (q('tariff')) q('tariff')!.value = String(r.tariff);
+      if (q('pvCost')) q('pvCost')!.value = String(r.pvCost);
+      if (q('storageCost')) q('storageCost')!.value = String(r.storageCost);
+    };
+    const run = () => {
+      const v = {
+        bill: +(q('bill')?.value || 0), roof: +(q('roof')?.value || 0),
+        tariff: q('tariff') ? +q('tariff')!.value : r.tariff,
+        day: q('day') ? +q('day')!.value / 100 : 0.6,
+        storage: !!q('storage')?.checked,
+        pvCost: q('pvCost') ? +q('pvCost')!.value : r.pvCost,
+        storageCost: q('storageCost') ? +q('storageCost')!.value : r.storageCost,
+      };
+      const out = compute(r, v);
+      const set = (k: string, s: string) => { const e = root.querySelector(`[data-o="${k}"]`); if (e) e.textContent = s; };
+      const yrs = lang === 'zh' ? '年' : 'years';
+      set('payback', out.payback === null ? (lang === 'zh' ? '超过 25 年' : 'over 25 years') : `${out.payback.toFixed(1)} ${yrs}`);
+      set('kwp', `${out.kwp.toLocaleString('en-US')} kWp`);
+      set('kwh', out.kwh ? `${out.kwh} kWh` : '–');
+      set('capex', fmtMoney(r.currency, out.capex, lang));
+      set('gen', `${Math.round(out.gen).toLocaleString('en-US')} kWh`);
+      set('save', fmtMoney(r.currency, out.save1, lang));
+      set('net', fmtMoney(r.currency, out.net, lang));
+      set('co2', `${out.co2.toFixed(0)} t CO₂`);
+      const dayOut = root.querySelector('[data-dayout]'); if (dayOut) dayOut.textContent = `${Math.round(v.day * 100)}%`;
+      const svg = root.querySelector<SVGElement>('[data-chart]'); if (svg) chart(svg, out.series, r.currency, lang);
+      const full = root.querySelector<HTMLAnchorElement>('[data-full]');
+      if (full) full.href = `${full.pathname}?region=${r.id}&bill=${v.bill}&roof=${v.roof}`;
+      // Hand inputs + results to any lead form on the page (calculator report request).
+      document.querySelectorAll<HTMLFormElement>('[data-source="calculator"]').forEach((f) => (f.dataset.extra = JSON.stringify({ calculator: { region: r.id, currency: r.currency, ...v, ...out, series: undefined } })));
+    };
+    region.addEventListener('change', () => { applyRegion(); run(); });
+    root.addEventListener('input', run);
+    applyRegion();
+    if (!compact && params.get('region')) { /* keep url values */ }
+    run();
+  });
+</script>
+<style>
+  .calc { display: grid; grid-template-columns: 1fr 1.1fr; gap: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; color: var(--ink); }
+  .calc__in { padding: 24px; display: grid; gap: 14px; align-content: start; }
+  .calc__out { padding: 24px; background: var(--navy); color: #d9e6ee; display: flex; flex-direction: column; gap: 14px; }
+  .cur { font-weight: 400; color: var(--steel); }
+  .field output { font-weight: 600; color: var(--ink); float: right; }
+  .tog { display: flex; gap: 10px; align-items: center; font-weight: 600; font-size: 15px; }
+  .tog input { width: 18px; height: 18px; accent-color: var(--navy); }
+  .adv summary { cursor: pointer; font-size: 14.5px; color: var(--link); }
+  .adv .field { margin-top: 10px; }
+  input[type=range] { accent-color: var(--navy); padding: 0 !important; border: 0 !important; }
+  .big { display: flex; flex-direction: column; }
+  .big span { font-size: 15px; color: #a9bcc8; }
+  .big strong { font: 700 clamp(2.6rem, 5vw, 3.6rem)/1 var(--display); color: var(--lime); font-variant-numeric: tabular-nums; }
+  .calc__out dl { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--navy-3); border: 1px solid var(--navy-3); border-radius: 10px; overflow: hidden; margin: 0; }
+  .calc__out dl div { background: var(--navy-2); padding: 10px 12px; }
+  .calc__out dl div:last-child:nth-child(odd) { grid-column: span 2; }
+  .calc__out dt { font-size: 13px; color: #a9bcc8; }
+  .calc__out dd { margin: 2px 0 0; font: 600 1.35rem/1.2 var(--display); color: #fff; }
+  .chart { margin: 0; }
+  .chart figcaption { font-size: 13px; color: #a9bcc8; margin-bottom: 4px; }
+  .chart svg { background: #fff; border-radius: 8px; width: 100%; height: auto; }
+  .emc { margin: 0; font-size: 14.5px; color: #fff; border-left: 3px solid var(--lime); padding-left: 12px; }
+  .note { margin: 0; font-size: 12.5px; color: #8ea3b1; }
+  .calc--mini { grid-template-columns: 1fr; }
+  .calc--mini .calc__in { grid-template-columns: 1fr 1fr; }
+  .calc--mini .calc__in .field:first-child { grid-column: span 2; }
+  .calc--mini .btn { align-self: flex-start; }
+  @media (max-width: 860px) { .calc { grid-template-columns: 1fr; } }
+  @media (max-width: 460px) { .calc--mini .calc__in { grid-template-columns: 1fr; } .calc--mini .calc__in .field:first-child { grid-column: auto; } }
+</style>

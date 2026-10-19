@@ -1,0 +1,7 @@
+---
+import V from '../../views/Product.astro';
+import catalog from '../../data/catalog.json';
+export function getStaticPaths() { return catalog.products.map((p) => ({ params: { slug: p.slug }, props: { p } })); }
+const { p } = Astro.props;
+---
+<V lang="en" p={p} />

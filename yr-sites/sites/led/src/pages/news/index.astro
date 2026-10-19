@@ -1,0 +1,19 @@
+---
+import Base from '../../layouts/Base.astro';
+import PageHead from '../../components/PageHead.astro';
+import { getCollection } from 'astro:content';
+const posts = (await getCollection('news', (e) => e.data.status === 'published')).sort((a, b) => +b.data.date - +a.data.date);
+---
+<Base title="Guides and industry news" description="Buying guides, specification explainers and LED lighting industry news for importers, distributors and contractors." current="/news/">
+  <PageHead title="Guides and news" lede="Practical buying guides and the industry news that affects commercial lighting projects." />
+  <section class="wrap n">
+    {posts.length === 0 && <p class="mute">No articles yet.</p>}
+    <ul>{posts.map((p) => (
+      <li>
+        <time class="mute" datetime={p.data.date.toISOString()}>{p.data.date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</time>
+        <div><h2><a href={`/news/${p.id}/`}>{p.data.title}</a></h2><p>{p.data.description}</p>{p.data.tags.length > 0 && <p class="tags">{p.data.tags.map((t) => <span class="tag">{t}</span>)}</p>}</div>
+      </li>
+    ))}</ul>
+  </section>
+</Base>
+<style>.n{padding-top:32px;padding-bottom:72px}.n ul{list-style:none;padding:0;margin:0}.n li{display:grid;grid-template-columns:140px 1fr;gap:24px;padding:24px 0;border-bottom:1px solid var(--line)}.n h2{font-size:1.3rem;margin:0 0 6px}.n h2 a{color:var(--ink);text-decoration:none}.n h2 a:hover{text-decoration:underline}.n p{margin:0 0 6px}.tags{display:flex;gap:6px;flex-wrap:wrap}@media(max-width:600px){.n li{grid-template-columns:1fr;gap:4px}}</style>

@@ -1,0 +1,30 @@
+---
+import Base from '../layouts/Base.astro';
+import PageHead from '../components/PageHead.astro';
+const mcp = new URL('/mcp', Astro.site).href;
+const cfg = JSON.stringify({ mcpServers: { yrgrid: { type: 'http', url: mcp } } }, null, 2);
+---
+<Base lang="en" noAlt title="For AI agents: llms.txt, Markdown and MCP" description="How AI assistants and procurement agents can read the YR GRID catalog, get reference prices and submit inquiries." current="">
+  <PageHead title="For AI agents" lede="Buyers increasingly ask an AI assistant to shortlist suppliers. Everything here is published so that assistant can read our catalog accurately and act on it." />
+  <section class="wrap prose a">
+    <h2>Read</h2>
+    <ul>
+      <li><a href="/llms.txt">/llms.txt</a> is a short guide to this site and every product.</li>
+      <li><a href="/llms-full.txt">/llms-full.txt</a> holds all product details in one file.</li>
+      <li>Every product page has a Markdown twin: add <code>.md</code> to the URL, for example <a href="/products/ci-storage-cabinet-215.md">/products/ci-storage-cabinet-215.md</a>.</li>
+      <li><a href="/products.json">/products.json</a> is the full catalog as JSON.</li>
+    </ul>
+    <h2>Act: MCP endpoint</h2>
+    <p>Our Model Context Protocol server lets an agent search products, read specifications, get a reference price and submit an inquiry on a buyer's behalf. Endpoint: <code>{mcp}</code> (Streamable HTTP).</p>
+    <pre><code>{cfg}</code></pre>
+    <table class="spec"><tbody>
+      <tr><th scope="row">search_products</th><td>Find models by application, capacity or power, certification</td></tr>
+      <tr><th scope="row">get_product</th><td>Full specifications for one model</td></tr>
+      <tr><th scope="row">estimate_quote</th><td>Reference price range for a quantity (not a binding offer)</td></tr>
+      <tr><th scope="row">submit_inquiry</th><td>Send a request; a sales engineer replies with a formal PI</td></tr>
+    </tbody></table>
+    <h2>Rules</h2>
+    <p>Prices are reference ranges, FOB Shenzhen, and become binding only on a formal PI. Inquiries need the buyer's consent to be contacted.</p>
+  </section>
+</Base>
+<style>.a{padding-top:40px;padding-bottom:72px}.a pre{background:var(--ink);color:#d8e3ee;padding:18px;border-radius:10px;overflow-x:auto}.a code{font-size:.92em}.a table{background:var(--surface);border:1px solid var(--line);margin-top:12px}</style>

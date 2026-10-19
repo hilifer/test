@@ -1,0 +1,32 @@
+---
+import Illus from './Illus.astro';
+import catalog from '../data/catalog.json';
+import { t, lp, pick, type Lang } from '../i18n';
+const { p, lang } = Astro.props as { p: any; lang: Lang };
+const s = t(lang);
+const lo = Math.min(...p.priceBands.map((b: any) => b.low));
+const hl = pick(lang, p.highlights, p.highlightsZh) as string[];
+---
+<article class="pc" data-certs={p.certifications.join('|')}>
+  <a href={lp(lang, `/products/${p.slug}/`)} class="pc__link">
+    <div class="pc__img">{p.image ? <img src={p.image} alt={p.name} loading="lazy" /> : <Illus kind={p.illus} label={p.name} />}</div>
+    <div class="pc__body">
+      <h3>{pick(lang, p.name, p.nameZh)}</h3>
+      <p class="pc__sum">{pick(lang, p.summary, p.summaryZh)}</p>
+      <ul class="pc__hl">{hl.slice(0, 2).map((h) => <li>{h}</li>)}</ul>
+      <p class="pc__meta num"><span>{s.moq} {p.moq} {p.moq === 1 ? p.unit.replace(/s\b/, '') : p.unit}</span><span>{s.from} {catalog.currency} {lo.toLocaleString('en-US')}</span></p>
+    </div>
+  </a>
+</article>
+<style>
+  .pc { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-m); overflow: hidden; display: flex; }
+  .pc[hidden] { display: none; }
+  .pc__link { display: flex; flex-direction: column; color: inherit; text-decoration: none; width: 100%; }
+  .pc__link:hover h3 { color: var(--link); }
+  .pc__img { background: linear-gradient(180deg, #f4f9fb, #e9f3f7); padding: 16px 28px 4px; border-bottom: 1px solid var(--line); }
+  .pc__body { padding: 16px 18px 18px; display: flex; flex-direction: column; flex: 1; }
+  .pc h3 { margin: 0 0 6px; font-size: 1.35rem; }
+  .pc__sum { font-size: 15px; color: var(--ink-2); margin: 0 0 10px; }
+  .pc__hl { margin: 0 0 12px; padding-left: 1.1em; font-size: 14.5px; color: var(--ink-2); }
+  .pc__meta { margin: auto 0 0; display: flex; justify-content: space-between; gap: 8px; font-size: 14px; font-weight: 600; padding-top: 12px; border-top: 1px dashed var(--line); }
+</style>

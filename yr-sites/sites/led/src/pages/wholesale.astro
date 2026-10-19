@@ -1,0 +1,63 @@
+---
+import Base from '../layouts/Base.astro';
+import PageHead from '../components/PageHead.astro';
+import QuoteForm from '../components/QuoteForm.astro';
+import catalog from '../data/catalog.json';
+const showPrice = catalog.priceDisplay !== 'hidden';
+const ex = catalog.products.find((p) => p.id === 'YR-HB-U2')!;
+---
+<Base title="Wholesale and distributor program" description="Volume pricing for lighting contractors and a distributor program with protected pricing, selectable SKUs and full product data for your store." current="/wholesale/">
+  <PageHead title="Wholesale and distributor program" lede="We sell factory direct to lighting distributors, e-commerce retailers and contractors buying for projects. Partners get volume pricing, protected margins and the product data they need to sell." />
+  <section class="wrap ws">
+    <div>
+      <div class="two">
+        <div class="box">
+          <h2>Contractors</h2>
+          <p>Buying for a project? Unit prices step down with quantity, and you can mix models in one order and one quotation.</p>
+          {showPrice ? (
+            <table class="spec num"><caption class="mute">Example: {ex.name}, {catalog.priceTerm}</caption><thead><tr><th scope="col">Quantity</th><th scope="col">Unit price ({catalog.currency})</th></tr></thead><tbody>{ex.priceBands.map((b) => <tr><td>{b.minQty}{b.maxQty ? `–${b.maxQty}` : '+'} {ex.unit}</td><td>{b.low}–{b.high}</td></tr>)}</tbody></table>
+          ) : <p>Send your fixture schedule and we'll quote the whole project at volume pricing.</p>}
+          <p><a href="/lighting-design/">Free lighting layout</a> for projects.</p>
+        </div>
+        <div class="box">
+          <h2>Distributors and online retailers</h2>
+          <ul>
+            <li><b>Partner price list</b> on approval, with stepped pricing by yearly volume.</li>
+            <li><b>Minimum advertised price (MAP) policy</b> so partners don't compete with our factory pricing online.</li>
+            <li><b>Selectable SKUs</b>: wattage- and CCT-selectable models cover more jobs with less stock.</li>
+            <li><b>Product data for your store</b>: spec sheets, IES files, certificates and photos.</li>
+            <li><b>Private label</b> packaging and branding. See <a href="/oem-odm/">OEM &amp; ODM</a>.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="box wide">
+        <h2>Prefer to buy from a local stockist?</h2>
+        <p>For small quantities or fast local delivery, we can point you to a stocking partner in your region. Tell us where you are in the form and we'll connect you.</p>
+      </div>
+    </div>
+    <div>
+      <h2>Apply or request pricing</h2>
+      <QuoteForm source="wholesale" submitLabel="Send application" hint="Brands you carry today, main product lines, anything we should know…">
+        <div class="qf__row">
+          <label class="field">Business type<select name="x_business"><option>Distributor / wholesaler</option><option>Online retailer</option><option>Electrical / lighting contractor</option><option>ESCO / energy services</option><option>Other</option></select></label>
+          <label class="field">Yearly lighting purchases<select name="x_volume"><option>Under US$50k</option><option>US$50k–250k</option><option>US$250k–1M</option><option>Over US$1M</option></select></label>
+        </div>
+        <div class="qf__row">
+          <label class="field">Territory / states<input name="x_territory" placeholder="e.g. Florida, Georgia" /></label>
+          <label class="field">Website<input name="x_website" placeholder="https://" /></label>
+        </div>
+      </QuoteForm>
+    </div>
+  </section>
+</Base>
+<style>
+  .ws{display:grid;grid-template-columns:1.25fr 1fr;gap:40px;padding-top:40px;padding-bottom:72px;align-items:start}
+  .ws h2{font-size:1.4rem}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+  .box{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px 20px}
+  .box ul{padding-left:1.1em;margin:0}.box li{margin-bottom:8px;font-size:15.5px}
+  .box table{margin:8px 0 12px;border:1px solid var(--line)}.box caption{text-align:left;font-size:13.5px;padding-bottom:4px}
+  .ws :global(.qf__row){display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:1000px){.ws{grid-template-columns:1fr}}
+  @media(max-width:620px){.two{grid-template-columns:1fr}.ws :global(.qf__row){grid-template-columns:1fr}}
+</style>

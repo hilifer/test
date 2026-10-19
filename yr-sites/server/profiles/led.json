@@ -1,0 +1,111 @@
+{
+  "brand": "YAORONG Lighting",
+  "company": "Shenzhen Yaorong Technology Co., Ltd.",
+  "about": "YAORONG designs and manufactures commercial and industrial LED luminaires in-house (die-casting, injection molding, SMT and assembly at its own factory in Guangdong) and exports to importers, distributors and lighting contractors.",
+  "keySpecHint": "wattage or lumens, CCT, IP rating, required certifications such as DLC/UL/ETL/CE, mounting height",
+  "handoffRules": [
+    "OEM/ODM, private label or custom design",
+    "discount, price matching or payment terms",
+    "quantities beyond the public price bands",
+    "contracts, exclusivity or agency requests",
+    "complaints or after-sales claims",
+    "photometric layout (DIALux) requests",
+    "the customer asks for a person"
+  ],
+  "facts": [
+    "Headquarters: Shenzhen, China. Factory: Guangdong, China, with in-house die-casting, injection molding, metal fabrication and SMT lines.",
+    "National High-Tech Enterprise and a 'Specialized, Refined, Distinctive and Innovative' (专精特新) enterprise in China.",
+    "Samples are available for most models; sample cost is credited against the first bulk order (confirm with sales).",
+    "Formal quotations are issued as a Proforma Invoice (PI) by a sales engineer, normally within one business day."
+  ],
+  "extraInstructions": "North American buyers often need DLC listing and UL/ETL safety certification; mention which models carry them when relevant.",
+  "greetingFollowup": "Tell me what you're lighting (warehouse, parking lot, street, sports field…), the wattage you need and the quantity — I'll recommend models and give a reference price.",
+  "content": {
+    "audience": "lighting importers, distributors, electrical contractors and facility managers in North America and other export markets",
+    "voice": "Plain, practical and specific, like an experienced lighting engineer explaining to a buyer. No hype.",
+    "internalPages": [
+      "/products/",
+      "/solutions/",
+      "/certifications/",
+      "/oem-odm/",
+      "/factory/",
+      "/quote/",
+      "/news/",
+      "/for-ai-agents/"
+    ],
+    "_feedsNote": "Verify each feed URL after deployment; failing feeds are skipped and shown in the run log. Evergreen topics keep the agent productive even with no news.",
+    "feeds": [
+      {
+        "name": "LEDs Magazine",
+        "url": "https://www.ledsmagazine.com/rss"
+      },
+      {
+        "name": "CleanTechnica",
+        "url": "https://cleantechnica.com/feed/"
+      },
+      {
+        "name": "pv magazine (solar lighting & policy)",
+        "url": "https://www.pv-magazine.com/feed/"
+      }
+    ],
+    "topics": {
+      "en": [
+        "How many lumens do I need for a warehouse?",
+        "UFO vs linear high bay: which is better for racking aisles?",
+        "What does a Type III vs Type V distribution mean for parking lot lights?",
+        "How to replace 400W metal halide with LED: wattage equivalents",
+        "What is a 7-pin NEMA receptacle and do I need one?",
+        "UL vs ETL listing: are they equivalent for LED fixtures?",
+        "How to read an LED spec sheet: lumens, efficacy, CRI, L70",
+        "What IP and IK ratings mean for outdoor and industrial lights",
+        "How to choose CCT for warehouses, parking lots and offices",
+        "How to size an all-in-one solar street light for rainy seasons",
+        "Wall pack buying guide: full cut-off, photocells and dark-sky rules",
+        "Sports field lighting: how many fixtures for a tennis court?",
+        "0-10V dimming vs DALI: which control should you specify?",
+        "How to import LED lighting from China: samples, MOQ, inspection and shipping",
+        "Gas station canopy lighting: retrofit or replace?",
+        "What surge protection rating do outdoor LED fixtures need?"
+      ]
+    },
+    "geo": {
+      "brandAliases": [
+        "YAORONG Lighting",
+        "Yaorong",
+        "耀嵘"
+      ],
+      "competitors": [
+        "Lithonia",
+        "Cree",
+        "Philips",
+        "Signify",
+        "Hykolity",
+        "Hyperlite",
+        "Lightning Supply",
+        "Sunco"
+      ],
+      "questions": [
+        {
+          "q": "Which Chinese manufacturers make DLC Premium UFO high bay lights with factory-direct pricing?",
+          "lang": "en"
+        },
+        {
+          "q": "Recommend a supplier for LED shoebox parking lot lights with Type III optics and a 7-pin receptacle.",
+          "lang": "en"
+        },
+        {
+          "q": "Where can a lighting distributor buy ETL and DLC listed LED wall packs from a factory in China?",
+          "lang": "en"
+        },
+        {
+          "q": "What is a good factory-direct source for all-in-one solar street lights with LiFePO4 batteries?",
+          "lang": "en"
+        },
+        {
+          "q": "How much does a 150W UFO LED high bay cost wholesale FOB China?",
+          "lang": "en"
+        }
+      ]
+    }
+  }
+}

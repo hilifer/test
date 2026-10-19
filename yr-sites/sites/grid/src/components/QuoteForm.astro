@@ -1,0 +1,63 @@
+---
+import catalog from '../data/catalog.json';
+import { t, lp, pick, type Lang } from '../i18n';
+interface Props { lang: Lang; productId?: string; source?: string; extraHint?: string; }
+const { lang, productId = '', source = 'quote-form', extraHint = '' } = Astro.props;
+const s = t(lang);
+---
+<form class="qf" data-lead-form data-source={source} data-msgs={JSON.stringify({ c: s.f_need_contact, k: s.f_need_consent, sending: s.f_sending, sent: s.f_sent, fail: s.f_fail, unreach: s.f_unreach })} novalidate>
+  <div class="qf__row">
+    <label class="field">{s.f_name}<input name="name" autocomplete="name" /></label>
+    <label class="field">{s.f_company}<input name="company" autocomplete="organization" /></label>
+  </div>
+  <div class="qf__row">
+    <label class="field">{s.f_email}<input name="email" type="email" autocomplete="email" /></label>
+    <label class="field">{s.f_wa}<input name="whatsapp" autocomplete="tel" /></label>
+  </div>
+  <div class="qf__row">
+    <label class="field">{s.f_country}<input name="country" autocomplete="country-name" /></label>
+    <label class="field">{s.f_type}<select name="buyer_type"><option value="">{s.f_choose}</option>{s.f_types.map((x) => <option>{x}</option>)}</select></label>
+  </div>
+  <div class="qf__row">
+    <label class="field">{s.f_product}<select name="product_id"><option value="">{s.f_notsure}</option>{catalog.products.map((p) => <option value={p.id} selected={p.id === productId}>{pick(lang, p.name, p.nameZh)}</option>)}</select></label>
+    <div class="qf__row">
+      <label class="field">{s.f_qty}<input name="quantity" inputmode="numeric" /></label>
+      <label class="field">{s.f_when}<select name="timeline"><option value="">{s.f_whenq}</option>{s.f_whens.map((x) => <option>{x}</option>)}</select></label>
+    </div>
+  </div>
+  <label class="field">{s.f_details}<textarea name="needs" rows="4" placeholder={extraHint}></textarea></label>
+  <input type="text" name="website" tabindex="-1" autocomplete="off" class="visually-hidden" aria-hidden="true" />
+  <label class="qf__consent"><input type="checkbox" name="consent" /> <span>{s.f_consent} <a href={lp(lang, '/privacy/')}>{s.f_privacy}</a>.</span></label>
+  <button class="btn btn--navy" type="submit">{s.f_send}</button>
+  <p class="qf__msg" role="status"></p>
+</form>
+<script>
+  document.querySelectorAll<HTMLFormElement>('[data-lead-form]').forEach((f) => {
+    const M = JSON.parse(f.dataset.msgs!);
+    f.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const msg = f.querySelector<HTMLElement>('.qf__msg')!;
+      const d: Record<string, any> = Object.fromEntries(new FormData(f));
+      d.consent = !!d.consent; d.source = f.dataset.source;
+      if (f.dataset.extra) d.extra = JSON.parse(f.dataset.extra);
+      if (!d.email && !d.whatsapp) { msg.textContent = M.c; return; }
+      if (!d.consent) { msg.textContent = M.k; return; }
+      msg.textContent = M.sending;
+      try {
+        const r = await fetch('/api/leads', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(d) });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(j.message || 'error');
+        f.reset(); msg.textContent = M.sent;
+      } catch (err: any) { msg.textContent = `${M.fail}: ${err.message === 'Failed to fetch' || err.message === 'error' ? M.unreach : err.message}`; }
+    });
+  });
+</script>
+<style>
+  .qf { display: grid; gap: 14px; background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 22px; }
+  .qf__row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .qf__consent { font-size: 14px; display: flex; gap: 8px; align-items: flex-start; }
+  .qf__consent input { margin-top: 4px; }
+  .qf__msg { margin: 0; font-size: 14.5px; font-weight: 600; min-height: 1.4em; }
+  .qf .btn { justify-self: start; }
+  @media (max-width: 560px) { .qf__row { grid-template-columns: 1fr; } }
+</style>

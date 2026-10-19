@@ -1,0 +1,68 @@
+---
+// Line illustrations per luminaire type — placeholders until real product photos exist.
+// Set "image" on a product in catalog.json to replace with a photo.
+interface Props { kind: string; label?: string; cct?: 'warm' | 'cool' | 'mix'; }
+const { kind, label = '', cct = 'mix' } = Astro.props;
+const id = 'b' + Math.random().toString(36).slice(2, 8);
+const stops = { warm: ['#ffbf73', '#ffe7c4'], cool: ['#bcd3ff', '#eef4ff'], mix: ['#ffd9a3', '#e9f0ff'] }[cct];
+const S = 'stroke="#14202e" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"';
+const beam = (d: string) => `<path d="${d}" fill="url(#${id})"/>`;
+const shapes: Record<string, string> = {
+  ufo: `${beam('M86 74 L40 158 L200 158 L154 74 Z')}
+    <line x1="120" y1="8" x2="120" y2="30" ${S}/><path d="M112 8 h16" ${S}/>
+    <rect x="98" y="30" width="44" height="12" rx="3" fill="#fff" ${S}/>
+    <path d="M78 46 h84 l-6 28 h-72 z" fill="#e6ebf0" ${S}/>
+    ${[88, 98, 108, 118, 128, 138, 148].map((x) => `<line x1="${x}" y1="48" x2="${x}" y2="70" stroke="#14202e" stroke-width="1.6"/>`).join('')}
+    <rect x="84" y="74" width="72" height="6" rx="2" fill="#fff6e0" ${S}/>`,
+  'linear-hb': `${beam('M46 78 L20 158 L220 158 L194 78 Z')}
+    <line x1="70" y1="8" x2="70" y2="58" ${S} stroke-dasharray="4 5"/><line x1="170" y1="8" x2="170" y2="58" ${S} stroke-dasharray="4 5"/>
+    <rect x="40" y="58" width="160" height="20" rx="4" fill="#e6ebf0" ${S}/>
+    <rect x="48" y="74" width="144" height="6" rx="2" fill="#fff6e0" ${S}/>`,
+  shoebox: `${beam('M58 62 L18 158 L170 158 L132 62 Z')}
+    <line x1="200" y1="20" x2="200" y2="158" ${S}/><path d="M200 40 H140" ${S}/>
+    <rect x="52" y="34" width="92" height="28" rx="4" fill="#e6ebf0" ${S}/>
+    <rect x="60" y="58" width="76" height="6" rx="2" fill="#fff6e0" ${S}/>`,
+  street: `${beam('M58 66 L24 158 L150 158 L112 66 Z')}
+    <path d="M210 158 V44 Q210 22 186 22 H136" fill="none" ${S}/>
+    <path d="M52 50 Q60 36 96 36 H136 V52 Q120 66 64 66 Q48 64 52 50 Z" fill="#e6ebf0" ${S}/>
+    <path d="M62 62 Q92 64 118 58" ${S} stroke="#c58a00"/>`,
+  solar: `${beam('M92 84 L60 158 L150 158 L122 84 Z')}
+    <line x1="170" y1="30" x2="170" y2="158" ${S}/>
+    <path d="M138 18 L206 8 L212 34 L144 44 Z" fill="#dce8f7" ${S}/>
+    <path d="M160 15 l4 26 M182 12 l4 26" stroke="#14202e" stroke-width="1.5"/>
+    <path d="M170 70 H112" ${S}/><rect x="84" y="62" width="44" height="22" rx="4" fill="#e6ebf0" ${S}/>`,
+  flood: `${beam('M132 52 L236 22 L236 150 L132 118 Z')}
+    <path d="M52 140 V110 M40 140 h24" ${S}/>
+    <path d="M52 112 Q30 85 52 58" fill="none" ${S}/>
+    <rect x="56" y="44" width="72" height="82" rx="6" fill="#e6ebf0" ${S}/>
+    ${[66, 76, 86, 96, 106, 116].map((x) => `<line x1="${x}" y1="50" x2="${x}" y2="120" stroke="#14202e" stroke-width="1.4"/>`).join('')}
+    <rect x="124" y="50" width="8" height="70" rx="2" fill="#fff6e0" ${S}/>`,
+  sports: `${beam('M150 46 L238 70 L238 158 L150 104 Z')}
+    <line x1="40" y1="158" x2="40" y2="40" ${S}/><path d="M40 40 L80 44" ${S}/>
+    <rect x="80" y="26" width="64" height="86" rx="6" fill="#e6ebf0" ${S}/>
+    <path d="M144 26 L160 34 L160 104 L144 112" fill="#d6dde4" ${S}/>
+    <circle cx="112" cy="54" r="12" fill="#fff6e0" ${S}/><circle cx="112" cy="88" r="12" fill="#fff6e0" ${S}/>`,
+  wallpack: `${beam('M84 96 L54 158 L190 158 L156 96 Z')}
+    <line x1="30" y1="6" x2="30" y2="158" ${S}/>${[20, 44, 68, 92, 116, 140].map((y) => `<line x1="18" y1="${y + 12}" x2="30" y2="${y}" stroke="#14202e" stroke-width="1.5"/>`).join('')}
+    <path d="M30 46 H150 L164 96 H30 Z" fill="#e6ebf0" ${S}/>
+    <rect x="70" y="90" width="92" height="7" rx="2" fill="#fff6e0" ${S}/>`,
+  canopy: `${beam('M84 46 L8 158 L232 158 L156 46 Z')}
+    <path d="M10 26 H230" ${S}/><path d="M10 26 V38 H230 V26" fill="#d6dde4" ${S}/>
+    <rect x="78" y="38" width="84" height="10" rx="2" fill="#e6ebf0" ${S}/>
+    <rect x="86" y="46" width="68" height="5" rx="2" fill="#fff6e0" ${S}/>`,
+  panel: `<path d="M10 40 L230 40 L200 120 L40 120 Z" fill="#eef1f4" ${S}/>
+    <path d="M68 40 L60 120 M126 40 L120 120 M180 40 L180 120 M25 80 H215" stroke="#14202e" stroke-width="1.6"/>
+    <path d="M68 40 L126 40 L122 80 L64 80 Z" fill="#fff6e0" ${S}/>
+    ${beam('M64 82 L122 82 L150 158 L40 158 Z')}`,
+  triproof: `${beam('M38 92 L12 158 L228 158 L202 92 Z')}
+    <rect x="22" y="62" width="196" height="30" rx="15" fill="#e6ebf0" ${S}/>
+    <path d="M30 84 Q120 96 210 84" fill="none" stroke="#c58a00" stroke-width="2"/>
+    <path d="M60 58 v38 M120 58 v38 M180 58 v38" ${S}/>`,
+};
+const body = shapes[kind] || shapes.ufo;
+---
+<svg viewBox="0 0 240 160" role="img" aria-label={label || `${kind} illustration`} class="illus">
+  <defs><linearGradient id={id} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color={stops[0]} stop-opacity=".95"/><stop offset="1" stop-color={stops[1]} stop-opacity="0"/></linearGradient></defs>
+  <Fragment set:html={body} />
+</svg>
+<style>.illus { width: 100%; height: auto; }</style>

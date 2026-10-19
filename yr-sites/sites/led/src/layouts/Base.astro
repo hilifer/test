@@ -1,0 +1,134 @@
+---
+import '../styles/global.css';
+import site from '../data/site.json';
+import catalog from '../data/catalog.json';
+interface Props { title: string; description: string; markdown?: string; jsonld?: object | object[]; current?: string; }
+const { title, description, markdown, jsonld, current = '' } = Astro.props;
+const canonical = new URL(Astro.url.pathname, Astro.site).href;
+const fullTitle = title.includes(site.brand) ? title : `${title} | ${site.brandFull}`;
+const nav = [
+  { href: '/products/', label: 'Products' },
+  { href: '/solutions/', label: 'Applications' },
+  { href: '/lighting-design/', label: 'Free lighting design' },
+  { href: '/wholesale/', label: 'Wholesale' },
+  { href: '/oem-odm/', label: 'OEM & ODM' },
+  { href: '/factory/', label: 'Factory' },
+  { href: '/news/', label: 'News' },
+];
+const org = {
+  '@context': 'https://schema.org', '@type': 'Organization', name: site.brandFull, legalName: site.company,
+  url: new URL('/', Astro.site).href, email: site.contact.email, address: { '@type': 'PostalAddress', addressLocality: 'Shenzhen', addressRegion: 'Guangdong', addressCountry: 'CN' },
+};
+const ld = [org, ...(Array.isArray(jsonld) ? jsonld : jsonld ? [jsonld] : [])];
+const chatCfg = {
+  site: 'led', lang: 'en', brand: site.brand, catalogUrl: '/products.json', productBase: '/products/',
+  suggestions: ['150W high bay for a warehouse, DLC listed', 'Parking lot lights, 25 ft poles', 'Price for 500 wall packs', 'Do you offer OEM?'],
+};
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{fullTitle}</title>
+  <meta name="description" content={description} />
+  <link rel="canonical" href={canonical} />
+  {markdown && <link rel="alternate" type="text/markdown" href={markdown} title="Markdown version" />}
+  <link rel="alternate" type="application/rss+xml" href="/rss.xml" title={`${site.brandFull} news`} />
+  <link rel="help" type="text/plain" href="/llms.txt" title="LLM guide" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content={fullTitle} />
+  <meta property="og:description" content={description} />
+  <meta property="og:url" content={canonical} />
+  <meta name="theme-color" content="#14202e" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  {ld.map((x) => <script type="application/ld+json" set:html={JSON.stringify(x)} />)}
+  <script is:inline define:vars={{ chatCfg }}>window.YR_CHAT = chatCfg;</script>
+  <script type="module" src="/assets/chat-widget.js"></script>
+  <script type="module" src="/assets/quote-list.js"></script>
+</head>
+<body>
+  {(site.demo || catalog.sample) && <div class="demo">Preview build. Product specifications, certifications and prices are sample data until replaced with verified figures.</div>}
+  <header class="top">
+    <div class="wrap top__in">
+      <a class="brand" href="/" aria-label={`${site.brandFull} home`}>
+        <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><defs><linearGradient id="kv" x1="0" x2="1"><stop offset="0" stop-color="#ffa64d"/><stop offset=".5" stop-color="#fff3df"/><stop offset="1" stop-color="#9fc0ff"/></linearGradient></defs><circle cx="15" cy="15" r="14" fill="#14202e"/><circle cx="15" cy="15" r="8" fill="url(#kv)"/></svg>
+        <span>{site.brand}</span>
+      </a>
+      <nav aria-label="Main">
+        <ul>
+          {nav.map((n) => <li><a href={n.href} aria-current={current === n.href ? 'page' : undefined}>{n.label}</a></li>)}
+        </ul>
+      </nav>
+      <a class="btn btn--signal top__cta" href="/quote/" data-quote-href>Quote list <span class="qbadge" data-quote-count hidden>0</span></a>
+      <details class="menu">
+        <summary aria-label="Menu">Menu</summary>
+        <ul>{nav.map((n) => <li><a href={n.href}>{n.label}</a></li>)}<li><a href="/quote/">Quote list <span class="qbadge" data-quote-count hidden>0</span></a></li></ul>
+      </details>
+    </div>
+    <div class="kelvin" aria-hidden="true"></div>
+  </header>
+  <main id="main"><slot /></main>
+  <footer class="foot">
+    <div class="wrap foot__grid">
+      <div>
+        <p class="foot__brand">{site.brandFull}</p>
+        <p class="mute">{site.company}<br />{site.contact.address}</p>
+      </div>
+      <div>
+        <p class="foot__h">Talk to sales</p>
+        <p><a href={`mailto:${site.contact.email}`}>{site.contact.email}</a><br />WhatsApp {site.contact.whatsapp}</p>
+        <p class="mute">AI assistant answers 24/7.<br />Sales team: {site.contact.salesHours}</p>
+      </div>
+      <div>
+        <p class="foot__h">Products</p>
+        <ul>{catalog.categories.map((c) => <li><a href={`/${c.slug}/`}>{c.name}</a></li>)}</ul>
+      </div>
+      <div>
+        <p class="foot__h">For AI agents</p>
+        <ul>
+          <li><a href="/llms.txt">llms.txt</a></li>
+          <li><a href="/products.json">Catalog JSON</a></li>
+          <li><a href="/for-ai-agents/">MCP endpoint</a></li>
+          <li><a href="/rss.xml">News RSS</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="wrap foot__legal mute">
+      <span>© {new Date().getFullYear()} {site.company}</span>
+      <a href="/certifications/">Certifications</a>
+      <a href="/privacy/">Privacy &amp; cookies</a>
+      <a href={site.corporateSite} rel="noopener">Corporate site</a>
+    </div>
+  </footer>
+</body>
+</html>
+<style>
+  .demo { background: #fff1cc; color: #5a3e00; font-size: 13.5px; text-align: center; padding: 6px 16px; }
+  .top { background: var(--surface); position: sticky; top: 0; z-index: 50; }
+  .top__in { display: flex; align-items: center; gap: 28px; height: 68px; }
+  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); font-weight: 800; font-size: 21px; letter-spacing: .06em; font-variation-settings: 'wdth' 125; }
+  nav ul { display: flex; gap: 18px; list-style: none; margin: 0; padding: 0; }
+  nav a { color: var(--ink); text-decoration: none; font-size: 15.5px; font-weight: 520; padding: 6px 0; border-bottom: 2px solid transparent; }
+  nav a:hover, nav a[aria-current='page'] { border-bottom-color: var(--signal); }
+  .top__cta { margin-left: auto; padding: 10px 16px; white-space: nowrap; }
+  .qbadge { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: var(--ink); color: #fff; font-size: 12.5px; margin-left: 4px; }
+  .qbadge[hidden] { display: none; }
+  .menu { display: none; margin-left: auto; }
+  .menu summary { list-style: none; cursor: pointer; font-weight: 600; padding: 8px 12px; border: 1px solid var(--line); border-radius: 6px; }
+  .menu summary::-webkit-details-marker { display: none; }
+  .menu ul { position: absolute; right: var(--gutter); top: 64px; background: #fff; border: 1px solid var(--line); border-radius: 8px; list-style: none; margin: 0; padding: 8px; min-width: 220px; box-shadow: 0 10px 30px rgba(20,32,46,.15); }
+  .menu li a { display: block; padding: 10px 12px; color: var(--ink); text-decoration: none; }
+  @media (max-width: 1180px) { nav { display: none; } .menu { display: block; margin-left: 0; } .top__cta { margin-left: auto; } }
+  @media (max-width: 520px) { .top__in { gap: 10px; } .brand { font-size: 18px; letter-spacing: .03em; } .brand svg { width: 26px; height: 26px; } .top__cta { padding: 9px 11px; font-size: 14px; } .menu summary { padding: 8px 10px; } .menu ul { right: 12px; } }
+  .foot { background: var(--ink); color: #c9d3dd; padding: 56px 0 28px; font-size: 15px; }
+  .foot a { color: #fff; }
+  .foot__grid { display: grid; grid-template-columns: 1.4fr 1.2fr 1fr 1fr; gap: 32px; }
+  .foot__brand { font-weight: 800; font-size: 19px; color: #fff; letter-spacing: .04em; font-variation-settings: 'wdth' 120; }
+  .foot__h { font-weight: 650; color: #fff; margin-bottom: .6em; }
+  .foot ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .foot .mute { color: #93a1b0; }
+  .foot__legal { display: flex; gap: 24px; flex-wrap: wrap; margin-top: 40px; padding-top: 20px; border-top: 1px solid #2b3a4b; font-size: 13.5px; }
+  @media (max-width: 800px) { .foot__grid { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 520px) { .foot__grid { grid-template-columns: 1fr; } }
+</style>

@@ -1,0 +1,56 @@
+---
+import Base from '../layouts/Base.astro';
+import PageHead from '../components/PageHead.astro';
+import QuoteForm from '../components/QuoteForm.astro';
+const ld = { '@context': 'https://schema.org', '@type': 'Service', name: 'Free LED lighting layout (photometric design)', provider: { '@type': 'Organization', name: 'YAORONG Lighting' }, description: 'Photometric lighting layouts for warehouses, parking lots, sports fields and building exteriors, with fixture list and quantities.' };
+---
+<Base title="Free lighting layout for your project" description="Send a floor plan or site drawing and get a photometric lighting layout with fixture types, quantities and light levels, free of charge for project inquiries." current="/lighting-design/" jsonld={ld}>
+  <PageHead title="Free lighting layout for your project" lede="Send us a floor plan or site drawing. Our engineers model it in lighting design software and send back a layout showing which fixtures to use, how many, where they go and the light levels you'll get." />
+  <section class="wrap ld">
+    <div>
+      <h2>What you get</h2>
+      <ul class="get">
+        <li><b>Photometric layout</b><span>Fixture positions with a light level plot (foot-candles or lux) for the working plane.</span></li>
+        <li><b>Fixture list and quantities</b><span>Models, wattage, CCT and optics, ready to turn into a quotation.</span></li>
+        <li><b>Uniformity check</b><span>Average, minimum and max/min ratios so you know the result meets the brief.</span></li>
+        <li><b>Retrofit comparison</b><span>Optional: energy use against the fixtures you're replacing, for rebate and payback calculations.</span></li>
+      </ul>
+      <h2>How it works</h2>
+      <ol class="how">
+        <li><b>Send the drawing</b><span>PDF, DWG or a sketch with dimensions. A link to a shared folder works.</span></li>
+        <li><b>We model the space</b><span>Engineers pick fixtures and optics for your mounting height and target light level.</span></li>
+        <li><b>Review and quote</b><span>You get the layout and a quotation for the fixture list in one reply.</span></li>
+      </ol>
+      <p class="mute">Layouts are free for genuine project inquiries. We'll confirm the expected turnaround when we receive your drawings.</p>
+    </div>
+    <div>
+      <h2>Request a layout</h2>
+      <QuoteForm source="lighting-design" submitLabel="Request my free layout" hint="Anything else: obstructions, rack layout, existing fixtures, required standard…">
+        <div class="qf__row">
+          <label class="field">Project type
+            <select name="x_project"><option>Warehouse / factory</option><option>Parking lot / area</option><option>Sports court or field</option><option>Street / road</option><option>Building exterior / façade</option><option>Gas station canopy</option><option>Office / school</option><option>Other</option></select>
+          </label>
+          <label class="field">Mounting height<input name="x_mounting_height" placeholder="e.g. 28 ft / 8.5 m" /></label>
+        </div>
+        <div class="qf__row">
+          <label class="field">Area size<input name="x_area" placeholder="e.g. 300 × 150 ft" /></label>
+          <label class="field">Target light level<input name="x_target" placeholder="e.g. 30 fc, or 'not sure'" /></label>
+        </div>
+        <label class="field">Link to drawings or photos<input name="x_drawings" placeholder="https://… (Google Drive, Dropbox, WeTransfer)" /></label>
+      </QuoteForm>
+    </div>
+  </section>
+</Base>
+<style>
+  .ld{display:grid;grid-template-columns:1fr 1.2fr;gap:48px;padding-top:40px;padding-bottom:72px;align-items:start}
+  .ld h2{font-size:1.45rem}
+  .get{list-style:none;padding:0;margin:0 0 32px;display:grid;gap:10px}
+  .get li{background:var(--surface);border:1px solid var(--line);border-left:6px solid var(--signal);border-radius:0 10px 10px 0;padding:12px 16px}
+  .get b,.how b{display:block}.get span,.how span{color:var(--ink-2);font-size:15.5px}
+  .how{list-style:none;counter-reset:h;padding:0;margin:0 0 16px;display:grid;gap:12px}
+  .how li{counter-increment:h;display:grid;grid-template-columns:40px 1fr;column-gap:12px}
+  .how li::before{content:counter(h);grid-row:span 2;width:34px;height:34px;border-radius:50%;background:var(--ink);color:#fff;display:grid;place-items:center;font-weight:700}
+  .ld :global(.qf__row){display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:900px){.ld{grid-template-columns:1fr}}
+  @media(max-width:560px){.ld :global(.qf__row){grid-template-columns:1fr}}
+</style>

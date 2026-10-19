@@ -1,0 +1,168 @@
+---
+import Base from '../layouts/Base.astro';
+import Illus from '../components/Illus.astro';
+import Calculator from '../components/Calculator.astro';
+import catalog from '../data/catalog.json';
+import site from '../data/site.json';
+import { getCollection } from 'astro:content';
+import { t, lp, pick, fmtDate, type Lang } from '../i18n';
+const { lang } = Astro.props as { lang: Lang };
+const s = t(lang);
+const zh = lang === 'zh';
+const catIllus: Record<string, string> = { 'ci-storage': 'cabinet', 'home-storage': 'home-battery', inverter: 'inverter', 'pv-module': 'module', 'ev-ac': 'wallbox', 'ev-dc': 'dc-charger' };
+const systems = zh
+  ? [
+      { k: 'roof', t: '工商业光伏 + 储能', d: '屋顶光伏白天自发自用，储能把午间富余电量挪到傍晚高峰，同时削减需量电费。', href: '/solutions/#ci' },
+      { k: 'dc-charger', t: '充电场站 + 缓冲储能', d: '直流快充配储能，在不扩容变压器的情况下多装几把枪，并用谷电充、峰电放。', href: '/solutions/#charging' },
+      { k: 'carport', t: '光伏车棚', d: '停车场顶上发电，车棚下直接充电，一次施工完成遮阳、发电和充电。', href: '/solutions/#carport' },
+    ]
+  : [
+      { k: 'roof', t: 'Solar + storage for buildings', d: 'Rooftop solar covers daytime load; the battery shifts midday surplus into the evening peak and trims demand charges.', href: '/solutions/#ci' },
+      { k: 'dc-charger', t: 'Charging hubs with buffer storage', d: 'Pair DC fast chargers with a battery to add guns without upgrading the transformer, charging off-peak and discharging at peak.', href: '/solutions/#charging' },
+      { k: 'carport', t: 'Solar carports', d: 'Generate on top, charge underneath. Shade, power and charging in one build.', href: '/solutions/#carport' },
+    ];
+const news = (await getCollection('news', (e) => e.data.status === 'published' && e.data.lang === lang)).sort((a, b) => +b.data.date - +a.data.date).slice(0, 3);
+const count = (id: string) => catalog.products.filter((p) => p.category === id).length;
+---
+<Base lang={lang} title={zh ? 'YR GRID 光伏 · 储能 · 充电桩' : 'YR GRID: solar, storage and EV charging'} description={pick(lang, site.summary, site.summaryZh)} current="/">
+  <section class="hero">
+    <div class="wrap hero__grid">
+      <div class="hero__copy">
+        <h1>{zh ? <>发电，储电，<br />充电，一站配齐。</> : <>Generate it.<br />Store it.<br />Charge with it.</>}</h1>
+        <p class="lede">{zh ? 'YR GRID 提供储能柜、户用电池、混合逆变器、光伏组件和交直流充电桩，并为工厂、楼宇和车队建设光伏 + 储能 + 充电一体化项目。右边填三个数字，一分钟看回本周期。' : 'YR GRID supplies storage cabinets, home batteries, hybrid inverters, PV modules and AC/DC EV chargers, and builds solar + storage + charging projects for factories, buildings and fleets. Enter three numbers on the right to see your payback.'}</p>
+        <div class="hero__actions">
+          <button class="btn btn--lime" data-chat-open>{zh ? '问 AI 销售顾问' : 'Ask our sales assistant'}</button>
+          <a class="btn btn--line" href={lp(lang, '/products/')}>{s.allprods}</a>
+        </div>
+        <ul class="trio" aria-label={zh ? '业务' : 'What we do'}>
+          <li><span class="dot dot--sun"></span>{zh ? '光伏' : 'Photovoltaic'}</li>
+          <li><span class="dot dot--bat"></span>{zh ? '储能' : 'Storage'}</li>
+          <li><span class="dot dot--ev"></span>{zh ? '充电' : 'EV charging'}</li>
+        </ul>
+      </div>
+      <div class="hero__calc">
+        <p class="hero__calc-h">{zh ? '屋顶光伏回本测算' : 'Rooftop solar payback'}</p>
+        <Calculator lang={lang} compact />
+      </div>
+    </div>
+  </section>
+
+  <section class="section section--white">
+    <div class="wrap">
+      <div class="section-head"><h2>{s.nav_products}</h2><a href={lp(lang, '/products/')}>{s.allprods}</a></div>
+      <div class="cats">
+        {catalog.categories.map((c) => (
+          <a class="cat" href={`${lp(lang, '/products/')}#${c.id}`}>
+            <Illus kind={catIllus[c.id]} label={pick(lang, c.name, c.nameZh)} />
+            <div><h3>{pick(lang, c.name, c.nameZh)}</h3><p>{pick(lang, c.blurb, c.blurbZh)}</p><span class="mute num">{count(c.id)} {zh ? '个系列' : count(c.id) === 1 ? 'product line' : 'product lines'}</span></div>
+          </a>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <div class="section-head"><h2>{zh ? '三种常见系统' : 'Three systems we build most'}</h2><a href={lp(lang, '/solutions/')}>{s.nav_solutions}</a></div>
+      <div class="sys">
+        {systems.map((x) => (
+          <a class="sysi" href={lp(lang, x.href)}>
+            <Illus kind={x.k} label={x.t} />
+            <h3>{x.t}</h3>
+            <p>{x.d}</p>
+          </a>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <section class="section section--navy">
+    <div class="wrap why">
+      <div>
+        <h2>{zh ? '我们自己也投资和运营电站' : 'We build and run projects, not just ship boxes'}</h2>
+        <p>{zh ? 'YR GRID 隶属深圳市耀嵘科技有限公司。我们在国内开发、投资和建设工商业屋顶光伏与储能项目，包括合同能源管理（EMC）模式。我们熟悉项目从测算、设计到并网运维的每一步。' : 'YR GRID belongs to Shenzhen Yaorong Technology, which develops, invests in and builds commercial rooftop solar and storage projects in China, including energy-management (EMC) projects where we fund the system. We know every step from feasibility and design to grid connection and O&M.'}</p>
+        <p><a href={lp(lang, '/about/')}>{s.nav_about}</a></p>
+      </div>
+      <ul class="cred">{(zh ? site.credentialsZh : site.credentials).map((c) => <li>{c}</li>)}</ul>
+    </div>
+  </section>
+
+  <section class="section section--white">
+    <div class="wrap duo">
+      <div class="duo__i">
+        <h2>{zh ? '经销商和 EPC 合作' : 'Distributors and EPC partners'}</h2>
+        <p>{zh ? '区域经销、项目供货、OEM 贴牌。我们提供渠道价格、技术培训、售后备件和项目方案支持。' : 'Regional distribution, project supply and private label. Partners get channel pricing, technical training, spare parts and design support for projects.'}</p>
+        <a class="btn btn--navy" href={lp(lang, '/partners/')}>{zh ? '了解合作政策' : 'See partner terms'}</a>
+      </div>
+      <div class="duo__i duo__i--ai">
+        <h2>{zh ? '让您的 AI 采购助手直接读懂我们' : 'Readable by your procurement AI'}</h2>
+        <p>{zh ? '每个产品都有 Markdown 版本，完整目录以 JSON 发布，AI 智能体可以通过 MCP 接口查产品、拿参考价、提交询价。' : 'Every product has a Markdown page, the full catalog is published as JSON, and AI agents can search, price and send an inquiry through our MCP endpoint.'}</p>
+        <a href="/for-ai-agents/">llms.txt · MCP</a>
+      </div>
+    </div>
+  </section>
+
+  {news.length > 0 && (
+    <section class="section">
+      <div class="wrap">
+        <div class="section-head"><h2>{s.news_title}</h2><a href={lp(lang, '/news/')}>{s.allarticles}</a></div>
+        <div class="news">{news.map((n) => (
+          <a class="newsi" href={lp(lang, `/news/${n.id.replace(/^zh\//, '')}/`)}>
+            <time class="mute" datetime={n.data.date.toISOString()}>{fmtDate(lang, n.data.date)}</time>
+            <h3>{n.data.title}</h3><p>{n.data.description}</p>
+          </a>))}
+        </div>
+      </div>
+    </section>
+  )}
+
+  <section class="cta">
+    <div class="wrap cta__in">
+      <h2>{zh ? '有项目资料？发给我们出方案。' : 'Have a site, a load profile or a tender?'}</h2>
+      <p>{zh ? '电费单、屋顶照片或招标文件都可以，工程师会给出配置建议和报价。' : 'Send an electricity bill, roof photos or tender documents and our engineers will propose a configuration and price.'}</p>
+      <a class="btn btn--navy" href={lp(lang, '/contact/')}>{s.cta_quote}</a>
+    </div>
+  </section>
+</Base>
+<style>
+  .hero { background: var(--navy); color: #d9e6ee; padding: clamp(40px, 6vw, 80px) 0 clamp(48px, 7vw, 96px); position: relative; overflow: hidden; }
+  .hero::after { content: ''; position: absolute; right: -120px; bottom: -160px; width: 520px; height: 520px; background: url('/brand/yr-grid-logo-512.webp') center/contain no-repeat; opacity: .06; pointer-events: none; }
+  .hero__grid { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(28px, 5vw, 64px); align-items: center; position: relative; z-index: 1; }
+  .hero h1 { color: #fff; }
+  .hero .lede { color: #c3d4de; }
+  .hero__actions { display: flex; gap: 12px; flex-wrap: wrap; margin: 26px 0 30px; }
+  .hero .btn--line { color: #fff; }
+  .trio { list-style: none; padding: 0; margin: 0; display: flex; gap: 22px; flex-wrap: wrap; font: 600 1.2rem/1 var(--display); color: #fff; letter-spacing: .03em; }
+  .trio li { display: flex; align-items: center; gap: 8px; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; }
+  .dot--sun { background: #e6f04a; } .dot--bat { background: var(--sky); } .dot--ev { background: var(--lime); }
+  .hero__calc-h { font: 600 1.3rem/1 var(--display); color: #fff; margin: 0 0 10px; letter-spacing: .02em; }
+  .cats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .cat { display: grid; grid-template-columns: 120px 1fr; gap: 16px; align-items: center; padding: 18px; border: 1px solid var(--line); border-radius: var(--radius-m); color: inherit; text-decoration: none; background: var(--paper); }
+  .cat:hover { border-color: var(--navy); }
+  .cat h3 { margin: 0 0 4px; }
+  .cat p { font-size: 15px; color: var(--ink-2); margin: 0 0 6px; }
+  .sys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .sysi { background: var(--surface); border: 1px solid var(--line); border-top: 4px solid var(--sky); border-radius: var(--radius-m); padding: 22px; color: inherit; text-decoration: none; }
+  .sysi:nth-child(2) { border-top-color: var(--lime); } .sysi:nth-child(3) { border-top-color: var(--navy); }
+  .sysi h3 { margin: 14px 0 6px; }
+  .sysi p { font-size: 15.5px; color: var(--ink-2); margin: 0; }
+  .why { display: grid; grid-template-columns: 1.2fr 1fr; gap: 48px; align-items: center; }
+  .cred { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+  .cred li { padding: 16px 18px; border: 1px solid var(--navy-3); border-left: 4px solid var(--lime); border-radius: 8px; color: #fff; font-weight: 500; }
+  .duo { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .duo__i { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-m); padding: 28px; }
+  .duo__i--ai { background: var(--sky-soft); border-color: #bfe3f2; }
+  .duo h2 { font-size: 2rem; }
+  .news { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .newsi { display: block; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-m); padding: 22px; color: inherit; text-decoration: none; }
+  .newsi h3 { margin: 8px 0; line-height: 1.15; }
+  .newsi p { font-size: 15px; color: var(--ink-2); margin: 0; }
+  .cta { background: var(--lime); padding: 56px 0; }
+  .cta__in { display: grid; grid-template-columns: 1fr auto; gap: 8px 32px; align-items: center; }
+  .cta h2 { margin: 0; color: var(--lime-ink); }
+  .cta p { margin: 0; grid-column: 1; color: var(--lime-ink); }
+  .cta .btn { grid-row: 1 / span 2; grid-column: 2; }
+  @media (max-width: 1000px) { .hero__grid, .why, .duo { grid-template-columns: 1fr; } .cats { grid-template-columns: 1fr 1fr; } .sys, .news { grid-template-columns: 1fr; } }
+  @media (max-width: 620px) { .cats { grid-template-columns: 1fr; } .cat { grid-template-columns: 96px 1fr; } .cta__in { grid-template-columns: 1fr; } .cta .btn { grid-row: auto; grid-column: 1; justify-self: start; margin-top: 12px; } }
+</style>

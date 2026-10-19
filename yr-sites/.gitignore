@@ -1,0 +1,8 @@
+node_modules
+dist
+.astro
+server/data
+deploy/*/.env
+deploy/*/data
+test-results
+playwright-report

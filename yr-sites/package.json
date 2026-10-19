@@ -1,0 +1,24 @@
+{
+  "name": "yr-sites",
+  "private": true,
+  "scripts": {
+    "build:led": "pnpm --filter led build",
+    "build:grid": "pnpm --filter grid build",
+    "build": "pnpm build:led && pnpm build:grid",
+    "server": "node server/src/index.js",
+    "test": "node --test --test-concurrency=4 \"tests/unit/*.test.mjs\" \"tests/api/*.test.mjs\"",
+    "test:unit": "node --test \"tests/unit/*.test.mjs\"",
+    "test:api": "node --test --test-concurrency=4 \"tests/api/*.test.mjs\"",
+    "test:ci": "node --test --test-concurrency=4 --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination=test-results/node-junit.xml \"tests/unit/*.test.mjs\" \"tests/api/*.test.mjs\"",
+    "test:e2e": "playwright test",
+    "test:all": "pnpm test && pnpm build && pnpm test:e2e",
+    "stack": "node tests/e2e/start-stack.mjs"
+  },
+  "type": "module",
+  "devDependencies": {
+    "@playwright/test": "1.56.1"
+  },
+  "engines": {
+    "node": ">=22.13"
+  }
+}

@@ -1,0 +1,125 @@
+---
+import Base from '../../layouts/Base.astro';
+import Illus from '../../components/Illus.astro';
+import ProductCard from '../../components/ProductCard.astro';
+import QuoteForm from '../../components/QuoteForm.astro';
+import catalog from '../../data/catalog.json';
+import site from '../../data/site.json';
+import { productJsonLd, faqJsonLd } from '../../../../../shared/site-lib.mjs';
+
+export function getStaticPaths() {
+  return catalog.products.map((p) => ({ params: { slug: p.slug }, props: { p } }));
+}
+const { p } = Astro.props;
+const cat = catalog.categories.find((c) => c.id === p.category)!;
+const related = catalog.products.filter((x) => x.category === p.category && x.id !== p.id).slice(0, 3);
+const showPrice = catalog.priceDisplay !== 'hidden';
+const featLabels = (p.features || []).map((f) => (catalog.features as Record<string, string>)[f]);
+const faq = [
+  { q: `What is the MOQ for the ${p.name}?`, a: `${p.moq} ${p.unit}. Samples are available in ${p.sampleDays[0]}–${p.sampleDays[1]} days.` },
+  { q: `What is the lead time?`, a: `Production lead time is ${p.leadTimeDays[0]}–${p.leadTimeDays[1]} days after deposit and sample approval, depending on quantity and options.` },
+  { q: `Which certifications does the ${p.name} have?`, a: `${p.certifications.join(', ')}. Certificate copies are available on request.` },
+  showPrice ? { q: `How much does the ${p.name} cost?`, a: `Reference prices range from ${catalog.currency} ${Math.min(...p.priceBands.map((b) => b.low))} to ${Math.max(...p.priceBands.map((b) => b.high))} per ${p.unit === 'pcs' ? 'piece' : p.unit.replace(/s$/, '')} (${catalog.priceTerm}) depending on wattage, options and quantity. ${catalog.priceNote}` } : { q: `How much does the ${p.name} cost?`, a: `We quote per project (${catalog.priceTerm}) based on quantity, configuration and destination. Add it to your quote list or ask for a formal quotation; a sales engineer replies within one business day.` },
+];
+const ld = [productJsonLd({ site: Astro.site!.href, brand: site.brandFull, catalog, p }), faqJsonLd(faq),
+  { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'Products', item: new URL('/products/', Astro.site).href },
+    { '@type': 'ListItem', position: 2, name: cat.name, item: new URL(`/${cat.slug}/`, Astro.site).href },
+    { '@type': 'ListItem', position: 3, name: p.name } ] }];
+const watts = p.wattMin === p.wattMax ? `${p.wattMin} W` : `${p.wattMin}–${p.wattMax} W`;
+---
+<Base title={`${p.name} ${watts}`} description={`${p.summary} ${p.certifications.join(', ')}. MOQ ${p.moq} ${p.unit}, ${p.leadTimeDays[0]}–${p.leadTimeDays[1]} day lead time.`} markdown={`/products/${p.slug}.md`} jsonld={ld} current="/products/">
+  <div class="wrap crumbs"><a href="/products/">Products</a> / <a href={`/${cat.slug}/`}>{cat.name}</a></div>
+  <section class="wrap pd">
+    <div class="pd__img">{p.image ? <img src={p.image} alt={p.name} /> : <Illus kind={p.illus} label={p.name} />}</div>
+    <div class="pd__info">
+      <h1>{p.name}</h1>
+      <p class="pd__w num">{watts}</p>
+      <p class="lede">{p.summary}</p>
+      <ul class="hl">{p.highlights.map((h) => <li>{h}</li>)}</ul>
+      {featLabels.length > 0 && <ul class="feats">{featLabels.map((f) => <li>{f}</li>)}</ul>}
+      <ul class="certs" aria-label="Certifications">{p.certifications.map((c) => <li class="tag">{c}</li>)}</ul>
+      <dl class="order num">
+        <div><dt>MOQ</dt><dd>{p.moq} {p.unit}</dd></div>
+        <div><dt>Lead time</dt><dd>{p.leadTimeDays[0]}–{p.leadTimeDays[1]} days</dd></div>
+        <div><dt>Samples</dt><dd>{p.sampleDays[0]}–{p.sampleDays[1]} days</dd></div>
+        <div><dt>Warranty</dt><dd>{p.warranty}</dd></div>
+      </dl>
+      <div class="actions">
+        <button class="btn btn--signal" data-add-quote data-id={p.id} data-name={p.name} data-moq={p.moq} data-unit={p.unit}>Add to quote list</button>
+        <button class="btn btn--line" data-chat-open data-chat-prompt={showPrice ? `I'm interested in the ${p.name}. What's the price for my quantity?` : `I'm interested in the ${p.name}. Can you help with specs and a quotation?`}>{showPrice ? 'Get an instant reference price' : 'Ask the assistant'}</button>
+        <a class="linkish-a" href="#quote">Request a formal PI</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap cols">
+    <div>
+      <h2>Specifications</h2>
+      <table class="spec num"><tbody>{Object.entries(p.specs).map(([k, v]) => <tr><th scope="row">{k}</th><td>{v}</td></tr>)}</tbody></table>
+      <p class="mute md">Machine-readable version: <a href={`/products/${p.slug}.md`}>{p.slug}.md</a></p>
+    </div>
+    <aside>
+      {showPrice ? <>
+        <h2>Reference price</h2>
+      <table class="spec num price">
+        <thead><tr><th scope="col">Quantity</th><th scope="col">Unit price ({catalog.currency})</th></tr></thead>
+        <tbody>{p.priceBands.map((b) => <tr><td>{b.minQty}{b.maxQty ? `–${b.maxQty}` : '+'} {p.unit}</td><td>{b.low.toLocaleString('en-US')}–{b.high.toLocaleString('en-US')}</td></tr>)}</tbody>
+      </table>
+      <p class="mute small">{catalog.priceTerm}. Range covers wattage and option choices. {catalog.priceNote} Freight is quoted on the PI.</p>
+      </> : <div class="vol"><h2>Volume pricing</h2><p>Pricing depends on quantity, wattage and options, and destination. Add this fixture to your quote list with the other items on your project and we'll quote everything together, normally within one business day.</p><p><a href="/wholesale/">Contractor and distributor pricing</a></p></div>}
+      <h2 class="faqh">Common questions</h2>
+      <dl class="faq">{faq.map((f) => <><dt>{f.q}</dt><dd>{f.a}</dd></>)}</dl>
+    </aside>
+  </section>
+
+  <section class="section section--white" id="quote">
+    <div class="wrap quote">
+      <div>
+        <h2>Request a formal quotation</h2>
+        <p>Tell us the quantity, options and destination. A sales engineer replies with a PI including freight, normally within one business day.</p>
+      </div>
+      <QuoteForm productId={p.id} productName={p.name} />
+    </div>
+  </section>
+
+  {related.length > 0 && (
+    <section class="wrap rel">
+      <h2>Also in {cat.name}</h2>
+      <div class="cards">{related.map((r) => <ProductCard p={r} />)}</div>
+    </section>
+  )}
+</Base>
+<style>
+  .crumbs { padding-top: 22px; font-size: 14.5px; color: var(--steel); }
+  .crumbs a { color: var(--steel); }
+  .pd { display: grid; grid-template-columns: 1fr 1.1fr; gap: clamp(24px, 5vw, 64px); padding-top: 18px; padding-bottom: 48px; align-items: start; }
+  .pd__img { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 32px; position: sticky; top: 100px; }
+  .pd h1 { font-size: clamp(2rem, 4vw, 3rem); margin-bottom: 4px; }
+  .pd__w { font-weight: 650; color: var(--steel); font-size: 1.1rem; margin-bottom: 14px; }
+  .hl { padding-left: 1.1em; margin: 0 0 16px; }
+  .hl li { margin-bottom: 4px; }
+  .certs { list-style: none; padding: 0; margin: 0 0 20px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .order { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin: 0 0 24px; }
+  .order div { background: var(--surface); padding: 12px 14px; }
+  .order dt { font-size: 13px; color: var(--steel); }
+  .order dd { margin: 2px 0 0; font-weight: 650; }
+  .actions { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .linkish-a { font-size: 15px; }
+  .feats { list-style: none; padding: 0; margin: 0 0 12px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .feats li { font-size: 13.5px; padding: 3px 10px; border-radius: 999px; background: #fff4d6; color: #5a4100; }
+  .vol { background: var(--surface); border: 1px solid var(--line); border-left: 6px solid var(--signal); border-radius: 10px; padding: 16px 20px; }
+  .cols { display: grid; grid-template-columns: 1.3fr 1fr; gap: 48px; padding-bottom: 64px; }
+  .cols h2 { font-size: 1.5rem; }
+  .cols table { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .price thead th { width: auto; background: #eef2f5; }
+  .small { font-size: 14px; margin-top: 10px; }
+  .md { font-size: 14px; margin-top: 10px; }
+  .faqh { margin-top: 32px; }
+  .faq dt { font-weight: 650; margin-top: 14px; }
+  .faq dd { margin: 4px 0 0; color: var(--ink-2); font-size: 15.5px; }
+  .quote { display: grid; grid-template-columns: 1fr 1.4fr; gap: 48px; align-items: start; }
+  .rel { padding-top: 56px; padding-bottom: 72px; }
+  .rel .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 18px; }
+  @media (max-width: 900px) { .pd, .cols, .quote { grid-template-columns: 1fr; } .pd__img { position: static; } .order { grid-template-columns: repeat(2, 1fr); } }
+</style>

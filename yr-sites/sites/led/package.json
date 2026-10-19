@@ -1,0 +1,15 @@
+{
+  "name": "led",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sync": "node scripts/sync-shared.mjs",
+    "dev": "node scripts/sync-shared.mjs && astro dev",
+    "build": "node scripts/sync-shared.mjs && astro build",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "astro": "5.18.2",
+    "@fontsource-variable/archivo": "5.2.8"
+  }
+}

@@ -1,0 +1,48 @@
+---
+// Line illustrations per equipment type — placeholders until real product photos exist.
+// Set "image" on a product in catalog.json to use a photo instead.
+interface Props { kind: string; label?: string; }
+const { kind, label = '' } = Astro.props;
+const S = 'stroke="#12202a" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"';
+const G = '<path d="M14 150 H226" stroke="#c9d6dd" stroke-width="3" stroke-linecap="round"/>';
+const shapes: Record<string, string> = {
+  cabinet: `${G}<rect x="70" y="18" width="100" height="130" rx="6" fill="#eef4f7" ${S}/>
+    <rect x="80" y="30" width="38" height="104" rx="3" fill="#fff" ${S}/><rect x="122" y="30" width="38" height="104" rx="3" fill="#fff" ${S}/>
+    <rect x="86" y="40" width="26" height="14" rx="2" fill="#12202a"/><path d="M90 47 h6 M100 47 h8" stroke="#c8e03c" stroke-width="2"/>
+    ${[66, 80, 94, 108].map((y) => `<path d="M128 ${y} h26" stroke="#5cc6ec" stroke-width="3"/>`).join('')}
+    <path d="M70 148 v4 M170 148 v4" ${S}/><path d="M178 40 h18 v26 h-18" fill="none" ${S}/><path d="M184 46 l6 8 h-6 l6 8" stroke="#c8e03c" stroke-width="2.4" fill="none"/>`,
+  'cabinet-small': `${G}<rect x="84" y="46" width="72" height="102" rx="6" fill="#eef4f7" ${S}/>
+    <rect x="94" y="58" width="52" height="16" rx="2" fill="#12202a"/><path d="M100 66 h8 M112 66 h12" stroke="#c8e03c" stroke-width="2"/>
+    ${[88, 102, 116, 130].map((y) => `<path d="M98 ${y} h44" stroke="#5cc6ec" stroke-width="3"/>`).join('')}`,
+  'home-battery': `${G}<path d="M40 150 V20" stroke="#c9d6dd" stroke-width="3"/>
+    ${[0, 1, 2, 3].map((i) => `<rect x="88" y="${124 - i * 28}" width="64" height="24" rx="5" fill="${i === 3 ? '#fff' : '#eef4f7'}" ${S}/><circle cx="140" cy="${136 - i * 28}" r="3" fill="#c8e03c" stroke="#12202a" stroke-width="1.5"/>`).join('')}
+    <rect x="88" y="26" width="64" height="12" rx="4" fill="#12202a"/>`,
+  inverter: `${G}<path d="M40 150 V16" stroke="#c9d6dd" stroke-width="3"/>
+    <rect x="76" y="22" width="88" height="112" rx="8" fill="#eef4f7" ${S}/>
+    <rect x="92" y="38" width="56" height="30" rx="3" fill="#12202a"/><path d="M98 58 q8 -14 16 0 t16 0" stroke="#5cc6ec" stroke-width="2.4" fill="none"/>
+    <circle cx="104" cy="84" r="4" fill="#c8e03c" stroke="#12202a" stroke-width="1.5"/><circle cx="120" cy="84" r="4" fill="#5cc6ec" stroke="#12202a" stroke-width="1.5"/><circle cx="136" cy="84" r="4" fill="#fff" stroke="#12202a" stroke-width="1.5"/>
+    <path d="M96 134 v12 M112 134 v12 M128 134 v12 M144 134 v12" ${S}/>`,
+  module: `${G}<path d="M30 120 L90 30 L216 30 L170 120 Z" fill="#dff3fb" ${S}/>
+    <path d="M50 90 L194 90 M70 60 L208 60 M66 120 L114 30 M106 120 L146 30 M138 120 L180 30" stroke="#12202a" stroke-width="1.6"/>
+    <path d="M100 120 L100 150 M160 120 L160 150" ${S}/>`,
+  wallbox: `${G}<path d="M60 150 V16" stroke="#c9d6dd" stroke-width="3"/>
+    <rect x="86" y="28" width="64" height="92" rx="12" fill="#eef4f7" ${S}/>
+    <rect x="98" y="42" width="40" height="22" rx="3" fill="#12202a"/><path d="M106 53 h24" stroke="#c8e03c" stroke-width="3"/>
+    <circle cx="118" cy="90" r="12" fill="#fff" ${S}/><circle cx="114" cy="88" r="2" fill="#12202a"/><circle cx="122" cy="88" r="2" fill="#12202a"/><circle cx="118" cy="95" r="2" fill="#12202a"/>
+    <path d="M150 96 C190 100 196 140 168 146 L150 146" fill="none" stroke="#12202a" stroke-width="5" stroke-linecap="round"/>
+    <rect x="132" y="138" width="22" height="14" rx="3" fill="#c8e03c" ${S}/>`,
+  'dc-charger': `${G}<rect x="78" y="14" width="84" height="136" rx="8" fill="#eef4f7" ${S}/>
+    <rect x="90" y="28" width="60" height="40" rx="3" fill="#12202a"/><path d="M112 36 l-8 14 h10 l-8 14" stroke="#c8e03c" stroke-width="3" fill="none"/>
+    <path d="M100 82 h40" stroke="#5cc6ec" stroke-width="3"/><rect x="96" y="92" width="18" height="12" rx="2" fill="#fff" ${S}/><rect x="126" y="92" width="18" height="12" rx="2" fill="#fff" ${S}/>
+    <path d="M78 104 C46 108 44 146 66 148" fill="none" stroke="#12202a" stroke-width="5" stroke-linecap="round"/><path d="M162 104 C194 108 196 146 174 148" fill="none" stroke="#12202a" stroke-width="5" stroke-linecap="round"/>`,
+  // solution vignettes
+  roof: `${G}<path d="M30 150 V80 L120 40 L210 80 V150" fill="#eef4f7" ${S}/><path d="M48 76 L120 44 L192 76 L120 108 Z" fill="#dff3fb" ${S}/>
+    <path d="M84 92 L156 60 M66 84 L138 52 M102 100 L174 68" stroke="#12202a" stroke-width="1.5"/><rect x="150" y="116" width="34" height="34" rx="3" fill="#fff" ${S}/><path d="M160 130 h14" stroke="#c8e03c" stroke-width="3"/>`,
+  carport: `${G}<path d="M30 48 L210 34 L214 50 L34 64 Z" fill="#dff3fb" ${S}/><path d="M60 62 V150 M190 52 V150" ${S}/>
+    <path d="M80 140 q4 -22 24 -22 h36 q18 0 24 22" fill="#eef4f7" ${S}/><circle cx="96" cy="142" r="8" fill="#12202a"/><circle cx="152" cy="142" r="8" fill="#12202a"/>
+    <rect x="196" y="96" width="18" height="40" rx="3" fill="#c8e03c" ${S}/>`,
+};
+const body = shapes[kind] || shapes.cabinet;
+---
+<svg viewBox="0 0 240 160" role="img" aria-label={label || kind} class="illus"><Fragment set:html={body} /></svg>
+<style>.illus { width: 100%; height: auto; }</style>

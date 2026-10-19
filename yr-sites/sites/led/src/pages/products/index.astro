@@ -1,0 +1,17 @@
+---
+import Base from '../../layouts/Base.astro';
+import PageHead from '../../components/PageHead.astro';
+import ProductBrowser from '../../components/ProductBrowser.astro';
+import catalog from '../../data/catalog.json';
+const list = {
+  '@context': 'https://schema.org', '@type': 'ItemList',
+  itemListElement: catalog.products.map((p, i) => ({ '@type': 'ListItem', position: i + 1, url: new URL(`/products/${p.slug}/`, Astro.site).href, name: p.name })),
+};
+---
+<Base title="Commercial LED lights: high bay, area, flood, wall pack" description="Filter YAORONG commercial LED fixtures by application, wattage, color temperature, DLC/UL/ETL listing and features. Specifications, MOQ and lead time on every product." current="/products/" jsonld={list}>
+  <PageHead title="Products" lede={`${catalog.products.length} product lines across ${catalog.categories.length} families. Filter by what you're lighting, add fixtures to your quote list, and get one quotation for the whole project.`}>
+    <nav class="fams" aria-label="Product families">{catalog.categories.map((c) => <a href={`/${c.slug}/`}>{c.name}</a>)}</nav>
+  </PageHead>
+  <section class="wrap" style="padding-top:28px;padding-bottom:72px"><ProductBrowser /></section>
+</Base>
+<style>.fams{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}.fams a{padding:7px 14px;border:1px solid var(--line);border-radius:999px;color:var(--ink);text-decoration:none;font-size:14.5px;background:var(--paper)}.fams a:hover{border-color:var(--ink)}</style>

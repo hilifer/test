@@ -1,0 +1,125 @@
+---
+import '../styles/global.css';
+import site from '../data/site.json';
+import catalog from '../data/catalog.json';
+import { t, lp, swap, pick, type Lang } from '../i18n';
+interface Props { lang: Lang; title: string; description: string; markdown?: string; jsonld?: object | object[]; current?: string; noAlt?: boolean; }
+const { lang, title, description, markdown, jsonld, current = '', noAlt = false } = Astro.props;
+const s = t(lang);
+const path = Astro.url.pathname;
+const canonical = new URL(path, Astro.site).href;
+const enPath = lang === 'zh' ? swap('zh', path) : path;
+const zhPath = lang === 'zh' ? path : swap('en', path);
+const fullTitle = title.includes(site.brand) ? title : `${title} | ${site.brand}`;
+const nav = [
+  ['/products/', s.nav_products], ['/solutions/', s.nav_solutions], ['/calculator/', s.nav_calc], ['/partners/', s.nav_partners], ['/about/', s.nav_about], ['/news/', s.nav_news],
+].map(([p, l]) => ({ href: lp(lang, p), label: l, key: p }));
+const org = { '@context': 'https://schema.org', '@type': 'Organization', name: site.brand, legalName: site.company, url: new URL('/', Astro.site).href, logo: new URL('/brand/yr-grid-logo-512.webp', Astro.site).href, email: site.email };
+const ld = [org, ...(Array.isArray(jsonld) ? jsonld : jsonld ? [jsonld] : [])];
+const chatCfg = {
+  site: 'grid', lang, brand: site.brand, catalogUrl: '/products.json', calculatorPath: lp(lang, '/calculator/'), productBase: lp(lang, '/products/'),
+  greeting: lang === 'zh' ? '您好！我可以帮您选储能、逆变器和充电桩，查认证和交期，给出参考价；工商业项目也可以先帮您估算回本周期。请问您在找什么？' : 'Hi! I can help you choose storage, inverters and EV chargers, check certifications and lead times, and give a reference price. For a building or factory project I can estimate payback too. What are you looking for?',
+  followup: 'Are you looking at energy storage, EV chargers, or a solar + storage project for a building? Tell me the capacity or power and quantity.',
+  followupZh: '您关注的是储能、充电桩，还是工商业光伏+储能项目？告诉我容量或功率和数量。',
+  suggestions: lang === 'zh' ? ['215 kWh 工商业储能柜多少钱？', '酒店要 20 台 22 kW 交流桩', '工厂屋顶光伏几年回本？', '想做你们的经销商'] : ['Price for a 215 kWh storage cabinet', '20 × 22 kW AC chargers for a hotel', 'Payback for solar on my factory roof', 'I want to become a distributor'],
+};
+---
+<!doctype html>
+<html lang={lang === 'zh' ? 'zh-CN' : 'en'}>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{fullTitle}</title>
+  <meta name="description" content={description} />
+  <link rel="canonical" href={canonical} />
+  {!noAlt && <><link rel="alternate" hreflang="en" href={new URL(enPath, Astro.site).href} /><link rel="alternate" hreflang="zh-CN" href={new URL(zhPath, Astro.site).href} /><link rel="alternate" hreflang="x-default" href={new URL(enPath, Astro.site).href} /></>}
+  {markdown && <link rel="alternate" type="text/markdown" href={markdown} title="Markdown version" />}
+  <link rel="alternate" type="application/rss+xml" href="/rss.xml" title={`${site.brand} news`} />
+  <link rel="help" type="text/plain" href="/llms.txt" title="LLM guide" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content={fullTitle} />
+  <meta property="og:description" content={description} />
+  <meta property="og:url" content={canonical} />
+  <meta property="og:image" content={new URL('/brand/og.jpg', Astro.site).href} />
+  <meta name="theme-color" content="#12202a" />
+  <link rel="icon" href="/favicon.png" type="image/png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  {ld.map((x) => <script type="application/ld+json" set:html={JSON.stringify(x)} />)}
+  <script is:inline define:vars={{ chatCfg }}>window.YR_CHAT = chatCfg;</script>
+  <script type="module" src="/assets/chat-widget.js"></script>
+</head>
+<body>
+  {(site.demo || catalog.sample) && <div class="demo">{s.demo}</div>}
+  <header class="top">
+    <div class="wrap top__in">
+      <a class="brand" href={lp(lang, '/')} aria-label={`${site.brand} home`}>
+        <img src="/brand/yr-grid-logo-160.webp" width="52" height="52" alt="" />
+        <span>YR GRID</span>
+      </a>
+      <nav aria-label="Main"><ul>{nav.map((n) => <li><a href={n.href} aria-current={current === n.key ? 'page' : undefined}>{n.label}</a></li>)}</ul></nav>
+      {!noAlt && <a class="lang" href={lang === 'zh' ? enPath : zhPath} hreflang={lang === 'zh' ? 'en' : 'zh-CN'}>{s.otherlang}</a>}
+      <a class="btn btn--lime top__cta" href={lp(lang, '/contact/')}>{s.cta_quote}</a>
+      <details class="menu">
+        <summary>{s.menu}</summary>
+        <ul>{nav.map((n) => <li><a href={n.href}>{n.label}</a></li>)}<li><a href={lp(lang, '/contact/')}>{s.cta_quote}</a></li>{!noAlt && <li><a href={lang === 'zh' ? enPath : zhPath}>{s.otherlang}</a></li>}</ul>
+      </details>
+    </div>
+  </header>
+  <main id="main"><slot /></main>
+  <footer class="foot">
+    <div class="wrap foot__grid">
+      <div>
+        <img src="/brand/yr-grid-logo-256.webp" width="120" height="120" alt="YR GRID — photovoltaic, storage, EV charging station" />
+        <p class="mute">{pick(lang, site.company, site.companyZh)}<br />{pick(lang, site.address, site.addressZh)}</p>
+      </div>
+      <div>
+        <p class="foot__h">{s.talk}</p>
+        <p><a href={`mailto:${site.email}`}>{site.email}</a><br />WhatsApp {site.whatsapp}</p>
+        <p class="mute">{s.ai247}</p>
+      </div>
+      <div>
+        <p class="foot__h">{s.nav_products}</p>
+        <ul>{catalog.categories.map((c) => <li><a href={`${lp(lang, '/products/')}#${c.id}`}>{pick(lang, c.name, c.nameZh)}</a></li>)}</ul>
+      </div>
+      <div>
+        <p class="foot__h">{s.forai}</p>
+        <ul><li><a href="/llms.txt">llms.txt</a></li><li><a href="/products.json">Catalog JSON</a></li><li><a href="/for-ai-agents/">MCP endpoint</a></li><li><a href="/rss.xml">RSS</a></li></ul>
+      </div>
+    </div>
+    <div class="wrap foot__legal mute">
+      <span>© {new Date().getFullYear()} {pick(lang, site.company, site.companyZh)}</span>
+      <a href={lp(lang, '/privacy/')}>{s.privacy}</a>
+      <a href={site.corporateSite} rel="noopener">{s.corporate}</a>
+    </div>
+  </footer>
+</body>
+</html>
+<style>
+  .demo { background: #f4f9d6; color: #3d4a00; font-size: 13.5px; text-align: center; padding: 6px 16px; }
+  .top { background: var(--navy); position: sticky; top: 0; z-index: 50; border-bottom: 3px solid var(--lime); }
+  .top__in { display: flex; align-items: center; gap: 26px; height: 72px; }
+  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: #fff; font: 700 24px/1 var(--display); letter-spacing: .04em; }
+  .brand img { border-radius: 8px; }
+  nav ul { display: flex; gap: 22px; list-style: none; margin: 0; padding: 0; }
+  nav a { color: #d6e4ec; text-decoration: none; font-size: 15.5px; font-weight: 500; padding: 6px 0; border-bottom: 2px solid transparent; }
+  nav a:hover, nav a[aria-current='page'] { color: #fff; border-bottom-color: var(--sky); }
+  .lang { margin-left: auto; color: #d6e4ec; font-size: 15px; text-decoration: none; border: 1px solid var(--navy-3); padding: 6px 10px; border-radius: 6px; }
+  .lang:hover { color: #fff; border-color: var(--sky); }
+  .top__cta { padding: 10px 18px; }
+  .menu { display: none; margin-left: auto; }
+  .menu summary { list-style: none; cursor: pointer; font-weight: 600; padding: 8px 12px; border: 1px solid var(--navy-3); border-radius: 6px; color: #fff; }
+  .menu summary::-webkit-details-marker { display: none; }
+  .menu ul { position: absolute; right: var(--gutter); top: 70px; background: #fff; border: 1px solid var(--line); border-radius: 8px; list-style: none; margin: 0; padding: 8px; min-width: 220px; box-shadow: 0 10px 30px rgba(18,32,42,.25); }
+  .menu li a { display: block; padding: 10px 12px; color: var(--ink); text-decoration: none; }
+  @media (max-width: 1080px) { nav, .top__cta, .lang { display: none; } .menu { display: block; } }
+  .foot { background: var(--navy); color: #b9cad5; padding: 56px 0 28px; font-size: 15px; }
+  .foot a { color: #fff; }
+  .foot__grid { display: grid; grid-template-columns: 1.4fr 1.2fr 1fr 1fr; gap: 32px; }
+  .foot__grid img { border-radius: 10px; margin-bottom: 12px; }
+  .foot__h { font-weight: 600; color: #fff; margin-bottom: .6em; }
+  .foot ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .foot .mute { color: #8ea3b1; }
+  .foot__legal { display: flex; gap: 24px; flex-wrap: wrap; margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--navy-3); font-size: 13.5px; }
+  @media (max-width: 800px) { .foot__grid { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 520px) { .foot__grid { grid-template-columns: 1fr; } }
+</style>

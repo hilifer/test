@@ -1,0 +1,130 @@
+{
+  "brand": "YR GRID",
+  "company": "Shenzhen Yaorong Technology Co., Ltd.",
+  "about": "YR GRID is the solar, energy-storage and EV-charging business of Shenzhen Yaorong Technology. It supplies C&I and residential storage systems, hybrid inverters, PV modules and AC/DC EV chargers, and delivers solar + storage + charging projects with EPC partners.",
+  "keySpecHint": "capacity in kWh or power in kW, grid type (single/three phase, voltage), on-grid/off-grid, charger connector standard (Type 2, CCS2, GB/T), OCPP needs",
+  "handoffRules": [
+    "C&I or utility projects needing a site design, EPC or financing (EMC/PPA) discussion",
+    "distributor, agency or EPC partnership requests",
+    "OEM/ODM or custom configuration",
+    "discount, price matching or payment terms",
+    "quantities beyond the public price bands",
+    "complaints or after-sales claims",
+    "the customer asks for a person"
+  ],
+  "facts": [
+    "YR GRID is a brand of Shenzhen Yaorong Technology Co., Ltd., a National High-Tech Enterprise and 专精特新 enterprise in China.",
+    "The company develops and builds commercial & industrial rooftop solar and storage projects in China, including energy-management (EMC) projects.",
+    "An online ROI calculator at /calculator/ estimates PV size, investment and payback from a monthly bill and roof area.",
+    "Formal quotations are issued as a Proforma Invoice (PI) by a sales engineer, normally within one business day."
+  ],
+  "extraInstructions": "For a C&I solar/storage project, ask for location, monthly electricity bill or kWh, tariff and roof area, point them to the ROI calculator at /calculator/, and hand off to a project engineer. For chargers ask connector standard and whether OCPP backend integration is needed.",
+  "calculatorPath": "/calculator/",
+  "greetingFollowup": "Are you looking at energy storage, EV chargers, or a solar + storage project for a building? Tell me the capacity or power and quantity and I'll recommend models with a reference price.",
+  "greetingFollowupZh": "您关注的是储能、充电桩，还是工商业光伏+储能项目？告诉我容量或功率和数量，我来推荐型号并给出参考价。",
+  "content": {
+    "audience": "distributors, installers, EPC contractors, charging operators and commercial building or factory owners in Southeast Asia, the Middle East and China",
+    "voice": "Clear and numerate, like a project engineer explaining economics and design choices to a buyer. No hype.",
+    "internalPages": [
+      "/products/",
+      "/solutions/",
+      "/calculator/",
+      "/partners/",
+      "/about/",
+      "/contact/",
+      "/news/",
+      "/for-ai-agents/"
+    ],
+    "_feedsNote": "Verify each feed URL after deployment; failing feeds are skipped and shown in the run log.",
+    "feeds": [
+      {
+        "name": "pv magazine",
+        "url": "https://www.pv-magazine.com/feed/"
+      },
+      {
+        "name": "Energy-Storage.news",
+        "url": "https://www.energy-storage.news/feed/"
+      },
+      {
+        "name": "Electrek",
+        "url": "https://electrek.co/feed/"
+      },
+      {
+        "name": "CleanTechnica",
+        "url": "https://cleantechnica.com/feed/"
+      }
+    ],
+    "topics": {
+      "en": [
+        "How to size a commercial battery for peak shaving",
+        "Liquid-cooled vs air-cooled energy storage cabinets: what changes?",
+        "What is OCPP and why does it matter when buying EV chargers?",
+        "AC vs DC chargers for hotels, offices and fleet depots",
+        "How many DC fast chargers can a site support without a transformer upgrade?",
+        "Solar carport design basics: structure, modules and charging",
+        "Hybrid inverter buying guide for installers: MPPT, backup and battery compatibility",
+        "LFP battery cycle life explained: what 6,000 cycles really means",
+        "IEC 62619, UN38.3 and UL 9540A: storage certifications explained",
+        "Solar + storage payback in the Philippines: what drives the numbers",
+        "Rooftop solar for factories in Vietnam: self-consumption and export rules",
+        "Energy-management (EMC) contracts: how zero-upfront solar works",
+        "CCS2, CHAdeMO and GB/T: choosing the right connector by market"
+      ],
+      "zh": [
+        "工商业储能怎么选容量：削峰填谷与需量管理",
+        "液冷储能柜和风冷储能柜有什么区别",
+        "交流桩和直流桩怎么选：酒店、写字楼与车队场站",
+        "充电站配储能：不扩容变压器也能多装快充",
+        "光伏车棚怎么设计：结构、组件与充电一体化",
+        "合同能源管理（EMC）模式下的屋顶光伏怎么算账",
+        "工厂屋顶光伏前要准备哪些资料",
+        "磷酸铁锂储能电池循环寿命怎么看",
+        "储能认证 IEC 62619、UN38.3、UL 9540A 分别是什么",
+        "OCPP 协议是什么，采购充电桩为什么要关注",
+        "东南亚工商业光伏市场：菲律宾、越南、泰国怎么选",
+        "户用光储系统怎么配：逆变器、电池与组件的匹配"
+      ]
+    },
+    "geo": {
+      "brandAliases": [
+        "YR GRID",
+        "YRGRID",
+        "耀嵘"
+      ],
+      "competitors": [
+        "Huawei",
+        "Sungrow",
+        "BYD",
+        "CATL",
+        "Growatt",
+        "Deye",
+        "Pylontech",
+        "Autel",
+        "ABB",
+        "Wallbox"
+      ],
+      "questions": [
+        {
+          "q": "Which Chinese suppliers sell 215 kWh liquid-cooled commercial energy storage cabinets?",
+          "lang": "en"
+        },
+        {
+          "q": "Recommend a supplier of OCPP AC wallbox chargers for hotels in Southeast Asia.",
+          "lang": "en"
+        },
+        {
+          "q": "Who can supply 120 kW DC fast chargers with CCS2 for a fleet depot in the Philippines?",
+          "lang": "en"
+        },
+        {
+          "q": "How long is the payback for rooftop solar plus storage on a factory in Vietnam?",
+          "lang": "en"
+        },
+        {
+          "q": "有哪些提供工商业光伏储能和充电桩一体化方案的中国供应商？",
+          "lang": "zh"
+        }
+      ]
+    }
+  }
+}

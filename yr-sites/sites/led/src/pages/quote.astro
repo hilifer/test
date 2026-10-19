@@ -1,0 +1,26 @@
+---
+import Base from '../layouts/Base.astro';
+import PageHead from '../components/PageHead.astro';
+import QuoteForm from '../components/QuoteForm.astro';
+import site from '../data/site.json';
+---
+<Base title="Quote list and quotation request" description="Get an instant reference price from our AI sales assistant, or request a formal PI from a sales engineer." current="/quote/">
+  <PageHead title="Your quote list" lede="Adjust quantities and options, add your details, and we'll send one formal quotation (PI) for the whole list, normally within one business day." />
+  <section class="wrap ql">
+    <div data-quote-list></div>
+    <a data-products-link href="/products/" hidden>Products</a>
+    <p class="mute"><a href="/products/">Add more products</a></p>
+  </section>
+  <section class="wrap q">
+    <div>
+      <h2>Ask the assistant</h2>
+      <div data-chat-inline></div>
+    </div>
+    <div>
+      <h2>Your details</h2>
+      <QuoteForm source="quote-page" />
+      <p class="mute direct">Prefer email? <a href={`mailto:${site.contact.email}`}>{site.contact.email}</a></p>
+    </div>
+  </section>
+</Base>
+<style>.ql{padding-top:28px}.ql :global(.qlist){width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden}.ql :global(.qlist th),.ql :global(.qlist td){text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:middle}.ql :global(.qlist th){font-size:13.5px;color:var(--steel);background:#f4f6f8}.ql :global(.qlist input){padding:8px 10px;border:1px solid #c3ccd5;border-radius:6px;font:inherit;width:100%;min-width:80px}.ql :global(.qlist__sku){font-size:13px;color:var(--steel)}.ql :global(.qlist__rm){background:none;border:0;color:#b42318;cursor:pointer;font:inherit;text-decoration:underline}.ql :global(.qlist__empty){background:var(--surface);border:1px dashed var(--line);border-radius:10px;padding:18px}@media(max-width:700px){.ql :global(.qlist thead){display:none}.ql :global(.qlist td){display:block;border:0;padding:6px 12px}.ql :global(.qlist tr){display:block;border-bottom:1px solid var(--line);padding:6px 0}}.q{display:grid;grid-template-columns:1fr 1fr;gap:40px;padding-top:40px;padding-bottom:72px;align-items:start}.q h2{font-size:1.4rem}.direct{margin-top:14px;font-size:15px}@media(max-width:900px){.q{grid-template-columns:1fr}}</style>

@@ -1,0 +1,163 @@
+---
+// Faceted product browser: filters (category, application, power, CCT, listing, features),
+// sorting, live result count, URL-synced state and side-by-side compare (up to 3).
+import ProductCard from './ProductCard.astro';
+import catalog from '../data/catalog.json';
+import apps from '../data/applications.json';
+interface Props { products?: any[]; lockCat?: string; }
+const { products = catalog.products, lockCat = '' } = Astro.props;
+const showPrice = catalog.priceDisplay !== 'hidden';
+const featMap: Record<string, string> = catalog.features;
+const ccts = [...new Set(products.flatMap((p: any) => p.cct || []))].sort();
+const featIds = [...new Set(products.flatMap((p: any) => p.features || []))];
+const appIds = new Set(products.flatMap((p: any) => apps.filter((a) => p.applications.some((x: string) => a.kw.includes(x))).map((a) => a.id)));
+const certGroups = [['DLC', 'DLC listed'], ['UL|ETL', 'UL or ETL'], ['FCC', 'FCC'], ['CE', 'CE']].filter(([k]) => products.some((p: any) => k.split('|').some((c) => p.certifications.join(' ').includes(c))));
+const power = [['0-60', 'Up to 60 W'], ['60-150', '60–150 W'], ['150-300', '150–300 W'], ['300-99999', 'Over 300 W']];
+const cmpData = Object.fromEntries(products.map((p: any) => [p.id, {
+  name: p.name, url: `/products/${p.slug}/`, watts: p.wattMin === p.wattMax ? `${p.wattMin} W` : `${p.wattMin}–${p.wattMax} W`,
+  efficacy: p.specs.Efficacy || '—', lumens: p.specs['Lumen output'] || '—', cct: (p.cct || []).map((k: number) => `${k}K`).join(', '),
+  ip: p.specs['IP / IK'] || p.specs.IP || '—', dimming: p.specs.Dimming || p.specs.Control || '—', voltage: p.specs['Input voltage'] || '—',
+  certs: p.certifications.join(', '), moq: `${p.moq} ${p.unit}`, lead: `${p.leadTimeDays[0]}–${p.leadTimeDays[1]} days`, warranty: p.warranty,
+  price: showPrice ? `From ${catalog.currency} ${Math.min(...p.priceBands.map((b: any) => b.low))}` : 'On request',
+}]));
+---
+<div class="pb" data-lock-cat={lockCat}>
+  <aside class="pb__f" aria-label="Filters">
+    <details open class="pb__fd">
+      <summary>Filters</summary>
+      {!lockCat && (
+        <fieldset><legend>Product family</legend>{catalog.categories.map((c) => <label><input type="checkbox" name="cat" value={c.id} /> {c.name}</label>)}</fieldset>
+      )}
+      <fieldset><legend>Application</legend>{apps.filter((a) => appIds.has(a.id)).map((a) => <label><input type="checkbox" name="app" value={a.id} /> {a.label}</label>)}</fieldset>
+      <fieldset><legend>Power</legend>{power.map(([v, l]) => <label><input type="checkbox" name="w" value={v} /> {l}</label>)}</fieldset>
+      <fieldset><legend>Color temperature</legend>{ccts.map((k) => <label><input type="checkbox" name="cct" value={k} /> {k}K</label>)}</fieldset>
+      <fieldset><legend>Listing</legend>{certGroups.map(([v, l]) => <label><input type="checkbox" name="cert" value={v} /> {l}</label>)}</fieldset>
+      <fieldset><legend>Features</legend>{featIds.map((f) => <label><input type="checkbox" name="feat" value={f} /> {featMap[f]}</label>)}</fieldset>
+      <button type="button" class="pb__clear" data-clear>Clear all filters</button>
+    </details>
+  </aside>
+  <div class="pb__main">
+    <div class="pb__bar">
+      <p class="pb__count" aria-live="polite">Showing <b data-count>{products.length}</b> of {products.length} products</p>
+      <label class="pb__sort">Sort by
+        <select data-sort>
+          <option value="featured">Featured</option>
+          <option value="w-asc">Wattage: low to high</option>
+          <option value="w-desc">Wattage: high to low</option>
+          {showPrice && <option value="p-asc">Price: low to high</option>}
+          {showPrice && <option value="p-desc">Price: high to low</option>}
+        </select>
+      </label>
+    </div>
+    <div class="pb__grid" data-grid>{products.map((p: any, i: number) => <ProductCard p={p} order={i} />)}</div>
+    <p class="pb__empty" data-empty hidden>No product matches every filter. Clear one, or <button type="button" class="linkish" data-chat-open data-chat-prompt="I can't find a fixture with the exact features I need.">ask the assistant</button> — we may have a variant or can customise.</p>
+  </div>
+</div>
+<div class="cmpbar" data-cmpbar hidden>
+  <span><b data-cmpn>0</b> selected to compare (up to 3)</span>
+  <button type="button" class="btn btn--signal" data-cmpopen>Compare</button>
+  <button type="button" class="linkish" data-cmpclear>Clear</button>
+</div>
+<dialog class="cmpdlg" data-cmpdlg aria-label="Compare products">
+  <div class="cmpdlg__head"><h2>Compare</h2><button type="button" class="linkish" data-cmpclose>Close</button></div>
+  <div class="cmpdlg__body" data-cmptable></div>
+</dialog>
+<script type="application/json" data-cmpdata set:html={JSON.stringify(cmpData)} />
+<script>
+  const root = document.querySelector<HTMLElement>('.pb')!;
+  const cards = [...root.querySelectorAll<HTMLElement>('.pc')];
+  const grid = root.querySelector<HTMLElement>('[data-grid]')!;
+  const boxes = [...root.querySelectorAll<HTMLInputElement>('.pb__f input[type=checkbox]')];
+  const sortSel = root.querySelector<HTMLSelectElement>('[data-sort]')!;
+  const lockCat = root.dataset.lockCat;
+  const vals = (name: string) => boxes.filter((b) => b.name === name && b.checked).map((b) => b.value);
+
+  function apply(push = true) {
+    const cat = lockCat ? [lockCat] : vals('cat'), app = vals('app'), w = vals('w'), cct = vals('cct'), cert = vals('cert'), feat = vals('feat');
+    let n = 0;
+    for (const c of cards) {
+      const d = c.dataset;
+      const ok = (!cat.length || cat.includes(d.cat!)) &&
+        (!app.length || app.some((a) => d.apps!.split(' ').includes(a))) &&
+        (!w.length || w.some((r) => { const [lo, hi] = r.split('-').map(Number); return +d.wmax! >= lo && +d.wmin! <= hi; })) &&
+        (!cct.length || cct.some((k) => d.cct!.split(' ').includes(k))) &&
+        cert.every((g) => g.split('|').some((x) => d.certs!.includes(x))) &&
+        feat.every((f) => d.features!.split(' ').includes(f));
+      c.hidden = !ok;
+      if (ok) n++;
+    }
+    root.querySelector('[data-count]')!.textContent = String(n);
+    root.querySelector<HTMLElement>('[data-empty]')!.hidden = n > 0;
+    const s = sortSel.value;
+    const key = (c: HTMLElement) => s.startsWith('w') ? +c.dataset.wmin! : s.startsWith('p') ? +(c.dataset.price || 1e9) : +c.dataset.order!;
+    const dir = s.endsWith('desc') ? -1 : 1;
+    cards.slice().sort((a, b) => (key(a) - key(b)) * dir).forEach((c) => grid.append(c));
+    if (push) {
+      const q = new URLSearchParams();
+      for (const [k, v] of Object.entries({ cat: lockCat ? [] : cat, app, w, cct, cert, feat })) if (v.length) q.set(k, v.join(','));
+      if (s !== 'featured') q.set('sort', s);
+      history.replaceState(null, '', q.toString() ? `?${q}` : location.pathname);
+    }
+  }
+  // restore from URL (?cat=high-bay&cct=5000 …)
+  const q = new URLSearchParams(location.search);
+  for (const b of boxes) if ((q.get(b.name) || '').split(',').includes(b.value)) b.checked = true;
+  if (q.get('sort')) sortSel.value = q.get('sort')!;
+  root.addEventListener('change', () => apply());
+  root.querySelector('[data-clear]')!.addEventListener('click', () => { boxes.forEach((b) => (b.checked = false)); apply(); });
+  if (matchMedia('(max-width: 900px)').matches && !q.toString()) root.querySelector('details')!.removeAttribute('open');
+  apply(false);
+
+  // compare
+  const data = JSON.parse(document.querySelector('[data-cmpdata]')!.textContent!);
+  const bar = document.querySelector<HTMLElement>('[data-cmpbar]')!;
+  const dlg = document.querySelector<HTMLDialogElement>('[data-cmpdlg]')!;
+  const picked = () => [...document.querySelectorAll<HTMLInputElement>('[data-compare]:checked')].map((i) => i.dataset.compare!);
+  document.addEventListener('change', (e) => {
+    const t = e.target as HTMLInputElement;
+    if (!t.matches?.('[data-compare]')) return;
+    if (picked().length > 3) { t.checked = false; return; }
+    const n = picked().length;
+    bar.hidden = n === 0;
+    bar.querySelector('[data-cmpn]')!.textContent = String(n);
+  });
+  bar.querySelector('[data-cmpclear]')!.addEventListener('click', () => { document.querySelectorAll<HTMLInputElement>('[data-compare]').forEach((i) => (i.checked = false)); bar.hidden = true; });
+  bar.querySelector('[data-cmpopen]')!.addEventListener('click', () => {
+    const ids = picked();
+    if (ids.length < 2) { alert('Select at least two products to compare.'); return; }
+    const rows: [string, string][] = [['Power', 'watts'], ['Efficacy', 'efficacy'], ['Lumen output', 'lumens'], ['CCT', 'cct'], ['IP / IK', 'ip'], ['Dimming / control', 'dimming'], ['Input voltage', 'voltage'], ['Certifications', 'certs'], ['MOQ', 'moq'], ['Lead time', 'lead'], ['Warranty', 'warranty'], ['Price', 'price']];
+    const esc = (s: string) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+    dlg.querySelector('[data-cmptable]')!.innerHTML = `<table class="spec"><thead><tr><th></th>${ids.map((i) => `<th scope="col"><a href="${data[i].url}">${esc(data[i].name)}</a></th>`).join('')}</tr></thead><tbody>${rows.map(([l, k]) => `<tr><th scope="row">${l}</th>${ids.map((i) => `<td>${esc(data[i][k])}</td>`).join('')}</tr>`).join('')}<tr><th></th>${ids.map((i) => `<td><button type="button" class="btn btn--ink" data-add-quote data-id="${i}" data-name="${esc(data[i].name)}" data-moq="${parseInt(data[i].moq)}">Add to quote list</button></td>`).join('')}</tr></tbody></table>`;
+    dlg.showModal();
+  });
+  dlg.querySelector('[data-cmpclose]')!.addEventListener('click', () => dlg.close());
+  dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close(); });
+</script>
+<style>
+  .pb { display: grid; grid-template-columns: 250px 1fr; gap: 28px; align-items: start; }
+  .pb__f { position: sticky; top: 92px; max-height: calc(100vh - 110px); overflow-y: auto; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-m); padding: 6px 16px 16px; }
+  .pb__fd > summary { font-weight: 700; padding: 10px 0; cursor: pointer; font-variation-settings: 'wdth' 110; }
+  fieldset { border: 0; border-top: 1px solid var(--line); margin: 0; padding: 12px 0 10px; display: grid; gap: 6px; }
+  legend { font-size: 13.5px; font-weight: 650; color: var(--steel); padding: 0; float: left; width: 100%; margin-bottom: 6px; }
+  fieldset label { display: flex; gap: 8px; align-items: center; font-size: 14.5px; cursor: pointer; }
+  fieldset input { width: 16px; height: 16px; accent-color: var(--ink); }
+  .pb__clear { margin-top: 8px; background: none; border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; font: 500 14px/1 var(--font); cursor: pointer; width: 100%; }
+  .pb__bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+  .pb__count { margin: 0; }
+  .pb__sort { font-size: 14.5px; display: flex; gap: 8px; align-items: center; }
+  .pb__sort select { padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+  .pb__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 18px; }
+  .pb__empty { background: var(--surface); border: 1px dashed var(--line); border-radius: 10px; padding: 20px; }
+  .linkish { background: none; border: 0; padding: 0; color: var(--link); font: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+  .cmpbar { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 9990; background: var(--ink); color: #fff; padding: 10px 14px 10px 18px; border-radius: 999px; display: flex; gap: 14px; align-items: center; box-shadow: 0 8px 30px rgba(20,32,46,.35); }
+  .cmpbar[hidden] { display: none; }
+  .cmpbar .linkish { color: #cfd8e1; }
+  .cmpdlg { width: min(980px, calc(100vw - 24px)); border: 0; border-radius: 14px; padding: 0; box-shadow: 0 20px 60px rgba(0,0,0,.35); }
+  .cmpdlg::backdrop { background: rgba(20,32,46,.5); }
+  .cmpdlg__head { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--line); }
+  .cmpdlg__head h2 { margin: 0; font-size: 1.4rem; }
+  .cmpdlg__body { padding: 8px 20px 20px; overflow-x: auto; }
+  .cmpdlg .spec th { width: auto; }
+  .cmpdlg thead th { color: var(--ink); font-weight: 650; }
+  @media (max-width: 900px) { .pb { grid-template-columns: 1fr; } .pb__f { position: static; max-height: none; } }
+</style>

@@ -1,0 +1,28 @@
+---
+import Base from '../layouts/Base.astro';
+import PageHead from '../components/PageHead.astro';
+import Calculator from '../components/Calculator.astro';
+import QuoteForm from '../components/QuoteForm.astro';
+import { type Lang } from '../i18n';
+const { lang } = Astro.props as { lang: Lang };
+const zh = lang === 'zh';
+const faq = zh
+  ? [{ q: '测算结果准确吗？', a: '这是基于地区平均日照、电价和造价的快速估算，误差可能在 ±20% 以上。正式方案需要 12 个月电费单、屋顶结构和现场勘察。' }, { q: '没有预算可以做吗？', a: '可以了解合同能源管理（EMC）模式：由投资方出资建设和运维，业主按约定折扣电价支付用电费用。' }, { q: '储能什么时候值得配？', a: '峰谷价差大、有需量电费、午间光伏发电大量富余，或者需要备电时，配储能通常更划算。' }]
+  : [{ q: 'How accurate is this estimate?', a: 'It is a quick estimate from regional averages for sunshine, tariffs and costs, and can be off by 20% or more. A proposal needs 12 months of bills, roof structure details and a site survey.' }, { q: 'Can I go solar with no upfront budget?', a: 'Ask about the energy-management (EMC) model: an investor funds, builds and maintains the system and you pay an agreed discounted rate for the power you use.' }, { q: 'When does adding a battery make sense?', a: 'Usually when peak/off-peak price spreads are wide, demand charges are high, a lot of midday solar would otherwise be exported cheaply, or you need backup power.' }];
+const ld = { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faq.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })) };
+---
+<Base lang={lang} title={zh ? '工商业光伏储能收益测算器' : 'Solar + storage ROI calculator'} description={zh ? '输入电费、电价和屋顶面积，估算光伏装机容量、投资额、年发电量和回本周期。' : 'Estimate solar size, investment, yearly generation and payback from your electricity bill and roof area.'} current="/calculator/" jsonld={ld}>
+  <PageHead title={zh ? '收益测算器' : 'ROI calculator'} lede={zh ? '填入月电费和屋顶面积，马上看到建议装机、投资和回本周期。需要正式方案时，把测算结果发给我们。' : 'Enter your monthly bill and roof area to see a suggested system size, investment and payback. When you want a real proposal, send us the result.'} />
+  <section class="wrap c"><Calculator lang={lang} /></section>
+  <section class="section section--white">
+    <div class="wrap two">
+      <div>
+        <h2>{zh ? '获取详细方案' : 'Get a detailed proposal'}</h2>
+        <p>{zh ? '提交后，工程师会结合您的测算结果，给出组件排布、储能配置、投资模式（自投或 EMC）和更准确的收益分析。' : "Send this and an engineer will follow up with a panel layout, storage sizing, ownership options (own it or EMC) and a more precise return analysis based on your numbers."}</p>
+        <dl class="faq">{faq.map((f) => <><dt>{f.q}</dt><dd>{f.a}</dd></>)}</dl>
+      </div>
+      <QuoteForm lang={lang} source="calculator" extraHint={zh ? '项目地址、屋顶类型、是否有 12 个月电费单…' : 'Site address, roof type, whether you have 12 months of bills…'} />
+    </div>
+  </section>
+</Base>
+<style>.c{padding-top:36px;padding-bottom:56px}.two{display:grid;grid-template-columns:1fr 1.3fr;gap:48px;align-items:start}.faq dt{font-weight:600;margin-top:16px}.faq dd{margin:4px 0 0;color:var(--ink-2)}@media(max-width:900px){.two{grid-template-columns:1fr}}</style>

@@ -1,0 +1,29 @@
+---
+import Base from '../layouts/Base.astro';
+import ProductCard from '../components/ProductCard.astro';
+import { render } from 'astro:content';
+import catalog from '../data/catalog.json';
+import site from '../data/site.json';
+import { faqJsonLd } from '../../../../shared/site-lib.mjs';
+import { t, lp, fmtDate, type Lang } from '../i18n';
+const { lang, entry } = Astro.props as { lang: Lang; entry: any };
+const s = t(lang);
+const { Content } = await render(entry);
+const d = entry.data;
+const slug = entry.id.replace(/^zh\//, '');
+const prods = catalog.products.filter((p) => d.products.includes(p.id));
+const article = { '@context': 'https://schema.org', '@type': 'Article', headline: d.title, description: d.description, inLanguage: lang === 'zh' ? 'zh-CN' : 'en', datePublished: d.date.toISOString(), dateModified: (d.updated || d.date).toISOString(), author: { '@type': 'Organization', name: site.brand }, publisher: { '@type': 'Organization', name: site.brand }, mainEntityOfPage: new URL(lp(lang, `/news/${slug}/`), Astro.site).href };
+---
+<Base lang={lang} title={d.title} description={d.description} markdown={`/news/${entry.id}.md`} jsonld={[article, faqJsonLd(d.faq)].filter(Boolean) as object[]} current="/news/" noAlt>
+  <article class="wrap art">
+    <p class="crumbs"><a href={lp(lang, '/news/')}>{s.news_title}</a></p>
+    <h1>{d.title}</h1>
+    <p class="meta mute"><time datetime={d.date.toISOString()}>{fmtDate(lang, d.date)}</time>{d.updated && <span>{s.updated} {fmtDate(lang, d.updated)}</span>}</p>
+    <p class="lede">{d.description}</p>
+    <div class="prose"><Content /></div>
+    {d.faq.length > 0 && <section class="faq"><h2>{s.faq_full}</h2>{d.faq.map((f: any) => <details><summary>{f.q}</summary><p>{f.a}</p></details>)}</section>}
+    {d.sources.length > 0 && <section class="src"><h2>{s.sources}</h2><ul>{d.sources.map((x: any) => <li><a href={x.url} rel="noopener nofollow">{x.title}</a></li>)}</ul></section>}
+  </article>
+  {prods.length > 0 && <section class="wrap rel"><h2>{s.mentioned}</h2><div class="cards">{prods.map((p) => <ProductCard p={p} lang={lang} />)}</div></section>}
+</Base>
+<style>.art{max-width:820px;padding-top:28px;padding-bottom:40px}.crumbs{font-size:14.5px}.meta{display:flex;gap:16px;font-size:14.5px}.faq{margin-top:40px}.faq details{border-top:1px solid var(--line);padding:12px 0}.faq summary{font-weight:600;cursor:pointer}.faq p{margin:8px 0 0}.src{margin-top:32px;font-size:15px}.rel{padding-bottom:72px}.rel .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:18px}</style>

@@ -1,0 +1,38 @@
+---
+import Base from '../layouts/Base.astro';
+import PageHead from '../components/PageHead.astro';
+import catalog from '../data/catalog.json';
+const info: Record<string, string> = {
+  'DLC Premium': 'DesignLights Consortium listing at the higher efficacy and quality tier. Many North American utility rebates require DLC, and some pay more for Premium.',
+  'DLC Standard': 'DesignLights Consortium listing. Required by most North American utility rebate programs for commercial fixtures.',
+  UL: 'Safety certification for the US and Canada from UL.',
+  ETL: 'Safety certification for the US and Canada from Intertek, accepted as equivalent to UL by inspectors and most buyers.',
+  FCC: 'US electromagnetic interference compliance for the driver and electronics.',
+  CE: 'Conformity marking for the European Economic Area, covering low-voltage and EMC directives.',
+  RoHS: 'Restriction of hazardous substances in electrical equipment (EU).',
+  CB: 'IECEE CB scheme report, used to obtain national certifications in many countries.',
+  ENEC: 'European safety mark for luminaires issued by an accredited test lab.',
+  'IEC 62133 (battery)': 'Safety standard for the lithium battery in solar models.',
+};
+const certs = [...new Set(catalog.products.flatMap((p) => p.certifications))];
+---
+<Base title="Certifications: DLC, UL, ETL, CE" description="Which YAORONG LED fixtures carry DLC, UL/ETL, FCC, CE and RoHS certification, and what each listing means for your project." current="/certifications/">
+  <PageHead title="Certifications" lede="Which listing each model carries, and what it means for permits and rebates. Certificate copies and test reports are sent on request." />
+  <section class="wrap c">
+    <table class="spec m">
+      <thead><tr><th scope="col">Model</th>{certs.map((c) => <th scope="col">{c}</th>)}</tr></thead>
+      <tbody>{catalog.products.map((p) => <tr><th scope="row"><a href={`/products/${p.slug}/`}>{p.name}</a></th>{certs.map((c) => <td>{p.certifications.includes(c) ? <span aria-label="yes">●</span> : <span class="mute" aria-label="no">–</span>}</td>)}</tr>)}</tbody>
+    </table>
+    <div class="defs">{certs.map((c) => <div><h2>{c}</h2><p>{info[c] || ''}</p></div>)}</div>
+    <p><button class="btn btn--ink" data-chat-open data-chat-prompt="Can you send certificate copies for a model I'm interested in?">Request certificate copies</button></p>
+  </section>
+</Base>
+<style>
+  .c{padding-top:40px;padding-bottom:72px}
+  .m{background:var(--surface);border:1px solid var(--line);display:block;overflow-x:auto;white-space:nowrap;margin-bottom:40px}
+  .m th,.m td{width:auto;text-align:center}.m tbody th{text-align:left}.m thead th{font-size:13px}
+  .m td span{color:var(--ink)}
+  .defs{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:18px;margin-bottom:32px}
+  .defs div{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px}
+  .defs h2{font-size:1.15rem;margin-bottom:6px}.defs p{font-size:15px;margin:0;color:var(--ink-2)}
+</style>

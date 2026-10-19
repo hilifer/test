@@ -1,0 +1,27 @@
+---
+import Base from '../layouts/Base.astro';
+import PageHead from '../components/PageHead.astro';
+import site from '../data/site.json';
+---
+<Base title="Privacy and cookies" description="How YAORONG handles personal data from chats, quotation requests and website visits." current="">
+  <PageHead title="Privacy and cookies" lede="Last updated: draft for legal review." />
+  <section class="wrap prose p">
+    <h2>Who is responsible</h2>
+    <p>{site.company}, {site.contact.address}. Contact: <a href={`mailto:${site.contact.email}`}>{site.contact.email}</a>.</p>
+    <h2>What we collect</h2>
+    <ul>
+      <li>Details you give us in the chat or forms: name, company, email, phone or WhatsApp, country and your project requirements.</li>
+      <li>Chat transcripts, so a sales engineer can follow up without asking you to repeat yourself.</li>
+      <li>Basic technical data such as pages visited. We store a pseudonymised network identifier for abuse prevention, not your raw IP address.</li>
+    </ul>
+    <h2>AI assistant</h2>
+    <p>The chat is answered by an AI assistant. Messages are processed by our AI service provider to generate replies. The assistant gives reference prices only; binding offers come from our sales team as a formal PI.</p>
+    <h2>Why and how long</h2>
+    <p>We use your data to answer your request and send quotations (legitimate interest and pre-contract steps), and to send follow-up emails only if you agreed. We keep inquiry data for up to 3 years after the last contact unless a contract requires longer.</p>
+    <h2>Your rights</h2>
+    <p>You can ask to access, correct or delete your data, or object to marketing, at any time by emailing us. Every marketing email has an unsubscribe link. EU/UK residents may complain to their data protection authority; California residents have rights under the CCPA, and we do not sell personal information.</p>
+    <h2>Cookies and storage</h2>
+    <p>The site uses your browser's local storage to keep your chat session. We do not use advertising cookies without consent.</p>
+  </section>
+</Base>
+<style>.p{padding-top:40px;padding-bottom:72px}</style>

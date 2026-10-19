@@ -1,0 +1,46 @@
+---
+import Base from '../layouts/Base.astro';
+import PageHead from '../components/PageHead.astro';
+import QuoteForm from '../components/QuoteForm.astro';
+const steps = [
+  ['Brief', 'Share target specs, certifications, market and annual volume.'],
+  ['Engineering review', 'Our engineers confirm feasibility, tooling needs and a budget price.'],
+  ['Samples', 'Prototype or modified samples for testing, with your logo and packaging if needed.'],
+  ['Certification', 'We support DLC, UL/ETL, CE and other listings under your brand where required.'],
+  ['Production', 'Mass production with incoming, in-process and final inspection.'],
+];
+---
+<Base title="OEM and ODM LED lighting" description="Private-label and custom LED fixtures built in our own factory: housings, optics, drivers, packaging and certification support." current="/oem-odm/">
+  <PageHead title="OEM and ODM" lede="Private label, modified standard models or a new fixture from scratch. Because housings, optics and boards are made in-house, we can change more than the logo." />
+  <section class="wrap two">
+    <div>
+      <h2>What we can customise</h2>
+      <ul class="list">
+        <li><strong>Housing</strong>Die-cast and extruded profiles, colours, mounting brackets</li>
+        <li><strong>Optics</strong>Beam angles, asymmetric distributions, glare control</li>
+        <li><strong>Electronics</strong>LED boards, driver brands, dimming protocols, sensors</li>
+        <li><strong>Branding</strong>Logo, labels, manuals, retail and bulk packaging</li>
+      </ul>
+      <h2>How a project runs</h2>
+      <ol class="flow">{steps.map(([t, d]) => <li><strong>{t}</strong><span>{d}</span></li>)}</ol>
+    </div>
+    <div>
+      <h2>Start a project</h2>
+      <p>OEM and ODM requests go straight to a project engineer, not the AI assistant.</p>
+      <QuoteForm source="oem-odm" />
+    </div>
+  </section>
+</Base>
+<style>
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:48px;padding-top:44px;padding-bottom:72px;align-items:start}
+  .two h2{font-size:1.45rem;margin-top:8px}
+  .list{list-style:none;padding:0;margin:0 0 36px;display:grid;gap:10px}
+  .list li{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .list strong{display:block}
+  .flow{list-style:none;counter-reset:f;padding:0;margin:0;display:grid;gap:0}
+  .flow li{counter-increment:f;position:relative;padding:0 0 18px 48px;border-left:2px solid var(--line);margin-left:16px}
+  .flow li:last-child{border-left-color:transparent}
+  .flow li::before{content:counter(f);position:absolute;left:-17px;top:-2px;width:32px;height:32px;border-radius:50%;background:var(--ink);color:#fff;display:grid;place-items:center;font-weight:700;font-size:15px}
+  .flow strong{display:block}.flow span{color:var(--ink-2);font-size:15.5px}
+  @media(max-width:900px){.two{grid-template-columns:1fr}}
+</style>

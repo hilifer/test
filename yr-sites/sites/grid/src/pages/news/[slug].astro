@@ -1,0 +1,10 @@
+---
+import V from '../../views/Article.astro';
+import { getCollection } from 'astro:content';
+export async function getStaticPaths() {
+  const posts = await getCollection('news', (e) => e.data.status === 'published' && e.data.lang === 'en');
+  return posts.map((entry) => ({ params: { slug: entry.id.replace(/^zh\//, '') }, props: { entry } }));
+}
+const { entry } = Astro.props;
+---
+<V lang="en" entry={entry} />

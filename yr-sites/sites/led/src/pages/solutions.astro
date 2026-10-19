@@ -1,0 +1,48 @@
+---
+import Base from '../layouts/Base.astro';
+import PageHead from '../components/PageHead.astro';
+import catalog from '../data/catalog.json';
+const sols = [
+  { id: 'warehouse', t: 'Warehouses and factories', d: 'Mounting heights of 6–15 m call for high bays with the right optic: wide beams for open floors, narrow aisle optics between racking. Motion sensors and 0–10 V dimming cut energy use in low-traffic zones.', tips: ['Under 6 m (20 ft): 100–150 W UFO or linear fixtures', '6–9 m (20–30 ft): 150–240 W', '9–14 m (30–45 ft): 240 W and up, or linear high bays with narrow optics'], kw: ['warehouse', 'factory', 'aisle'] },
+  { id: 'parking', t: 'Parking lots and campuses', d: 'Area lights on 6–10 m poles with Type III optics along edges and Type V in open areas. A 7-pin receptacle leaves room for photocells or networked controls later.', tips: ['Type III at lot edges, Type V in the middle', 'Choose 3000 K or 4000 K where neighbours are close', 'Check pole-top adapters (slip-fitter vs. arm mount)'], kw: ['parking lot', 'campus'] },
+  { id: 'street', t: 'Streets and roads', d: 'Cobra-head and all-in-one solar street lights for municipal roads, industrial parks and villages without grid power.', tips: ['Type II optics for narrow roads, Type III for wider roads', 'Zhaga or NEMA sockets for smart-city controllers', 'Solar models: size autonomy to local rainy-day patterns'], kw: ['street', 'road', 'off-grid'] },
+  { id: 'sports', t: 'Sports fields', d: 'High-mast floodlights with asymmetric optics and glare visors for football, tennis and baseball. Flicker-free drivers matter if the venue is filmed.', tips: ['Share field size and class of play for a layout', 'Asymmetric optics reduce spill onto neighbours', 'Request a DIALux layout from our engineers'], kw: ['stadium', 'sports field', 'tennis court'] },
+  { id: 'exterior', t: 'Building exteriors and gas stations', d: 'Full cut-off wall packs for perimeters and loading docks, canopy lights for fuel stations and drive-throughs, and flood lights for façades and yards.', tips: ['Full cut-off wall packs for dark-sky rules', 'Built-in photocells avoid extra controls', 'IP66 for canopy and coastal sites'], kw: ['perimeter', 'gas station', 'facade', 'loading dock'] },
+  { id: 'indoor', t: 'Offices, schools, car parks and cold storage', d: 'Back-lit panels for drop ceilings and vapor-tight linear fixtures for wet, dusty or cold areas.', tips: ['UGR < 19 diffusers for classrooms and offices', 'IK10 vapor-tights in car parks', 'Emergency battery packs on request'], kw: ['office', 'school', 'car park', 'cold storage'] },
+];
+const prodFor = (kw: string[]) => catalog.products.filter((p) => p.applications.some((a) => kw.includes(a)));
+---
+<Base title="Lighting solutions by application" description="Which LED fixtures to use for warehouses, parking lots, streets, sports fields, building exteriors and indoor spaces." current="/solutions/">
+  <PageHead title="Solutions by application" lede="Starting points for the projects we quote most often. Every site is different, so send us your drawings and we'll recommend fixtures and quantities.">
+    <nav class="jump" aria-label="Applications">{sols.map((s) => <a href={`#${s.id}`}>{s.t}</a>)}</nav>
+  </PageHead>
+  {sols.map((s, i) => (
+    <section class={`sol ${i % 2 ? 'sol--alt' : ''}`} id={s.id}>
+      <div class="wrap sol__grid">
+        <div>
+          <h2>{s.t}</h2>
+          <p>{s.d}</p>
+          <ul>{s.tips.map((t) => <li>{t}</li>)}</ul>
+          <button class="btn btn--ink" data-chat-open data-chat-prompt={`I have a ${s.t.toLowerCase()} project. What do you recommend?`}>Ask about a {s.t.split(' ')[0].toLowerCase()} project</button>
+        </div>
+        <div class="sol__prods">
+          <p class="mute">Suggested fixtures</p>
+          <ul>{prodFor(s.kw).map((p) => <li><a href={`/products/${p.slug}/`}>{p.name}</a><span class="num">{p.wattMin === p.wattMax ? `${p.wattMin} W` : `${p.wattMin}–${p.wattMax} W`}</span></li>)}</ul>
+        </div>
+      </div>
+    </section>
+  ))}
+</Base>
+<style>
+  .jump{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:10px;font-size:15px}
+  .sol{padding:56px 0;scroll-margin-top:80px}.sol--alt{background:var(--surface)}
+  .sol__grid{display:grid;grid-template-columns:1.4fr 1fr;gap:48px;align-items:start}
+  .sol ul{padding-left:1.1em;margin:0 0 22px}.sol li{margin-bottom:6px}
+  .sol__prods{border-left:6px solid var(--signal);background:var(--paper);padding:18px 22px;border-radius:0 10px 10px 0}
+  .sol--alt .sol__prods{background:var(--paper)}
+  .sol__prods p{margin:0 0 8px;font-size:14px;font-weight:600}
+  .sol__prods ul{list-style:none;padding:0;margin:0}
+  .sol__prods li{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid var(--line);margin:0}
+  .sol__prods li span{color:var(--steel)}
+  @media(max-width:900px){.sol__grid{grid-template-columns:1fr}}
+</style>

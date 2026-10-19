@@ -1,0 +1,64 @@
+---
+// Category landing pages (e.g. /led-high-bay-lights/): answer-first buying guide + FAQ + filtered products.
+import Base from '../layouts/Base.astro';
+import ProductBrowser from '../components/ProductBrowser.astro';
+import catalog from '../data/catalog.json';
+import guides from '../data/category-guides.json';
+import { faqJsonLd } from '../../../../shared/site-lib.mjs';
+export function getStaticPaths() {
+  return catalog.categories.map((c) => ({ params: { cat: c.slug }, props: { c } }));
+}
+const { c } = Astro.props;
+const g = (guides as any)[c.id];
+const products = catalog.products.filter((p) => p.category === c.id);
+const ld = [
+  { '@context': 'https://schema.org', '@type': 'CollectionPage', name: c.title, description: g.intro, url: new URL(`/${c.slug}/`, Astro.site).href,
+    mainEntity: { '@type': 'ItemList', itemListElement: products.map((p, i) => ({ '@type': 'ListItem', position: i + 1, url: new URL(`/products/${p.slug}/`, Astro.site).href, name: p.name })) } },
+  faqJsonLd(g.faq),
+  { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [{ '@type': 'ListItem', position: 1, name: 'Products', item: new URL('/products/', Astro.site).href }, { '@type': 'ListItem', position: 2, name: c.title }] },
+];
+const others = catalog.categories.filter((x) => x.id !== c.id);
+---
+<Base title={`${c.title}, factory direct`} description={g.intro} jsonld={ld as object[]} current="/products/">
+  <section class="hd">
+    <div class="wrap">
+      <p class="crumbs"><a href="/products/">Products</a></p>
+      <h1>{c.title}</h1>
+      <p class="lede">{g.intro}</p>
+      <div class="acts">
+        <a class="btn btn--signal" href="/lighting-design/">Get a free lighting layout</a>
+        <button class="btn btn--line" data-chat-open data-chat-prompt={`I'm looking for ${c.title.toLowerCase()}. Which model fits my project?`}>Ask which model fits</button>
+      </div>
+    </div>
+  </section>
+  <section class="wrap" style="padding-top:28px;padding-bottom:40px"><ProductBrowser products={products} lockCat={c.id} /></section>
+  <section class="section section--white">
+    <div class="wrap guide">
+      <div class="prose">
+        <h2>How to choose {c.title.replace(/^LED /, '').toLowerCase()}</h2>
+        {g.sections.map((s: any) => <><h3>{s.h}</h3><p>{s.p}</p></>)}
+      </div>
+      <aside>
+        <h2>Common questions</h2>
+        {g.faq.map((f: any) => <details><summary>{f.q}</summary><p>{f.a}</p></details>)}
+        <h3 class="more">Other product families</h3>
+        <ul>{others.map((o) => <li><a href={`/${o.slug}/`}>{o.title}</a></li>)}</ul>
+      </aside>
+    </div>
+  </section>
+</Base>
+<style>
+  .hd { background: var(--surface); padding: 40px 0 32px; border-bottom: 1px solid var(--line); }
+  .crumbs { font-size: 14.5px; margin-bottom: 6px; }
+  .acts { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 20px; }
+  .guide { display: grid; grid-template-columns: 1.4fr 1fr; gap: 48px; align-items: start; }
+  .guide h3 { font-size: 1.15rem; margin-top: 1.4em; }
+  aside h2 { font-size: 1.6rem; margin-top: 0; }
+  .guide .prose h2 { margin-top: 0; }
+  aside details { border-top: 1px solid var(--line); padding: 12px 0; }
+  aside summary { font-weight: 650; cursor: pointer; }
+  aside details p { margin: 8px 0 0; color: var(--ink-2); }
+  .more { margin-top: 28px; font-size: 1rem; }
+  aside ul { padding-left: 1.1em; }
+  @media (max-width: 900px) { .guide { grid-template-columns: 1fr; } }
+</style>

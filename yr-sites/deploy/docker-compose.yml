@@ -1,0 +1,34 @@
+# Used by both regions. Run from deploy/led-na or deploy/grid-sea:
+#   docker compose -f ../docker-compose.yml --env-file .env up -d --build
+services:
+  app:
+    build: { context: ../.., dockerfile: Dockerfile }
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PORT: 8787
+      DB_PATH: /data/db/${SITE}.sqlite
+      NEWS_DIR: /data/news
+      RELEASES_DIR: /srv/site
+      SITE_URL: https://${DOMAIN}
+      PUBLIC_BASE_URL: https://${DOMAIN}
+    volumes:
+      - ./data/db:/data/db
+      - ./data/news:/data/news
+      - site:/srv/site
+  caddy:
+    image: caddy:2.8.4
+    restart: unless-stopped
+    depends_on: [app]
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ../Caddyfile:/etc/caddy/Caddyfile:ro
+      - site:/srv/site:ro
+      - caddy_data:/data
+      - caddy_config:/config
+volumes:
+  site:
+  caddy_data:
+  caddy_config:

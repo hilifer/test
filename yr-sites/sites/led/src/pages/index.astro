@@ -1,0 +1,282 @@
+---
+import Base from '../layouts/Base.astro';
+import Illus from '../components/Illus.astro';
+import catalog from '../data/catalog.json';
+import site from '../data/site.json';
+import { getCollection } from 'astro:content';
+
+import appsData from '../data/applications.json';
+const apps = appsData;
+const finder = catalog.products.map((p) => ({ n: p.name, s: p.slug, u: `/products/${p.slug}/`, a: p.applications, w: [p.wattMin, p.wattMax], c: p.certifications.join(' '), cat: p.category }));
+const news = (await getCollection('news', (e) => e.data.status === 'published')).sort((a, b) => +b.data.date - +a.data.date).slice(0, 3);
+const catIllus = { 'high-bay': 'ufo', area: 'shoebox', flood: 'flood', 'wall-canopy': 'wallpack', indoor: 'triproof' };
+const count = (id: string) => catalog.products.filter((p) => p.category === id).length;
+---
+<Base title="Commercial LED lighting, quoted in minutes | YAORONG" description={site.about} current="/">
+  <section class="hero">
+    <div class="wrap hero__grid">
+      <div class="hero__copy">
+        <h1>Commercial LED lighting, quoted in minutes.</h1>
+        <p class="lede">Factory-direct high bays, area lights, flood lights and wall packs, with DLC and UL/ETL listed models. Pick what you're lighting and our assistant gives you matching models and a reference price, day or night.</p>
+        <div class="hero__actions">
+          <button class="btn btn--signal" data-chat-open>Ask for a price now</button>
+          <a class="btn btn--line" href="/products/">Browse {catalog.products.length} product lines</a>
+        </div>
+        <ul class="facts">
+          <li><strong>Own factory</strong><span>Die-casting, molding and SMT in Guangdong</span></li>
+          <li><strong>MOQ from 10</strong><span>Samples in about a week</span></li>
+          <li><strong>Formal PI</strong><span>Within one business day</span></li>
+        </ul>
+      </div>
+
+      <form class="finder" id="finder" aria-labelledby="finder-h">
+        <h2 id="finder-h">Find your fixture</h2>
+        <fieldset>
+          <legend>What are you lighting?</legend>
+          <div class="chips">{apps.map((a) => <button type="button" class="chip" data-app={a.id} data-kw={a.kw.join('|')} aria-pressed="false">{a.label}</button>)}</div>
+        </fieldset>
+        <fieldset>
+          <legend>Power</legend>
+          <div class="chips">
+            {[['any', 'Any'], ['0-60', 'Up to 60 W'], ['60-150', '60–150 W'], ['150-300', '150–300 W'], ['300-99999', '300 W +']].map(([v, l]) => <button type="button" class="chip" data-w={v} aria-pressed={v === 'any' ? 'true' : 'false'}>{l}</button>)}
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Must be listed</legend>
+          <div class="chips">
+            {[['DLC', 'DLC'], ['UL|ETL', 'UL or ETL'], ['CE', 'CE']].map(([v, l]) => <button type="button" class="chip" data-cert={v} aria-pressed="false">{l}</button>)}
+          </div>
+        </fieldset>
+        <div class="finder__out" aria-live="polite">
+          <p class="finder__count"><span id="f-count" class="num">{catalog.products.length}</span> matching models</p>
+          <ul id="f-list"></ul>
+        </div>
+        <button type="button" class="btn btn--ink finder__go" id="f-go">Get a reference price for these</button>
+      </form>
+    </div>
+  </section>
+
+  <section class="trust" aria-label="Why buy from us">
+    <ul class="wrap trust__in">
+      <li><b>Free lighting layout</b><span><a href="/lighting-design/">Send a floor plan</a>, get fixtures and quantities</span></li>
+      <li><b>Up to 5-year warranty</b><span>On high bays, area and flood lights</span></li>
+      <li><b>DLC and ETL listed models</b><span>Rebate-ready for North America</span></li>
+      <li><b>Samples in about a week</b><span>Test before you commit to volume</span></li>
+    </ul>
+  </section>
+
+  <section class="section section--white">
+    <div class="wrap">
+      <div class="section-head"><h2>Product lines</h2><a href="/products/">All products and specifications</a></div>
+      <div class="cats">
+        {catalog.categories.map((c) => (
+          <a class="cat" href={`/${c.slug}/`}>
+            <Illus kind={catIllus[c.id as keyof typeof catIllus]} label={c.name} />
+            <h3>{c.name}</h3>
+            <p>{c.blurb}</p>
+            <span class="mute num">{count(c.id)} {count(c.id) === 1 ? 'model' : 'models'}</span>
+          </a>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <section class="section spaces">
+    <div class="wrap">
+      <div class="section-head"><h2>Shop by space</h2><a href="/solutions/">Application guides</a></div>
+      <div class="sp">{apps.map((a) => { const n = catalog.products.filter((p) => p.applications.some((x) => a.kw.includes(x))).length; return n ? <a class="spi" href={`/products/?app=${a.id}`}><b>{a.label}</b><span class="num">{n} {n === 1 ? 'model' : 'models'}</span></a> : null; })}</div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap steps">
+      <div>
+        <h2>From question to PI in one working day</h2>
+        <p class="lede">You don't need to wait for our office to open. The assistant answers in your language, and a sales engineer picks up the conversation with the full context.</p>
+      </div>
+      <ol>
+        <li><strong>Describe the project</strong><span>Application, mounting height, quantity, destination. Any time zone, any hour.</span></li>
+        <li><strong>See models and a price range</strong><span>Matching fixtures with certifications, MOQ, lead time and a reference price on the spot.</span></li>
+        <li><strong>Get the formal quotation</strong><span>A sales engineer emails a PI with freight, normally within one business day.</span></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="section section--ink">
+    <div class="wrap factory">
+      <div>
+        <h2>Made in our own factory</h2>
+        <p>We control the parts that decide how long a fixture lasts: the die-cast housing that carries heat away, the driver and LED boards we assemble on our own SMT lines, and the sealing that keeps water out.</p>
+        <p><a href="/factory/">Factory and quality process</a></p>
+      </div>
+      <ul class="caps">
+        <li><strong>Die-casting</strong><span>Aluminium housings and heat sinks</span></li>
+        <li><strong>Injection molding</strong><span>Lenses, diffusers and covers</span></li>
+        <li><strong>SMT</strong><span>LED boards and electronics</span></li>
+        <li><strong>Metal fabrication</strong><span>Brackets, poles and fittings</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="section section--white">
+    <div class="wrap ai">
+      <div>
+        <h2>Readable by your procurement AI</h2>
+        <p>If you use an AI assistant to shortlist suppliers, point it here. Every product has a plain Markdown page, the full catalog is published as JSON, and agents can search, price and submit an inquiry through our MCP endpoint.</p>
+        <p><a href="/for-ai-agents/">Connect an AI agent</a></p>
+      </div>
+      <pre class="code" aria-label="Example"><code>GET /llms.txt
+GET /products/ufo-high-bay-u2.md
+POST /mcp  tools/call estimate_quote
+  {"{"} "product_id": "YR-HB-U2", "quantity": 800 {"}"}</code></pre>
+    </div>
+  </section>
+
+  {news.length > 0 && (
+    <section class="section">
+      <div class="wrap">
+        <div class="section-head"><h2>Guides and news</h2><a href="/news/">All articles</a></div>
+        <div class="news">
+          {news.map((n) => (
+            <a class="newsi" href={`/news/${n.id}/`}>
+              <time class="mute" datetime={n.data.date.toISOString()}>{n.data.date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</time>
+              <h3>{n.data.title}</h3>
+              <p>{n.data.description}</p>
+            </a>
+          ))}
+        </div>
+      </div>
+    </section>
+  )}
+
+  <section class="cta">
+    <div class="wrap cta__in">
+      <h2>Have a bill of materials or a lighting layout?</h2>
+      <p>Send it over and we'll match every line item with a model and price.</p>
+      <a class="btn btn--signal" href="/quote/">Request a quotation</a>
+    </div>
+  </section>
+</Base>
+
+<script type="application/json" id="finder-data" set:html={JSON.stringify(finder)} />
+<script>
+  const data = JSON.parse(document.getElementById('finder-data')!.textContent!);
+  const form = document.getElementById('finder')!;
+  const list = document.getElementById('f-list')!;
+  const count = document.getElementById('f-count')!;
+  const state = { apps: new Set<string>(), w: 'any', certs: new Set<string>() };
+  const labelOf: Record<string, string> = {};
+  form.querySelectorAll<HTMLButtonElement>('[data-app]').forEach((b) => (labelOf[b.dataset.app!] = b.textContent!));
+
+  function match() {
+    const kws = [...form.querySelectorAll<HTMLButtonElement>('[data-app][aria-pressed="true"]')].flatMap((b) => b.dataset.kw!.split('|'));
+    const [lo, hi] = state.w === 'any' ? [0, 1e9] : state.w.split('-').map(Number);
+    return data.filter((p: any) =>
+      (!kws.length || p.a.some((a: string) => kws.includes(a))) &&
+      p.w[1] >= lo && p.w[0] <= hi &&
+      [...state.certs].every((c) => c.split('|').some((x) => p.c.includes(x))));
+  }
+  function render() {
+    const m = match();
+    count.textContent = String(m.length);
+    list.replaceChildren(...m.slice(0, 5).map((p: any) => {
+      const li = document.createElement('li');
+      const a = document.createElement('a');
+      a.href = p.u;
+      a.textContent = p.n;
+      const w = document.createElement('span');
+      w.textContent = p.w[0] === p.w[1] ? `${p.w[0]} W` : `${p.w[0]}–${p.w[1]} W`;
+      li.append(a, w);
+      return li;
+    }));
+    if (m.length > 5) { const li = document.createElement('li'); li.className = 'more'; li.textContent = `+ ${m.length - 5} more`; list.append(li); }
+    if (!m.length) { const li = document.createElement('li'); li.className = 'more'; li.textContent = 'No exact match. Ask the assistant, we may have a variant or can customise.'; list.append(li); }
+  }
+  form.addEventListener('click', (e) => {
+    const b = (e.target as HTMLElement).closest('button');
+    if (!b) return;
+    if (b.dataset.app) { b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed') !== 'true')); }
+    if (b.dataset.w) { form.querySelectorAll('[data-w]').forEach((x) => x.setAttribute('aria-pressed', 'false')); b.setAttribute('aria-pressed', 'true'); state.w = b.dataset.w; }
+    if (b.dataset.cert) { const on = b.getAttribute('aria-pressed') !== 'true'; b.setAttribute('aria-pressed', String(on)); on ? state.certs.add(b.dataset.cert) : state.certs.delete(b.dataset.cert); }
+    render();
+  });
+  document.getElementById('f-go')!.addEventListener('click', () => {
+    const apps = [...form.querySelectorAll<HTMLButtonElement>('[data-app][aria-pressed="true"]')].map((b) => b.textContent!.toLowerCase());
+    const w = form.querySelector<HTMLButtonElement>('[data-w][aria-pressed="true"]')!.textContent!;
+    const certs = [...form.querySelectorAll<HTMLButtonElement>('[data-cert][aria-pressed="true"]')].map((b) => b.textContent);
+    const names = match().slice(0, 3).map((p: any) => p.n).join(', ');
+    const prompt = `I need lights for ${apps.join(' and ') || 'a commercial project'}${w !== 'Any' ? `, ${w}` : ''}${certs.length ? `, ${certs.join(' and ')} listed` : ''}. ${names ? `Looking at ${names}. ` : ''}What price range can you give?`;
+    const opener = document.createElement('button');
+    opener.setAttribute('data-chat-open', '');
+    opener.setAttribute('data-chat-prompt', prompt);
+    opener.hidden = true;
+    document.body.append(opener);
+    opener.click();
+    opener.remove();
+  });
+  render();
+</script>
+
+<style>
+  .hero { background: var(--surface); padding: clamp(40px, 6vw, 80px) 0 clamp(48px, 7vw, 96px); border-bottom: 1px solid var(--line); }
+  .hero__grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: clamp(28px, 5vw, 64px); align-items: start; }
+  .hero__actions { display: flex; gap: 12px; flex-wrap: wrap; margin: 28px 0 36px; }
+  .facts { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; border-top: 1px solid var(--line); padding-top: 20px; }
+  .facts strong { display: block; font-size: 1.05rem; font-variation-settings: 'wdth' 112; }
+  .facts span { font-size: 14px; color: var(--steel); }
+  .finder { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 24px; position: relative; overflow: hidden; }
+  .finder::before { content: ''; position: absolute; inset: 0 0 auto; height: 6px; background: var(--kelvin); }
+  .finder h2 { font-size: 1.45rem; margin: 6px 0 14px; }
+  fieldset { border: 0; padding: 0; margin: 0 0 16px; }
+  legend { font-size: 14px; font-weight: 600; color: var(--steel); margin-bottom: 8px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 7px; }
+  .finder__out { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin: 4px 0 14px; min-height: 150px; }
+  .finder__count { margin: 0 0 6px; font-weight: 650; }
+  #f-list { list-style: none; margin: 0; padding: 0; font-size: 15px; }
+  #f-list :global(li) { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; border-top: 1px solid #edf0f3; }
+  #f-list :global(li span) { color: var(--steel); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  #f-list :global(li.more) { color: var(--steel); display: block; }
+  .finder__go { width: 100%; }
+  .trust { background: var(--ink); color: #dfe7ee; }
+  .trust__in { list-style: none; margin: 0 auto; padding-top: 18px; padding-bottom: 18px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+  .trust b { display: block; color: #fff; font-variation-settings: 'wdth' 110; }
+  .trust span { font-size: 14px; color: #a9b7c5; }
+  .trust a { color: #ffd27a; }
+  .spaces { padding-top: 0; }
+  .sp { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+  .spi { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 16px 18px; background: var(--surface); border: 1px solid var(--line); border-left: 6px solid var(--signal); border-radius: 0 10px 10px 0; color: var(--ink); text-decoration: none; }
+  .spi:hover { border-color: var(--ink); border-left-color: var(--signal); }
+  .spi span { color: var(--steel); font-size: 14px; }
+  .cats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
+  .cat { display: flex; flex-direction: column; padding: 18px; border: 1px solid var(--line); border-radius: var(--radius-m); color: inherit; text-decoration: none; background: var(--paper); }
+  .cat:hover { border-color: var(--ink); }
+  .cat h3 { margin: 12px 0 6px; }
+  .cat p { font-size: 15px; color: var(--ink-2); flex: 1; }
+  .steps { display: grid; grid-template-columns: 1fr 1.2fr; gap: 48px; align-items: start; }
+  .steps ol { list-style: none; counter-reset: s; margin: 0; padding: 0; display: grid; gap: 14px; }
+  .steps li { counter-increment: s; display: grid; grid-template-columns: 52px 1fr; column-gap: 16px; padding: 18px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-m); }
+  .steps li::before { content: counter(s); grid-row: span 2; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--ink); color: #fff; font-weight: 700; font-size: 18px; }
+  .steps li strong { font-size: 1.08rem; }
+  .steps li span { color: var(--ink-2); font-size: 15.5px; }
+  .factory { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; }
+  .factory h2 { color: #fff; }
+  .caps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: #33465a; border: 1px solid #33465a; border-radius: 10px; overflow: hidden; }
+  .caps li { background: var(--ink); padding: 22px; }
+  .caps strong { display: block; color: #fff; font-size: 1.1rem; font-variation-settings: 'wdth' 112; }
+  .caps span { color: #a9b7c5; font-size: 15px; }
+  .ai { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; }
+  .code { background: var(--ink); color: #d8e3ee; padding: 22px 24px; border-radius: 10px; font: 14.5px/1.7 ui-monospace, SFMono-Regular, Menlo, monospace; overflow-x: auto; margin: 0; border-left: 6px solid var(--signal); }
+  .news { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .newsi { display: block; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-m); padding: 22px; color: inherit; text-decoration: none; }
+  .newsi h3 { margin: 8px 0; font-size: 1.15rem; line-height: 1.25; }
+  .newsi p { font-size: 15px; color: var(--ink-2); margin: 0; }
+  .newsi:hover h3 { text-decoration: underline; }
+  .cta { background: var(--signal); padding: 56px 0; }
+  .cta__in { display: grid; grid-template-columns: 1fr auto; gap: 8px 32px; align-items: center; }
+  .cta h2 { margin: 0; color: var(--signal-ink); }
+  .cta p { margin: 0; grid-column: 1; }
+  .cta .btn { grid-row: 1 / span 2; grid-column: 2; background: var(--ink); color: #fff; }
+  @media (max-width: 1000px) { .hero__grid, .steps, .factory, .ai { grid-template-columns: 1fr; } .cats { grid-template-columns: repeat(2, 1fr); } .news { grid-template-columns: 1fr; } }
+  @media (max-width: 900px) { .trust__in { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 560px) { .trust__in { grid-template-columns: 1fr; } .facts { grid-template-columns: 1fr; } .cats { grid-template-columns: 1fr; } .cta__in { grid-template-columns: 1fr; } .cta .btn { grid-row: auto; grid-column: 1; justify-self: start; margin-top: 12px; } }
+</style>

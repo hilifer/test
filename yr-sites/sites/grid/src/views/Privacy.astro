@@ -1,0 +1,27 @@
+---
+import Base from '../layouts/Base.astro';
+import PageHead from '../components/PageHead.astro';
+import site from '../data/site.json';
+import { type Lang } from '../i18n';
+const { lang } = Astro.props as { lang: Lang };
+const zh = lang === 'zh';
+---
+<Base lang={lang} title={zh ? '隐私与 Cookie' : 'Privacy and cookies'} description={zh ? 'YR GRID 如何处理对话、询价和网站访问中的个人信息。' : 'How YR GRID handles personal data from chats, inquiries and website visits.'} current="">
+  <PageHead title={zh ? '隐私与 Cookie' : 'Privacy and cookies'} lede={zh ? '草稿，待法务审核。' : 'Draft for legal review.'} />
+  <section class="wrap prose" style="padding-top:40px;padding-bottom:72px">
+    {zh ? <>
+      <h2>责任主体</h2><p>{site.companyZh}，{site.addressZh}。联系：<a href={`mailto:${site.email}`}>{site.email}</a>。</p>
+      <h2>我们收集什么</h2><ul><li>您在对话或表单中提供的信息：姓名、公司、邮箱、电话或 WhatsApp、国家及项目需求。</li><li>对话记录，便于业务工程师跟进时无需您重复说明。</li><li>测算器的输入与结果（仅在您提交表单时）。</li><li>经过脱敏处理的网络标识，用于防止滥用，不保存原始 IP。</li></ul>
+      <h2>AI 助手</h2><p>在线对话由 AI 助手答复，消息会经由我们的 AI 服务商处理以生成回复。AI 只提供参考价，具有约束力的报价以销售团队发出的正式 PI 为准。</p>
+      <h2>用途与保存期限</h2><p>用于答复您的询价和发送报价；仅在您同意时发送后续邮件。询价数据最长保存至最后一次联系后 3 年，合同另有要求的除外。</p>
+      <h2>您的权利</h2><p>您可随时通过邮件要求查阅、更正或删除您的信息，或拒绝营销信息。</p>
+    </> : <>
+      <h2>Who is responsible</h2><p>{site.company}, {site.address}. Contact: <a href={`mailto:${site.email}`}>{site.email}</a>.</p>
+      <h2>What we collect</h2><ul><li>Details you give us in the chat or forms: name, company, email, phone or WhatsApp, country and project requirements.</li><li>Chat transcripts, so a sales engineer can follow up without asking you to repeat yourself.</li><li>Calculator inputs and results, only when you submit a form.</li><li>A pseudonymised network identifier for abuse prevention; we do not store your raw IP address.</li></ul>
+      <h2>AI assistant</h2><p>The chat is answered by an AI assistant. Messages are processed by our AI service provider to generate replies. The assistant gives reference prices only; binding offers come from our sales team as a formal PI.</p>
+      <h2>Why and how long</h2><p>To answer your request and send quotations, and to send follow-up emails only if you agreed. We keep inquiry data for up to 3 years after the last contact unless a contract requires longer.</p>
+      <h2>Your rights</h2><p>You can ask to access, correct or delete your data, or object to marketing, at any time by email. EU/UK residents may complain to their data protection authority. Thailand (PDPA), Malaysia (PDPA), Singapore (PDPA), Philippines (DPA) and Indonesia (PDP Law) residents have equivalent rights.</p>
+      <h2>Cookies and storage</h2><p>The site uses your browser's local storage to keep your chat session. We do not use advertising cookies without consent.</p>
+    </>}
+  </section>
+</Base>
