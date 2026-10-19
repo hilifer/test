@@ -14,6 +14,7 @@ import { mountContentAdmin } from './content/admin-content.js';
 import { startScheduler } from './content/scheduler.js';
 import { mountOpsAdmin } from './ops/admin-ops.js';
 import { mountPortal } from './ops/portal.js';
+import { mountDeals } from './ops/admin-deals.js';
 import { mountCatalogAdmin } from './catalog/admin-catalog.js';
 import { mountShop } from './shop/storefront.js';
 import { startShopJobs } from './shop/checkout.js';
@@ -133,6 +134,7 @@ app.use('/admin/*', sameOrigin);
 app.use('/shop/*', sameOrigin); // customer forms (cart, checkout, account)
 app.use('/api/shop/*', sameOrigin);
 app.use('/admin', sameOrigin);
+app.use('/portal/contract/*', sameOrigin); // e-signature
 // Staff login (sessions) — Basic auth is also accepted for scripts, with the same users and lockout.
 ensureBootstrapAdmin();
 const SESSION_COOKIE = 'yr_staff';
@@ -174,6 +176,7 @@ mountCatalogAdmin(app);
 mountShop(app, { ipOf });
 mountShopAdmin(app);
 mountMarketingAdmin(app);
+mountDeals(app, { ipOf });
 app.post('/admin/lead/:id/status', async (c) => {
   const f = await c.req.parseBody();
   const status = String(f.status || '');

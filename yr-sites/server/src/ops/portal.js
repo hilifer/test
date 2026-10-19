@@ -10,13 +10,14 @@ import {
 } from './service.js';
 import { alertOps } from '../alerts.js';
 import { pushOrder } from './erp/index.js';
+import { contractForQuote } from './deals.js';
 
 const T = {
   en: { title: 'Customer portal', lookup: 'Track an order', lookupLede: 'Enter your order number and the email address on the order.', order: 'Order number', email: 'Email', go: 'Find my order', notFound: 'We could not find an order with that number and email. Check both, or contact us.', hello: 'Welcome', pis: 'Quotations (PI)', orders: 'Orders', rmas: 'After-sales requests', none: 'Nothing here yet.', view: 'View', placed: 'Placed', total: 'Total', paid: 'Paid', balance: 'Balance due', status: 'Status', items: 'Items', shipments: 'Shipments', noShip: 'Not shipped yet. We will add tracking details as soon as it ships.', tracking: 'Tracking', eta: 'ETA', etd: 'ETD', container: 'Container', history: 'Updates', rmaH: 'Report a problem with this order', rmaLede: 'Tell us what happened. Photos help: paste links to photos or a shared folder.', sku: 'Item', qty: 'Quantity affected', issue: 'Problem', desc: 'What happened?', photos: 'Photo links (optional)', submit: 'Send request', rmaOk: 'Request received. Your after-sales number is', back: 'Back to my account', contact: 'Questions? Email', lang: '中文' },
   zh: { title: '客户中心', lookup: '查询订单', lookupLede: '请输入订单号和下单时使用的邮箱。', order: '订单号', email: '邮箱', go: '查询', notFound: '没有找到对应的订单，请核对订单号和邮箱，或联系我们。', hello: '欢迎', pis: '报价单（PI）', orders: '订单', rmas: '售后申请', none: '暂无记录。', view: '查看', placed: '下单日期', total: '合计', paid: '已付', balance: '待付', status: '状态', items: '明细', shipments: '发货与物流', noShip: '尚未发货，发货后会在这里更新物流信息。', tracking: '运单号', eta: '预计到达', etd: '开船/发出', container: '柜号', history: '物流动态', rmaH: '申请售后', rmaLede: '请描述遇到的问题。可以附上照片链接或共享文件夹链接。', sku: '产品', qty: '涉及数量', issue: '问题类型', desc: '具体情况', photos: '照片链接（选填）', submit: '提交申请', rmaOk: '已收到您的申请，售后单号', back: '返回我的账户', contact: '有疑问请联系', lang: 'English' },
 };
 
-function page(lang, title, body) {
+export function page(lang, title, body) {
   const b = brand();
   const t = T[lang];
   return `<!doctype html><html lang="${lang === 'zh' ? 'zh-CN' : 'en'}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
@@ -128,6 +129,9 @@ export function mountPortal(app) {
     if (!q) return c.html(lookupPage('en', 'This quotation link is not valid.'), 404);
     const cust = getCustomer(q.customer_id);
     const lang = langOf(cust, c.req.query('lang'));
+    // a PI that has a sales contract is accepted by signing the contract
+    const k = contractForQuote(q.id);
+    if (k && k.status === 'sent') return c.redirect(`/portal/contract/${k.token}`);
     try {
       const o = acceptQuote(q.token, 'customer');
       alertOps('客户已确认 PI，生成订单', [`${o.number} ← ${q.number}`, `客户：${cust.company || cust.email}`, `金额：${money(o.currency, o.total)}，待收定金 ${money(o.currency, o.deposit_due)}`, `${config.publicBaseUrl}/admin/orders/${o.id}`]).catch(() => {});

@@ -23,15 +23,19 @@ for (const [name, p] of Object.entries(STACK)) {
   symlinkSync(join(ROOT, 'node_modules'), join(work, 'node_modules'), 'dir');
   mkdirSync(join(work, 'data'), { recursive: true });
   cpSync(join(ROOT, `sites/${name}/src/content/news`), join(work, 'data/news'), { recursive: true });
+  // production layout: releases/<ts>/ + current → symlink, swapped atomically after each rebuild (no half-built pages)
+  const rel = join(work, 'web');
+  cpSync(join(ROOT, `sites/${name}/dist`), join(rel, 'releases', '0-initial'), { recursive: true });
+  symlinkSync(join('releases', '0-initial'), join(rel, 'current'));
   const env = {
     ...process.env, SITE: name, PORT: String(p.api), DB_PATH: join(work, 'data/db.sqlite'), NEWS_DIR: join(work, 'data/news'), MEDIA_DIR: join(work, 'data/media'),
     SITE_DIR: site, SITE_JSON: join(site, 'src/data/site.json'), PUBLIC_BASE_URL: `http://127.0.0.1:${p.site}`, SITE_URL: `http://127.0.0.1:${p.site}`,
     ADMIN_PASSWORD: 'e2e-pass', ERP_MODE: 'mock', RATE_LIMIT_PER_MIN: '1000', TRUSTED_PROXY_HOPS: '0',
     LLM_PROVIDER: '', LLM_API_KEY: '', LLM_MODEL: '', CONTENT_ENABLED: 'false', GEO_ENABLED: 'false',
-    BUILD_CMD: 'node scripts/sync-shared.mjs && npx astro build',
+    BUILD_CMD: 'node scripts/sync-shared.mjs && npx astro build', RELEASES_DIR: rel,
   };
   procs.push(spawn(process.execPath, [join(ROOT, 'server/src/index.js')], { env, stdio: 'inherit' }));
-  procs.push(spawn(process.execPath, [join(ROOT, 'scripts/serve-local.mjs'), join(site, 'dist'), String(p.site), String(p.api)], { stdio: 'inherit' }));
+  procs.push(spawn(process.execPath, [join(ROOT, 'scripts/serve-local.mjs'), join(rel, 'current'), String(p.site), String(p.api)], { stdio: 'inherit' }));
 }
 const stop = () => { for (const c of procs) c.kill(); process.exit(0); };
 process.on('SIGINT', stop);

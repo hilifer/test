@@ -1,5 +1,6 @@
 // 后台：销售 → 交付闭环（看板、报价/PI、订单、发货物流、售后、SKU 中心、库存/金蝶、客户）
 import { config } from '../config.js';
+import { contractForQuote } from './deals.js';
 import { shell, esc, fmt } from '../admin.js';
 import { DICT, label, nextStates } from '../../../shared/dictionary.js';
 import { db } from '../db.js';
@@ -28,10 +29,12 @@ const CSS = `<style>
 .sub{display:flex;gap:6px;flex-wrap:wrap;margin:-6px 0 16px}.sub a{padding:4px 10px;border:1px solid var(--line);border-radius:999px;background:#fff;text-decoration:none;color:#1d2733;font-size:13px}.sub a.on{background:#1d2733;color:#fff}
 .kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:18px}.kpi div{background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px 12px}.kpi span{font-size:12px;color:#66717d}.kpi b{display:block;font-size:20px}
 </style>`;
-const OPSNAV = `<div class="sub">${[['/admin/ops', '闭环看板'], ['/admin/quotes', '报价/PI'], ['/admin/orders', '订单'], ['/admin/shipments', '发货物流'], ['/admin/rma', '售后'], ['/admin/skus', 'SKU 中心'], ['/admin/inventory', '库存 / 金蝶'], ['/admin/customers', '客户']].map(([h, l]) => `<a href="${h}">${l}</a>`).join('')}</div>`;
+const OPSNAV = `<div class="sub">${[['/admin/ops', '闭环看板'], ['/admin/quotes', '报价/PI'], ['/admin/deals', 'AI 议价'], ['/admin/contracts', '合同'], ['/admin/orders', '订单'], ['/admin/shipments', '发货物流'], ['/admin/rma', '售后'], ['/admin/skus', 'SKU 中心'], ['/admin/inventory', '库存 / 金蝶'], ['/admin/customers', '客户']].map(([h, l]) => `<a href="${h}">${l}</a>`).join('')}</div>`;
 const view = (title, body, flash = '', err = '') => shell(title, CSS + OPSNAV + (flash ? `<div class="flash">${esc(flash)}</div>` : '') + (err ? `<div class="flash err">${esc(err)}</div>` : '') + body);
 const back = (c, path, msg, isErr = false) => c.redirect(`${path}${path.includes('?') ? '&' : '?'}${isErr ? 'e' : 'm'}=${encodeURIComponent(msg)}`);
 const timeline = (entity, id) => `<ul class="tl">${S.eventsFor(entity, id).reverse().map((e) => `<li><b>${esc(e.to_state ? label(entity, e.to_state) : e.action)}</b> <span class="mute">${fmt(e.ts)} · ${esc(e.actor)}</span>${e.note ? '<br>' + esc(e.note) : ''}</li>`).join('')}</ul>`;
+
+export { view as opsView, back as opsBack, timeline as opsTimeline, inp as opsInp };
 
 // ---------------------------------------------------------------- dashboard
 function dashboard() {
@@ -79,8 +82,15 @@ function quoteEdit(id, f, e) {
 <p><b>合计：${money(q.currency, q.total)}</b> <span class="mute">（小计 ${money(q.currency, q.subtotal)} + 运费 ${q.freight} − 折扣 ${q.discount}）</span></p>
 ${editable ? '<div class="acts"><button class="btn l" name="action" value="save">保存</button><button class="btn" name="action" value="send">保存并发送给客户</button></div>' : ''}</form>
 <div class="acts"><a class="btn l" href="/admin/quotes/${q.id}/print" target="_blank">打印 / 导出 PDF</a>${q.status !== 'draft' && q.status !== 'cancelled' ? `<span>客户确认链接：<code>${esc(piLink(q))}</code></span>` : ''}${['draft', 'sent'].includes(q.status) ? `<form method="post" action="/admin/quotes/${q.id}/status"><input type="hidden" name="to" value="cancelled"><button class="btn r">作废</button></form>` : ''}${q.status === 'accepted' ? (() => { const o = S.getOrderByQuote(q.id); return o ? `<a class="btn g" href="/admin/orders/${o.id}">查看订单 ${esc(o.number)}</a>` : ''; })() : ''}</div>
-${q.status === 'sent' ? `<div class="card"><b>发给客户的邮件模板（复制使用）</b><pre style="white-space:pre-wrap;margin:8px 0 0;font:13px/1.6 inherit">${esc(emailTemplate(q, c))}</pre></div>` : ''}
+${contractBox(q)}${q.status === 'sent' ? `<div class="card"><b>发给客户的邮件模板（复制使用）</b><pre style="white-space:pre-wrap;margin:8px 0 0;font:13px/1.6 inherit">${esc(emailTemplate(q, c))}</pre></div>` : ''}
 <h3>记录</h3>${timeline('quote', q.id)}`, f, e);
+}
+
+function contractBox(q) {
+  const k = contractForQuote(q.id);
+  if (k) return `<div class="card"><b>销售合同</b> <a href="/admin/contracts/${k.id}">${esc(k.number)}</a> · ${k.status === 'signed' ? `客户已签署（${esc(k.signer_name)}，${fmt(k.signed_at)}）` : '已发送，待客户签署'}</div>`;
+  if (!['draft', 'sent'].includes(q.status) || !q.lines.length) return '';
+  return `<form method="post" action="/admin/quotes/${q.id}/contract" class="card"><b>销售合同</b> <span class="mute">按合同模板生成，邮件发给客户在线签署；签署后自动生成订单。</span> <button class="btn">生成合同并发给客户签署</button></form>`;
 }
 
 function emailTemplate(q, c) {

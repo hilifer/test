@@ -5,6 +5,7 @@ import { insertLead, markHandoff } from './db.js';
 import { alertLead, alertOps } from './alerts.js';
 import { verifyOrder, orderStatusView, createRma } from './ops/service.js';
 import { DICT } from '../../shared/dictionary.js';
+import { prepareOffer, issueContract } from './ops/deals.js';
 
 const cat = () => config.catalog;
 const base = () => config.publicBaseUrl;
@@ -65,6 +66,25 @@ export function toolDefs({ forMcp = false } = {}) {
         required: ['consent'],
       },
     },
+    {
+      name: 'prepare_offer',
+      description: `Prepare a firm, priced offer (not just a reference range) when the buyer wants to order or negotiate: products, quantities, optional target prices or a target discount, price term and payment terms. Our pricing system decides what we can offer — present exactly the prices it returns, never a lower or different price, and never guess our limits. It may return a counter-offer, or "needs_approval" (a manager confirms by e-mail). Requires the buyer's business e-mail (the offer and contract go there). Payment terms ids: ${DICT.paymentTerms.map((t) => t.id).join(', ')}.`,
+      input_schema: {
+        type: 'object',
+        properties: {
+          email: { type: 'string' }, company: { type: 'string' }, name: { type: 'string' }, country: { type: 'string' },
+          lines: { type: 'array', items: { type: 'object', properties: { product_id: { type: 'string' }, sku: { type: 'string' }, qty: { type: 'number' }, target_price: { type: 'number', description: 'Unit price the buyer asks for, if any' } }, required: ['product_id', 'qty'] } },
+          target_discount_pct: { type: 'number', description: 'If the buyer asks for a % discount instead of a price' },
+          incoterm: { type: 'string', enum: DICT.incoterms }, port: { type: 'string' }, payment_terms: { type: 'string', enum: DICT.paymentTerms.map((t) => t.id) },
+        },
+        required: ['email', 'lines'],
+      },
+    },
+    {
+      name: 'issue_contract',
+      description: 'When the buyer clearly accepts an offer from prepare_offer, issue the sales contract: it is generated from our standard template and e-mailed to the offer\'s e-mail address for electronic signature. Never say the contract is signed or binding before the buyer signs it.',
+      input_schema: { type: 'object', properties: { offer_id: { type: 'string' }, email: { type: 'string', description: 'The e-mail the offer was made for' } }, required: ['offer_id', 'email'] },
+    },
   ];
   if (!forMcp)
     defs.push({
@@ -86,7 +106,7 @@ export function toolDefs({ forMcp = false } = {}) {
   if (!forMcp)
     defs.push({
       name: 'handoff_to_human',
-      description: 'Escalate to a human sales engineer. Required for: OEM/ODM or custom design, price negotiation or discount requests, volumes beyond price bands, contracts/payment terms, complaints, or when the customer asks for a person.',
+      description: 'Escalate to a human sales engineer. Required for: OEM/ODM or custom design, special contract clauses (exclusivity, agency, penalties, credit terms), volumes beyond price bands, complaints, or when the customer asks for a person. Ordinary price negotiation goes through prepare_offer first.',
       input_schema: {
         type: 'object',
         properties: { reason: { type: 'string' }, summary: { type: 'string', description: 'What the customer needs, for the sales engineer' }, urgency: { type: 'string', enum: ['normal', 'high'] } },
@@ -147,6 +167,13 @@ export async function runTool(name, input = {}, ctx = {}) {
       alertOps('AI 客服收到售后申请', [`${r.number} / 订单 ${v.order.number}`, `客户：${v.customer.company || v.customer.email}`, `问题：${DICT.rma.issues[r.issue].zh} ${r.sku} ×${r.qty}`, String(input.description).slice(0, 200), `${config.publicBaseUrl}/admin/rma/${r.id}`]).catch(() => {});
       return { created: true, rma_number: r.number, next: 'A service engineer reviews the case, normally within one business day, and replies by email. Progress is visible in the customer portal.', portal: `${base()}/portal/c/${v.customer.portal_token}/o/${encodeURIComponent(v.order.number)}` };
     }
+    case 'prepare_offer': {
+      const out = prepareOffer(input, { convId: ctx.convId, source: ctx.source || 'chat' });
+      if (out.status === 'needs_approval' && ctx.convId) markHandoff(ctx.convId, `offer ${out.offer_id} needs approval`);
+      return out;
+    }
+    case 'issue_contract':
+      return issueContract(String(input.offer_id || ''), { email: input.email, actor: `ai:${ctx.source || 'chat'}` });
     case 'handoff_to_human': {
       if (ctx.convId) markHandoff(ctx.convId, input.reason);
       alertLead({ grade: 'A', needs: input.summary, conv_id: ctx.convId }, { handoff: true, reason: input.reason }).catch(() => {});

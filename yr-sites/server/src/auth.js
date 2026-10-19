@@ -11,8 +11,8 @@ import { migrate } from './migrate.js';
 
 export const ROLES = {
   admin: { zh: '管理员', perms: ['*'] },
-  sales: { zh: '销售', perms: ['leads', 'quotes', 'orders', 'customers', 'catalog.view', 'shop.view'] },
-  finance: { zh: '财务', perms: ['orders', 'payments', 'customers', 'shop.view', 'shop.refund'] },
+  sales: { zh: '销售', perms: ['leads', 'quotes', 'orders', 'customers', 'catalog.view', 'shop.view', 'deals.view', 'contracts'] },
+  finance: { zh: '财务', perms: ['orders', 'payments', 'customers', 'shop.view', 'shop.refund', 'deals', 'contracts.view'] },
   warehouse: { zh: '仓库/物流', perms: ['orders.view', 'shipments', 'rma', 'inventory', 'catalog.view', 'shop.view', 'shop.fulfil'] },
   content: { zh: '内容运营', perms: ['content', 'catalog', 'marketing', 'settings'] },
 };
@@ -20,6 +20,8 @@ export const ROLES = {
 // Path prefix → permission. First match wins; anything else under /admin needs "admin".
 const RULES = [
   [/^\/admin\/?$/, 'leads'], [/^\/admin\/(lead|conversations|conv|leads\.csv)/, 'leads'],
+  [/^\/admin\/deals\/(policy|floors)/, 'payments'], [/^\/admin\/deals/, 'deals'],
+  [/^\/admin\/contracts\/template/, 'admin'], [/^\/admin\/contracts/, 'contracts'], [/^\/admin\/quotes\/[^/]+\/contract/, 'contracts'],
   [/^\/admin\/quotes/, 'quotes'], [/^\/admin\/customers/, 'customers'],
   [/^\/admin\/orders\/[^/]+\/(payment|refund)/, 'payments'], [/^\/admin\/orders\/[^/]+\/(ship)/, 'shipments'], [/^\/admin\/orders/, 'orders'],
   [/^\/admin\/shipments/, 'shipments'], [/^\/admin\/rma/, 'rma'], [/^\/admin\/(skus|inventory)/, 'inventory'],

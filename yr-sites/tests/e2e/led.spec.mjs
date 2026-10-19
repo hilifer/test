@@ -132,7 +132,7 @@ test('E2E-L07 machine-readable layer for AI agents is served', async ({ request 
   const json = await (await request.get(SITE + '/products.json')).json();
   expect(json.products.length).toBeGreaterThan(5);
   const mcp = await request.post(SITE + '/mcp', { data: { jsonrpc: '2.0', id: 1, method: 'tools/list' } });
-  expect((await mcp.json()).result.tools.length).toBe(4);
+  expect((await mcp.json()).result.tools.length).toBe(6); // search, product, estimate, inquiry, prepare_offer, issue_contract
 });
 
 test('E2E-L08 customer portal lookup in the browser (wrong details → friendly error) @mobile', async ({ page }) => {
@@ -159,4 +159,38 @@ test('E2E-L10 unknown URL shows the branded 404 page', async ({ page }) => {
   expect(r.status()).toBe(404);
   await expect(page.locator('body')).toContainText("That page isn't here");
   await expect(page.locator('.yrc-launch')).toBeVisible();
+});
+
+test('E2E-L11 sales contract: staff create a PI and a contract → the buyer signs online → order created', async ({ browser, page }) => {
+  const { ctx, page: admin } = await adminPage(browser);
+  await admin.goto(SITE + '/admin/quotes');
+  await admin.locator('input[name="email"]').fill('contract-e2e@buyer-co.test');
+  await admin.locator('input[name="company"]').fill('E2E Contract Co');
+  await admin.getByRole('button', { name: '新建报价' }).click();
+  await admin.waitForURL(/\/admin\/quotes\/[\w-]+$/);
+  await admin.locator('select[name="sku_0"]').selectOption('YR-HB-U2');
+  await admin.locator('input[name="qty_0"]').fill('100');
+  await admin.locator('input[name="price_0"]').fill('45');
+  await admin.getByRole('button', { name: '保存', exact: true }).click();
+  await admin.getByRole('button', { name: '生成合同并发给客户签署' }).click();
+  await expect(admin.locator('main')).toContainText('已生成并发到客户邮箱');
+  const link = (await admin.locator('code').filter({ hasText: '/portal/contract/' }).first().textContent()).replace(/^https?:\/\/[^/]+/, '');
+  await ctx.close();
+
+  await page.goto(SITE + link);
+  await expect(page.locator('.doc h1')).toHaveText('Sales Contract');
+  await expect(page.locator('.doc')).toContainText('E2E Contract Co');
+  await expect(page.locator('.doc')).toContainText('USD 4,500.00');
+  await page.locator('input[name="name"]').fill('Jordan Buyer');
+  await page.locator('input[name="title"]').fill('Director');
+  await page.getByRole('button', { name: 'Sign contract' }).click();
+  await expect(page).toHaveURL(new RegExp(link.replace(/[/]/g, '\\/') + '$')); // consent box is required — the form does not submit
+  await page.locator('input[name="agree"]').check();
+  await page.getByRole('button', { name: 'Sign contract' }).click();
+  await expect(page.locator('.note')).toContainText(/Signed — thank you\. Your order number is SO-\d{6}-\d{3}/);
+  await expect(page.locator('.doc')).toContainText('Signed electronically by Jordan Buyer, Director');
+  await expect(page.locator('.doc')).toContainText('— intact');
+  await expect(page.locator('form')).toHaveCount(0);
+  await page.locator('.note a').click();
+  await expect(page.locator('main')).toContainText(/Awaiting deposit|待付定金/);
 });

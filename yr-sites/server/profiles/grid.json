@@ -7,7 +7,7 @@
     "C&I or utility projects needing a site design, EPC or financing (EMC/PPA) discussion",
     "distributor, agency or EPC partnership requests",
     "OEM/ODM or custom configuration",
-    "discount, price matching or payment terms",
+    "discounts beyond what prepare_offer returns, price matching, or credit / L/C payment terms",
     "quantities beyond the public price bands",
     "complaints or after-sales claims",
     "the customer asks for a person"

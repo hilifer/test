@@ -5,9 +5,9 @@
   "keySpecHint": "wattage or lumens, CCT, IP rating, required certifications such as DLC/UL/ETL/CE, mounting height",
   "handoffRules": [
     "OEM/ODM, private label or custom design",
-    "discount, price matching or payment terms",
+    "discounts beyond what prepare_offer returns, price matching, or credit / L/C payment terms",
     "quantities beyond the public price bands",
-    "contracts, exclusivity or agency requests",
+    "special contract clauses, exclusivity or agency requests",
     "complaints or after-sales claims",
     "photometric layout (DIALux) requests",
     "the customer asks for a person"

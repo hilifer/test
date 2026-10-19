@@ -33,7 +33,7 @@ describe('AI sales agent (LLM mocked)', () => {
     assert.match(req.system, /You are an AI assistant/);
     assert.match(req.system, /Never reveal internal costs, margins, floor prices/);
     assert.match(req.system, /Before save_lead, ask for consent/);
-    assert.deepEqual(req.tools.map((t) => t.name).sort(), ['estimate_quote', 'get_product', 'handoff_to_human', 'request_after_sales', 'save_lead', 'search_products', 'track_order']);
+    assert.deepEqual(req.tools.map((t) => t.name).sort(), ['estimate_quote', 'get_product', 'handoff_to_human', 'issue_contract', 'prepare_offer', 'request_after_sales', 'save_lead', 'search_products', 'track_order']);
   });
   test('AI-03 search → estimate → answer: product cards + quote returned to the widget', async () => {
     turns.push(toolUse('search_products', { query: 'ufo high bay' }), toolUse('estimate_quote', { product_id: 'YR-HB-U2', quantity: 600 }, 't2'),

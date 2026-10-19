@@ -130,7 +130,7 @@ describe('MCP endpoint for buyers\' AI agents', () => {
   });
   test('MC-02 tools/list exposes only the public tools (no order lookup / handoff / internal save_lead)', async () => {
     const names = (await rpc('tools/list')).result.tools.map((t) => t.name).sort();
-    assert.deepEqual(names, ['estimate_quote', 'get_product', 'search_products', 'submit_inquiry']);
+    assert.deepEqual(names, ['estimate_quote', 'get_product', 'issue_contract', 'prepare_offer', 'search_products', 'submit_inquiry']); // buyer agents may negotiate; contracts go to the buyer's e-mail only
   });
   test('MC-03 search_products returns catalog products with Markdown links', async () => {
     const r = await rpc('tools/call', { name: 'search_products', arguments: { query: 'high bay', certification: 'DLC' } });
