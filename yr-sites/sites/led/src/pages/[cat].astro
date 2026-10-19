@@ -6,10 +6,11 @@ import catalog from '../data/catalog.json';
 import guides from '../data/category-guides.json';
 import { faqJsonLd } from '../../../../shared/site-lib.mjs';
 export function getStaticPaths() {
-  return catalog.categories.map((c) => ({ params: { cat: c.slug }, props: { c } }));
+  return catalog.categories.filter((c) => c.slug).map((c) => ({ params: { cat: c.slug }, props: { c } }));
 }
 const { c } = Astro.props;
-const g = (guides as any)[c.id];
+// categories added in the admin have no hand-written guide yet: fall back to the category blurb
+const g = (guides as any)[c.id] || { intro: c.blurb || c.title || c.name, sections: [], faq: [] };
 const products = catalog.products.filter((p) => p.category === c.id);
 const ld = [
   { '@context': 'https://schema.org', '@type': 'CollectionPage', name: c.title, description: g.intro, url: new URL(`/${c.slug}/`, Astro.site).href,

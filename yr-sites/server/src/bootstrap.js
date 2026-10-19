@@ -16,6 +16,10 @@ if (resolve(c.newsDir) !== seed) {
   }
 }
 await import('./index.js');
+// The database is the source of truth for products and contacts: write them into the site before building,
+// so a container restart or a new image never brings back the catalog.json baked into the image.
+const { exportSite } = await import('./catalog/store.js');
+exportSite();
 if (c.releasesDir) {
   const { rebuild } = await import('./content/publisher.js');
   console.log('[bootstrap] building site…');

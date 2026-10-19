@@ -6,6 +6,7 @@ import { db } from '../db.js';
 import { config } from '../config.js';
 import { DICT, canMove, label } from '../../../shared/dictionary.js';
 import { actorName } from '../auth.js';
+import '../catalog/store.js'; // loads the database catalog into config.catalog before anything below uses it
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS skus (
@@ -65,9 +66,11 @@ export const eventsFor = (entity, id) => db.prepare('SELECT * FROM events WHERE 
 
 // ---------------------------------------------------------------- SKU centre
 export function seedSkus() {
+  // products created in the product centre manage their own SKUs; only give a SKU to products that have none
   const c = config.catalog;
-  const ins = db.prepare('INSERT OR IGNORE INTO skus (sku, product_id, name, variant, unit, ref_price, updated_at) VALUES (?,?,?,?,?,?,?)');
+  const ins = db.prepare('INSERT INTO skus (sku, product_id, name, variant, unit, ref_price, updated_at) VALUES (?,?,?,?,?,?,?)');
   for (const p of c.products) {
+    if (db.prepare('SELECT 1 FROM skus WHERE product_id = ?').get(p.id)) continue;
     const b = p.priceBands?.[0];
     ins.run(p.id, p.id, p.name, '', p.unit || 'pcs', b ? r2((b.low + b.high) / 2) : null, now());
   }

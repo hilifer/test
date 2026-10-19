@@ -14,6 +14,10 @@ import { mountContentAdmin } from './content/admin-content.js';
 import { startScheduler } from './content/scheduler.js';
 import { mountOpsAdmin } from './ops/admin-ops.js';
 import { mountPortal } from './ops/portal.js';
+import { mountCatalogAdmin } from './catalog/admin-catalog.js';
+import { mediaDir } from './catalog/store.js';
+import { readFileSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { startErpSync } from './ops/erp/index.js';
 
 const app = new Hono();
@@ -87,6 +91,18 @@ app.post('/mcp', async (c) => {
 });
 app.get('/mcp', (c) => c.text('MCP endpoint: POST JSON-RPC 2.0 (Streamable HTTP, JSON responses).', 405));
 
+// Product images uploaded in the admin (public, immutable file names)
+app.get('/media/:file', (c) => {
+  const f = c.req.param('file');
+  const m = f.match(/^[a-f0-9]{24}\.(jpg|png|webp)$/);
+  const path = m && join(mediaDir(), f);
+  if (!path || !existsSync(path)) return c.text('Not found', 404);
+  c.header('content-type', { jpg: 'image/jpeg', png: 'image/png', webp: 'image/webp' }[m[1]]);
+  c.header('cache-control', 'public, max-age=31536000, immutable');
+  c.header('x-content-type-options', 'nosniff');
+  return c.body(readFileSync(path));
+});
+
 // Customer self-service portal (public, token links)
 mountPortal(app);
 
@@ -142,6 +158,7 @@ app.get('/admin/conv/:id', (c) => c.html(conversationPage(c.req.param('id'))));
 app.get('/admin/leads.csv', (c) => { c.header('content-type', 'text/csv; charset=utf-8'); c.header('content-disposition', `attachment; filename="leads-${config.site}.csv"`); return c.body(leadsCsv()); });
 mountContentAdmin(app);
 mountOpsAdmin(app);
+mountCatalogAdmin(app);
 app.post('/admin/lead/:id/status', async (c) => {
   const f = await c.req.parseBody();
   const status = String(f.status || '');

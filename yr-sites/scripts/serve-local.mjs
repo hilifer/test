@@ -8,7 +8,7 @@ const root = resolve(dist);
 const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.woff2': 'font/woff2', '.md': 'text/markdown; charset=utf-8', '.txt': 'text/plain; charset=utf-8', '.xml': 'application/xml' };
 http.createServer((req, res) => {
   const url = new URL(req.url, 'http://x');
-  if (/^\/(api|mcp|admin|portal)(\/|$)/.test(url.pathname)) {
+  if (/^\/(api|mcp|admin|portal|media)(\/|$)/.test(url.pathname)) {
     const p = http.request({ host: '127.0.0.1', port: api, path: req.url, method: req.method, headers: req.headers }, (r) => { res.writeHead(r.statusCode, r.headers); r.pipe(res); });
     p.on('error', () => { res.writeHead(502); res.end('API not running'); });
     return req.pipe(p);

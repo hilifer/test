@@ -1,0 +1,56 @@
+// Browser E2E — the product centre end to end: staff create a product with a photo in the admin, press
+// "save & publish", the static site is really rebuilt, and the new product page is live with its photo. IDs E2E-Pxx.
+import { test, expect } from '@playwright/test';
+import { PNG } from '../helpers/xlsx.mjs';
+
+const SITE = 'http://127.0.0.1:4311';
+
+test('E2E-P01 create → upload photo → save & publish → live on the website, found by the AI', async ({ page, request }) => {
+  test.setTimeout(120_000);
+  await page.goto(SITE + '/admin/login');
+  await page.locator('input[name="username"]').fill('admin');
+  await page.locator('input[name="password"]').fill('e2e-pass');
+  await page.getByRole('button', { name: '登录' }).click();
+  await page.goto(SITE + '/admin/products/new');
+  const f = (n, v) => page.locator(`[name="${n}"]`).fill(v);
+  await f('id', 'E2E-BOLLARD-20');
+  await f('name', 'E2E Garden Bollard 20W');
+  await page.locator('select[name="category"]').selectOption('area');
+  await page.locator('select[name="status"]').selectOption('published');
+  await f('summary', 'Aluminium garden bollard created by the end-to-end test.');
+  await f('highlights', 'IP65\nAnti-glare optic');
+  await f('certifications', 'CE\nRoHS');
+  await f('specs', 'Power: 20 W\nIP: IP65\nHeight: 800 mm');
+  await f('warranty', '3 years');
+  await f('moq', '20');
+  await f('lead_min', '15'); await f('lead_max', '25'); await f('sample_min', '5'); await f('sample_max', '7');
+  await f('priceBands', '20-199:30-38 | 200+:27-34');
+  await f('v_0_sku', 'E2E-BOLLARD-20-30K');
+  await f('v_0_options', 'CCT=3000K');
+  await f('v_0_price', '36');
+  await f('v_0_min_qty', '20');
+  await f('v_0_weight_kg', '4.5');
+  await page.locator('input[name="upload"]').setInputFiles({ name: 'bollard.png', mimeType: 'image/png', buffer: PNG });
+  await page.getByRole('button', { name: '保存并发布到网站' }).click();
+  await expect(page.locator('.flash').first()).toContainText('已保存并发布');
+  await expect(page.locator('.imgs img')).toHaveCount(1);
+
+  // the AI agent and MCP see it immediately
+  const mcp = await (await request.post(SITE + '/mcp', { data: { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'get_product', arguments: { id: 'E2E-BOLLARD-20' } } } })).json();
+  expect(mcp.result.structuredContent.name).toBe('E2E Garden Bollard 20W');
+
+  // the static site is rebuilt in the background (~seconds); wait for the new page
+  const url = SITE + '/products/e2e-garden-bollard-20w/';
+  await expect.poll(async () => (await request.get(url)).status(), { timeout: 90_000, intervals: [1000] }).toBe(200);
+  await page.goto(url);
+  await expect(page.locator('h1')).toContainText('E2E Garden Bollard 20W');
+  const img = page.locator('img[src^="/media/"]').first();
+  await expect(img).toBeVisible();
+  expect(await img.evaluate((i) => i.naturalWidth)).toBeGreaterThan(0);
+  const ld = await page.$$eval('script[type="application/ld+json"]', (s) => s.map((x) => JSON.parse(x.textContent)));
+  const product = ld.flat().find((x) => x['@type'] === 'Product');
+  expect(product.sku).toBe('E2E-BOLLARD-20');
+  expect(product.image[0]).toMatch(/\/media\/[a-f0-9]{24}\.png$/);
+  expect(await (await request.get(SITE + '/products/e2e-garden-bollard-20w.md')).text()).toContain('Height | 800 mm');
+  expect(await (await request.get(SITE + '/llms.txt')).text()).toContain('E2E Garden Bollard 20W');
+});

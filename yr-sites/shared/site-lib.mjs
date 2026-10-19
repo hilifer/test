@@ -27,6 +27,7 @@ export function productMarkdown({ site, brand, catalog, p, lang = 'en' }) {
     `- Model: ${p.id}`,
     `- Category: ${cat ? cat.name : p.category}`,
     `- Page: ${abs(site, `/products/${p.slug}/`)}`,
+    ...(p.image ? [`- Image: ${abs(site, p.image)}`] : []),
     '',
     '## Key points',
     ...hl.map((h) => `- ${h}`),
@@ -114,6 +115,7 @@ export function productJsonLd({ site, brand, catalog, p, lang = 'en' }) {
     brand: { '@type': 'Brand', name: brand },
     description: lang === 'zh' && p.summaryZh ? p.summaryZh : p.summary,
     url: abs(site, `/products/${p.slug}/`),
+    ...(p.image && { image: (p.images?.length ? p.images : [p.image]).map((u) => abs(site, u)) }),
     category: catalog.categories.find((c) => c.id === p.category)?.name,
     additionalProperty: Object.entries(p.specs).map(([name, value]) => ({ '@type': 'PropertyValue', name, value })),
     ...(lo != null && {

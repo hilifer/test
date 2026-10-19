@@ -3,13 +3,13 @@ import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config } from '../config.js';
+import { getSetting } from '../catalog/store.js';
 const here = dirname(fileURLToPath(import.meta.url));
-let cache;
+// Contact details are edited in the admin (站点设置) and stored in the database; the site.json file is the fallback.
 export function brand() {
-  if (cache) return cache;
-  const s = JSON.parse(readFileSync(process.env.SITE_JSON || resolve(here, `../../../sites/${config.site}/src/data/site.json`), 'utf8'));
+  const s = getSetting('site') || JSON.parse(readFileSync(process.env.SITE_JSON || resolve(here, `../../../sites/${config.site}/src/data/site.json`), 'utf8'));
   const c = s.contact || {};
-  cache = {
+  return {
     brand: s.brandFull || s.brand,
     company: s.company,
     companyZh: s.companyZh || '深圳市耀嵘科技有限公司',
@@ -22,5 +22,4 @@ export function brand() {
     accent2: config.site === 'grid' ? '#c8e03c' : '#ffb000',
     logo: config.site === 'grid' ? '/brand/yr-grid-logo-160.webp' : '/favicon.svg',
   };
-  return cache;
 }

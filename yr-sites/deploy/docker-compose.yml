@@ -9,12 +9,14 @@ services:
       PORT: 8787
       DB_PATH: /data/db/${SITE}.sqlite
       NEWS_DIR: /data/news
+      MEDIA_DIR: /data/media
       RELEASES_DIR: /srv/site
       SITE_URL: https://${DOMAIN}
       PUBLIC_BASE_URL: https://${DOMAIN}
     volumes:
       - ./data/db:/data/db
       - ./data/news:/data/news
+      - ./data/media:/data/media
       - site:/srv/site
   caddy:
     image: caddy:2.8.4

@@ -14,7 +14,7 @@ export const ROLES = {
   sales: { zh: '销售', perms: ['leads', 'quotes', 'orders', 'customers', 'catalog.view', 'shop.view'] },
   finance: { zh: '财务', perms: ['orders', 'payments', 'customers', 'shop.view', 'shop.refund'] },
   warehouse: { zh: '仓库/物流', perms: ['orders.view', 'shipments', 'rma', 'inventory', 'catalog.view', 'shop.view', 'shop.fulfil'] },
-  content: { zh: '内容运营', perms: ['content', 'catalog', 'marketing'] },
+  content: { zh: '内容运营', perms: ['content', 'catalog', 'marketing', 'settings'] },
 };
 
 // Path prefix → permission. First match wins; anything else under /admin needs "admin".
@@ -23,7 +23,7 @@ const RULES = [
   [/^\/admin\/quotes/, 'quotes'], [/^\/admin\/customers/, 'customers'],
   [/^\/admin\/orders\/[^/]+\/payment/, 'payments'], [/^\/admin\/orders\/[^/]+\/(ship)/, 'shipments'], [/^\/admin\/orders/, 'orders'],
   [/^\/admin\/shipments/, 'shipments'], [/^\/admin\/rma/, 'rma'], [/^\/admin\/(skus|inventory)/, 'inventory'],
-  [/^\/admin\/(content|geo)/, 'content'], [/^\/admin\/(products|categories|media)/, 'catalog'],
+  [/^\/admin\/(content|geo)/, 'content'], [/^\/admin\/settings/, 'settings'], [/^\/admin\/(products|categories|media)/, 'catalog'],
   [/^\/admin\/shop\/[^/]+\/refund/, 'shop.refund'], [/^\/admin\/shop\/[^/]+\/(fulfil|ship)/, 'shop.fulfil'], [/^\/admin\/shop/, 'shop'],
   [/^\/admin\/(coupons|reviews|marketing)/, 'marketing'],
   [/^\/admin\/(ops|me|logout)/, null], // any logged-in user

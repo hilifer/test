@@ -21,7 +21,7 @@ export function parseSpecs(v) {
   }
   return out;
 }
-export const specsText = (specs = {}) => Object.entries(specs).map(([k, v]) => `${k}: ${v}`).join('\n');
+export const specsText = (specs = {}) => (typeof specs === 'string' ? specs : Object.entries(specs).map(([k, v]) => `${k}: ${v}`).join('\n'));
 
 /** "50-499:39-52 | 500-1999:35-46 | 2000+:32-42"  ⇄  [{minQty,maxQty,low,high}] */
 export function parseBands(v) {
@@ -34,7 +34,7 @@ export function parseBands(v) {
   }
   return out;
 }
-export const bandsText = (bands = []) => bands.map((b) => `${b.minQty}${b.maxQty ? '-' + b.maxQty : '+'}:${b.low}-${b.high}`).join(' | ');
+export const bandsText = (bands = []) => (typeof bands === 'string' ? bands : bands.map((b) => `${b.minQty}${b.maxQty ? '-' + b.maxQty : '+'}:${b.low}-${b.high}`).join(' | '));
 
 /**
  * Validate and normalise a product. ctx = { categories:[{id}], existing: Map(id → product) of other products, isNew }
@@ -77,7 +77,7 @@ export function validateProduct(input, ctx) {
   if (!p.warranty) errors.push('质保必填，如 5 years');
   if (!Object.keys(p.specs).length) errors.push('至少填写一项参数（每行"参数名: 参数值"）');
   for (const [label, [a, b]] of [['生产交期', p.leadTimeDays], ['样品时间', p.sampleDays]]) {
-    if (!(a >= 0) || !(b >= 0)) errors.push(`${label}：请填写最短和最长天数（整数）`);
+    if (a == null || b == null || !(a >= 0) || !(b >= 0)) errors.push(`${label}：请填写最短和最长天数（整数）`);
     else if (a > b) errors.push(`${label}：最短天数不能大于最长天数`);
   }
   if (p.wattMin != null && p.wattMax != null && p.wattMin > p.wattMax) errors.push('最小功率不能大于最大功率');

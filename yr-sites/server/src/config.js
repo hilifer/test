@@ -20,6 +20,7 @@ export const config = {
   site: SITE,
   port: Number(env.PORT || 8787),
   dbPath: env.DB_PATH || resolve(here, `../data/${SITE}.sqlite`),
+  mediaDir: env.MEDIA_DIR || resolve(here, `../data/media-${SITE}`),
   publicBaseUrl: (env.PUBLIC_BASE_URL || 'http://localhost:4321').replace(/\/$/, ''),
   allowedOrigins: (env.ALLOWED_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean),
   adminUser: env.ADMIN_USER || 'admin',
