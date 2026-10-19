@@ -32,7 +32,7 @@ export const DICT = {
       pending_payment: ['ready_to_ship', 'in_production', 'cancelled'],
       awaiting_deposit: ['in_production', 'cancelled'],
       in_production: ['ready_to_ship', 'cancelled'],
-      ready_to_ship: ['shipped'],
+      ready_to_ship: ['shipped', 'cancelled'], // cancel before shipping (only after any payment is refunded)
       shipped: ['delivered'],
       delivered: ['completed'],
       completed: [],

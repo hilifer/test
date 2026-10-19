@@ -58,6 +58,10 @@ export function nextNumber(entity) {
   return `${prefix}-${ymd}-${String(n).padStart(3, '0')}`;
 }
 
+// Listeners for shipment changes (e.g. the shop e-mails the buyer). Errors in listeners never break the caller.
+export const hooks = { shipment: [] };
+const emitShipment = (kind, s) => { for (const fn of hooks.shipment) { try { fn(kind, s); } catch (e) { console.error('[hook]', e.message); } } };
+
 export function logEvent(entity, id, action, { from = null, to = null, actor = 'system', note = '' } = {}) {
   if (actor === 'admin') actor = actorName('admin'); // record the logged-in staff member; automatic steps stay 'system'
   db.prepare('INSERT INTO events (entity, entity_id, ts, actor, action, from_state, to_state, note) VALUES (?,?,?,?,?,?,?,?)').run(entity, id, now(), actor, action, from, to, note);
@@ -295,6 +299,7 @@ export function createShipment({ order_id, rma_id = null, lines = null, mode = '
   db.prepare(`INSERT INTO shipments (id, number, order_id, rma_id, status, mode, carrier, tracking_no, container_no, bl_no, etd, eta, lines, packing, events, created_at, updated_at)
     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(id, number, order_id, rma_id, 'booked', mode, carrier, tracking_no, container_no, bl_no, etd, eta, JSON.stringify(L), JSON.stringify(packingFor(L)), JSON.stringify(ev), now(), now());
   logEvent('shipment', id, 'created', { to: 'booked', actor, note: `${number} / ${o.number}` });
+  emitShipment('created', getShipment(id));
   return getShipment(id);
 }
 export function getShipment(id) {
@@ -316,6 +321,7 @@ export function addShipmentEvent(id, { status, location = '', note = '' }, actor
   const events = [...s.events, { ts: now(), status: to, location, note }];
   db.prepare('UPDATE shipments SET status = ?, events = ?, updated_at = ? WHERE id = ?').run(to, JSON.stringify(events), now(), id);
   logEvent('shipment', id, 'tracking', { from: s.status, to, actor, note: [location, note].filter(Boolean).join(' · ') });
+  if (to !== s.status) emitShipment('status', { ...s, status: to, events });
   if (!s.rma_id) {
     const o = getOrder(s.order_id);
     if (to === 'in_transit' && o.status === 'ready_to_ship') setOrderStatus(o.id, 'shipped', { actor: 'system', note: s.number });

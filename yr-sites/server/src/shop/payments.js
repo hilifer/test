@@ -10,6 +10,7 @@ import { pushOrder } from '../ops/erp/index.js';
 import { alertOps } from '../alerts.js';
 import { sendMail } from './mailer.js';
 import './schema.js';
+import './refunds.js'; // adds payment_intents.capture_ref
 
 const now = () => new Date().toISOString();
 const env = (k, d = '') => process.env[k] || d;
@@ -42,7 +43,7 @@ function settle(intent, { amount, currency, ref, provider }) {
     alertOps('订单已取消后客户才付款，请退款或人工恢复', [`${o.number} · ${currency} ${amount}`, `${provider} ${ref}`]).catch(() => {});
     return 'order_closed';
   }
-  db.prepare("UPDATE payment_intents SET status = 'paid', updated_at = ? WHERE id = ?").run(now(), intent.id);
+  db.prepare("UPDATE payment_intents SET status = 'paid', capture_ref = ?, updated_at = ? WHERE id = ?").run(ref, now(), intent.id); // capture_ref is what refunds need
   const after = recordPayment(o.id, { kind: 'online', amount, ref: `${provider} ${ref}` }, 'customer');
   if (config.erp.autoPushOrders) pushOrder(o.id).catch(() => {});
   const c = getCustomer(o.customer_id);

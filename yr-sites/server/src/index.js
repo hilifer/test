@@ -18,6 +18,7 @@ import { mountCatalogAdmin } from './catalog/admin-catalog.js';
 import { mountShop } from './shop/storefront.js';
 import { startShopJobs } from './shop/checkout.js';
 import { mountShopAdmin } from './shop/admin-shop.js';
+import { startTrackingJob } from './shop/tracking.js';
 import { mediaDir } from './catalog/store.js';
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -180,6 +181,7 @@ app.post('/admin/lead/:id/status', async (c) => {
 startScheduler();
 startErpSync();
 startShopJobs();
+startTrackingJob();
 serve({ fetch: app.fetch, port: config.port }, () => {
   console.log(`[${config.site}] sales server on :${config.port} — mode: ${aiEnabled() ? `AI (${config.llm.provider}/${config.llm.model})` : 'rules (no LLM key)'}`);
 });

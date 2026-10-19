@@ -21,7 +21,7 @@ export const ROLES = {
 const RULES = [
   [/^\/admin\/?$/, 'leads'], [/^\/admin\/(lead|conversations|conv|leads\.csv)/, 'leads'],
   [/^\/admin\/quotes/, 'quotes'], [/^\/admin\/customers/, 'customers'],
-  [/^\/admin\/orders\/[^/]+\/payment/, 'payments'], [/^\/admin\/orders\/[^/]+\/(ship)/, 'shipments'], [/^\/admin\/orders/, 'orders'],
+  [/^\/admin\/orders\/[^/]+\/(payment|refund)/, 'payments'], [/^\/admin\/orders\/[^/]+\/(ship)/, 'shipments'], [/^\/admin\/orders/, 'orders'],
   [/^\/admin\/shipments/, 'shipments'], [/^\/admin\/rma/, 'rma'], [/^\/admin\/(skus|inventory)/, 'inventory'],
   [/^\/admin\/(content|geo)/, 'content'], [/^\/admin\/settings/, 'settings'], [/^\/admin\/(products|categories|media)/, 'catalog'],
   [/^\/admin\/shop\/[^/]+\/refund/, 'shop.refund'], [/^\/admin\/shop\/[^/]+\/(fulfil|ship)/, 'shop.fulfil'], [/^\/admin\/shop/, 'shop'],
