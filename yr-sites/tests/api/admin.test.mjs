@@ -11,17 +11,21 @@ before(async () => { api = await startServer({ site: 'led' }); });
 after(() => api.stop());
 
 describe('auth & leads', () => {
-  test('AD-01 admin needs Basic auth; wrong password rejected', async () => {
+  test('AD-01 admin needs a login; wrong password rejected; login page shown instead of a browser dialog', async () => {
     const none = await api.get('/admin');
     assert.equal(none.status, 401);
-    assert.match(none.headers.get('www-authenticate') || '', /Basic/);
+    assert.match(await none.text(), /后台登录/);
+    assert.equal(none.headers.get('www-authenticate'), null);
     const wrong = await api.get('/admin', { headers: { authorization: 'Basic ' + Buffer.from('admin:nope').toString('base64') } });
     assert.equal(wrong.status, 401);
-    for (const p of ['/admin/ops', '/admin/orders', '/admin/content', '/admin/leads.csv']) assert.equal((await api.get(p)).status, 401, p);
+    for (const p of ['/admin/ops', '/admin/orders', '/admin/content', '/admin/leads.csv', '/admin/users']) assert.equal((await api.get(p)).status, 401, p);
   });
-  test('AD-02 admin is disabled entirely when ADMIN_PASSWORD is not set', async () => {
+  test('AD-02 without ADMIN_PASSWORD and without staff accounts nobody can log in', async () => {
     const s = await startServer({ site: 'led', env: { ADMIN_PASSWORD: '' } });
-    try { assert.equal((await s.get('/admin')).status, 503); } finally { await s.stop(); }
+    try {
+      assert.equal((await s.get('/admin')).status, 401);
+      assert.equal((await s.form('/admin/login', { username: 'admin', password: '' }, { auth: false })).status, 401);
+    } finally { await s.stop(); }
   });
   test('AD-03 every admin page renders (200) for the logged-in user', async () => {
     for (const p of ['/admin', '/admin/conversations', '/admin/ops', '/admin/quotes', '/admin/orders', '/admin/shipments', '/admin/rma', '/admin/skus', '/admin/skus/edit?sku=YR-HB-U2', '/admin/inventory', '/admin/customers', '/admin/content', '/admin/geo']) {

@@ -3,6 +3,17 @@ import { test, expect } from '@playwright/test';
 
 const SITE = 'http://127.0.0.1:4311';
 const ADMIN = { username: 'admin', password: 'e2e-pass' };
+/** Staff log in through the login page (sessions), like a real employee. */
+async function adminPage(browser) {
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  await page.goto(SITE + '/admin/login');
+  await page.locator('input[name="username"]').fill(ADMIN.username);
+  await page.locator('input[name="password"]').fill(ADMIN.password);
+  await page.getByRole('button', { name: '登录' }).click();
+  await page.waitForURL(/\/admin/);
+  return { ctx, page };
+}
 
 // Fresh browser storage per test (not per navigation — the quote list must survive page loads).
 test.beforeEach(async ({ page }) => { await page.addInitScript(() => { try { if (!sessionStorage.getItem('e2e')) { localStorage.clear(); sessionStorage.setItem('e2e', '1'); } } catch {} }); });
@@ -60,8 +71,7 @@ test('E2E-L03 RFQ cart: add two products, edit quantity, submit one request → 
   await expect(form.locator('.qf__msg')).toContainText('Request sent');
   await expect(page.locator('[data-quote-count]').first()).toBeHidden();
 
-  const ctx = await browser.newContext({ httpCredentials: ADMIN });
-  const admin = await ctx.newPage();
+  const { ctx, page: admin } = await adminPage(browser);
   await admin.goto(SITE + '/admin');
   const row = admin.locator('tr', { hasText: 'e2e-cart@distributor.test' });
   await expect(row).toContainText('询价单 2 项');
@@ -106,8 +116,7 @@ test('E2E-L06 chat lead card saves the contact with consent', async ({ page, bro
   await lead.locator('input[type=checkbox]').check();
   await lead.locator('button').last().click();
   await expect(box).toContainText(/thank|sales engineer/i);
-  const ctx = await browser.newContext({ httpCredentials: ADMIN });
-  const admin = await ctx.newPage();
+  const { ctx, page: admin } = await adminPage(browser);
   await admin.goto(SITE + '/admin');
   await expect(admin.locator('tr', { hasText: 'chat-lead@warehouse.test' })).toBeVisible();
   await ctx.close();
@@ -136,8 +145,7 @@ test('E2E-L08 customer portal lookup in the browser (wrong details → friendly 
 
 test('E2E-L09 admin requires login; dashboard works for staff', async ({ request, browser }) => {
   expect((await request.get(SITE + '/admin')).status()).toBe(401);
-  const ctx = await browser.newContext({ httpCredentials: ADMIN });
-  const admin = await ctx.newPage();
+  const { ctx, page: admin } = await adminPage(browser);
   await admin.goto(SITE + '/admin/ops');
   await expect(admin.getByText('闭环看板').first()).toBeVisible();
   await admin.goto(SITE + '/admin/inventory');

@@ -1,13 +1,15 @@
 import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
-import { basicAuth } from 'hono/basic-auth';
+import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
 import { config, aiEnabled } from './config.js';
 import { ensureConversation, insertLead, setLeadStatus } from './db.js';
 import { chat } from './agent.js';
 import { handleMcp } from './mcp.js';
 import { scoreLead } from '../../shared/sales-engine.js';
 import { alertLead } from './alerts.js';
-import { leadsPage, conversationsPage, conversationPage, leadsCsv } from './admin.js';
+import { leadsPage, conversationsPage, conversationPage, leadsCsv, LEAD_STATUS } from './admin.js';
+import { ensureBootstrapAdmin, verifyLogin, createSession, sessionUser, endSession, permissionFor, can, runAs } from './auth.js';
+import { loginPage, forbiddenPage, mountStaffAdmin } from './admin-staff.js';
 import { mountContentAdmin } from './content/admin-content.js';
 import { startScheduler } from './content/scheduler.js';
 import { mountOpsAdmin } from './ops/admin-ops.js';
@@ -31,7 +33,14 @@ app.use('/api/*', async (c, next) => {
 
 // --- simple per-IP rate limit for public endpoints ---
 const hits = new Map();
-const ipOf = (c) => c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for')?.split(',')[0].trim() || c.env?.incoming?.socket?.remoteAddress || 'unknown';
+// Client IP: only the entries our own proxies appended are trusted. Caddy appends the real client IP as the
+// LAST X-Forwarded-For entry, so with TRUSTED_PROXY_HOPS=1 (default) anything a client forges in front is ignored.
+const ipOf = (c) => {
+  const sock = c.env?.incoming?.socket?.remoteAddress || 'unknown';
+  if (config.trustedProxyHops < 1) return sock;
+  const xff = (c.req.header('x-forwarded-for') || '').split(',').map((s) => s.trim()).filter(Boolean);
+  return xff[xff.length - config.trustedProxyHops] || sock;
+};
 const limit = async (c, next) => {
   const ip = ipOf(c);
   const t = Date.now();
@@ -96,21 +105,50 @@ const sameOrigin = async (c, next) => {
 };
 app.use('/admin/*', sameOrigin);
 app.use('/admin', sameOrigin);
-app.use('/admin/*', async (c, next) => {
-  if (!config.adminPassword) return c.text('Admin disabled: set ADMIN_PASSWORD.', 503);
-  return basicAuth({ username: config.adminUser, password: config.adminPassword })(c, next);
+// Staff login (sessions) — Basic auth is also accepted for scripts, with the same users and lockout.
+ensureBootstrapAdmin();
+const SESSION_COOKIE = 'yr_staff';
+app.get('/admin/login', (c) => c.html(loginPage({ next: c.req.query('next') || '/admin' })));
+app.post('/admin/login', async (c) => {
+  const f = await c.req.parseBody();
+  const next = /^\/admin(\/|$)/.test(String(f.next || '')) ? String(f.next) : '/admin';
+  const r = verifyLogin(String(f.username || ''), String(f.password || ''), ipOf(c));
+  if (r.error) return c.html(loginPage({ next, error: r.error, username: String(f.username || '') }), r.lockedMs ? 429 : 401);
+  setCookie(c, SESSION_COOKIE, createSession(r.user, ipOf(c)), { httpOnly: true, sameSite: 'Lax', secure: config.publicBaseUrl.startsWith('https://'), path: '/admin' });
+  return c.redirect(next);
 });
-app.use('/admin', async (c, next) => {
-  if (!config.adminPassword) return c.text('Admin disabled: set ADMIN_PASSWORD.', 503);
-  return basicAuth({ username: config.adminUser, password: config.adminPassword })(c, next);
-});
+app.post('/admin/logout', (c) => { endSession(getCookie(c, SESSION_COOKIE)); deleteCookie(c, SESSION_COOKIE, { path: '/admin' }); return c.redirect('/admin/login'); });
+const staffGate = async (c, next) => {
+  if (c.req.path === '/admin/login') return next();
+  let user = sessionUser(getCookie(c, SESSION_COOKIE));
+  const basic = c.req.header('authorization');
+  if (!user && basic?.startsWith('Basic ')) {
+    const [u, ...pw] = Buffer.from(basic.slice(6), 'base64').toString().split(':');
+    const r = verifyLogin(u, pw.join(':'), ipOf(c));
+    if (r.user) user = r.user;
+    else if (r.lockedMs) return c.text(r.error, 429);
+  }
+  if (!user) return c.html(loginPage({ next: c.req.method === 'GET' ? c.req.path : '/admin' }), 401);
+  if (!can(user, permissionFor(c.req.path, c.req.method))) return c.html(forbiddenPage(user), 403);
+  c.set('user', user);
+  return runAs(user, () => next());
+};
+app.use('/admin/*', staffGate);
+app.use('/admin', staffGate);
+mountStaffAdmin(app);
 app.get('/admin', (c) => c.html(leadsPage()));
 app.get('/admin/conversations', (c) => c.html(conversationsPage()));
 app.get('/admin/conv/:id', (c) => c.html(conversationPage(c.req.param('id'))));
 app.get('/admin/leads.csv', (c) => { c.header('content-type', 'text/csv; charset=utf-8'); c.header('content-disposition', `attachment; filename="leads-${config.site}.csv"`); return c.body(leadsCsv()); });
 mountContentAdmin(app);
 mountOpsAdmin(app);
-app.post('/admin/lead/:id/status', async (c) => { const f = await c.req.parseBody(); setLeadStatus(c.req.param('id'), String(f.status || 'new')); return c.redirect('/admin'); });
+app.post('/admin/lead/:id/status', async (c) => {
+  const f = await c.req.parseBody();
+  const status = String(f.status || '');
+  if (!LEAD_STATUS[status]) return c.text('invalid status', 400);
+  setLeadStatus(c.req.param('id'), status);
+  return c.redirect('/admin');
+});
 
 startScheduler();
 startErpSync();

@@ -38,6 +38,7 @@ export const config = {
     minGrade: env.ALERT_MIN_GRADE || 'B',
   },
   rateLimitPerMin: Number(env.RATE_LIMIT_PER_MIN || 20),
+  trustedProxyHops: Number(env.TRUSTED_PROXY_HOPS ?? 1), // 1 = behind Caddy (production); 0 = exposed directly
   // --- ERP (Kingdee Cloud Galaxy / 金蝶云星空) ---
   // local  = no ERP: stock is kept on the SKU page in /admin
   // mock   = simulated Kingdee (for testing the whole flow)

@@ -5,6 +5,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { db } from '../db.js';
 import { config } from '../config.js';
 import { DICT, canMove, label } from '../../../shared/dictionary.js';
+import { actorName } from '../auth.js';
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS skus (
@@ -57,6 +58,7 @@ export function nextNumber(entity) {
 }
 
 export function logEvent(entity, id, action, { from = null, to = null, actor = 'system', note = '' } = {}) {
+  if (actor === 'admin') actor = actorName('admin'); // record the logged-in staff member; automatic steps stay 'system'
   db.prepare('INSERT INTO events (entity, entity_id, ts, actor, action, from_state, to_state, note) VALUES (?,?,?,?,?,?,?,?)').run(entity, id, now(), actor, action, from, to, note);
 }
 export const eventsFor = (entity, id) => db.prepare('SELECT * FROM events WHERE entity = ? AND entity_id = ? ORDER BY id').all(entity, id);
@@ -211,6 +213,7 @@ export function setOrderStatus(id, to, { actor = 'admin', note = '', force = fal
   if (o.status === to) return o;
   if (!force && !canMove('order', o.status, to)) throw new Error(`订单不能从「${label('order', o.status)}」改为「${label('order', to)}」`);
   if (!force && to === 'completed' && o.paid < o.total - 0.01) throw new Error(`尾款未收清（待收 ${o.currency} ${r2(o.total - o.paid)}），不能标记为已完成`);
+  if (!force && to === 'cancelled' && o.paid > 0.01) throw new Error(`该订单已收款 ${o.currency} ${o.paid}，请先登记退款再取消`);
   db.prepare('UPDATE orders SET status = ?, updated_at = ? WHERE id = ?').run(to, now(), id);
   logEvent('order', id, 'status', { from: o.status, to, actor, note });
   return getOrder(id);
@@ -224,8 +227,12 @@ export function balanceDueBeforeShipment(o) {
 export function recordPayment(orderId, { kind = 'deposit', amount, ref = '' }, actor = 'admin') {
   const o = getOrder(orderId);
   if (!o) throw new Error('订单不存在');
+  if (!DICT.payment.kinds[kind]) throw new Error('收款类型无效');
   const amt = r2(amount);
-  if (!amt) throw new Error('金额不能为 0');
+  if (!(amt > 0)) throw new Error('金额必须大于 0（退款请选择"退款"类型，填正数）');
+  if (kind === 'refund' && amt > o.paid + 0.01) throw new Error(`退款金额不能超过已收金额 ${o.currency} ${o.paid}`);
+  if (kind !== 'refund' && o.paid + amt > o.total + 0.01) throw new Error(`登记后已收（${o.currency} ${r2(o.paid + amt)}）将超过订单总额 ${o.currency} ${o.total}，请核对金额`);
+  if (o.status === 'cancelled' && kind !== 'refund') throw new Error('已取消的订单只能登记退款');
   db.prepare('INSERT INTO payments (order_id, kind, amount, currency, ref, ts) VALUES (?,?,?,?,?,?)').run(orderId, kind, kind === 'refund' ? -Math.abs(amt) : amt, o.currency, ref, now());
   const paid = r2(db.prepare('SELECT COALESCE(SUM(amount),0) s FROM payments WHERE order_id = ?').get(orderId).s);
   db.prepare('UPDATE orders SET paid = ?, updated_at = ? WHERE id = ?').run(paid, now(), orderId);
@@ -252,11 +259,31 @@ export function packingFor(lines) {
   }
   return { cartons, cbm: r2(cbm), gw_kg: r2(gw), missing_packing_data: unknown };
 }
+/** Per order line: ordered, already shipped (non-RMA shipments) and remaining quantity. */
+export function shippedQty(o) {
+  const shipped = new Map();
+  for (const s of shipmentsFor(o.id)) if (!s.rma_id) for (const l of s.lines) shipped.set(l.sku, (shipped.get(l.sku) || 0) + Number(l.qty || 0));
+  return o.lines.map((l) => ({ ...l, shipped: shipped.get(l.sku) || 0, remaining: Math.max(0, l.qty - (shipped.get(l.sku) || 0)) }));
+}
+
 export function createShipment({ order_id, rma_id = null, lines = null, mode = 'sea', carrier = '', tracking_no = '', container_no = '', bl_no = '', etd = '', eta = '' }, actor = 'admin') {
   const o = getOrder(order_id);
   if (!o) throw new Error('订单不存在');
   if (!rma_id && !['ready_to_ship', 'shipped'].includes(o.status)) throw new Error('订单需要先进入「待发货」才能创建发货单');
-  const L = lines || o.lines;
+  let L = lines;
+  if (!rma_id) {
+    // normal shipments: default to everything still unshipped; never more than what remains per line
+    const rem = shippedQty(o);
+    if (!L) L = rem.filter((l) => l.remaining > 0).map(({ shipped, remaining, ...l }) => ({ ...l, qty: remaining }));
+    L = L.map((l) => ({ ...l, qty: Math.round(Number(l.qty) || 0) })).filter((l) => l.qty > 0);
+    if (!L.length) throw new Error('该订单的货物已全部发出，没有可发的数量');
+    for (const l of L) {
+      const r = rem.find((x) => x.sku === l.sku);
+      if (!r) throw new Error(`订单中没有 ${l.sku}`);
+      if (l.qty > r.remaining) throw new Error(`${l.sku} 本次发 ${l.qty}，超过剩余未发数量 ${r.remaining}`);
+      Object.assign(l, { name: r.name, variant: r.variant, unit: r.unit, unit_price: r.unit_price });
+    }
+  }
   const id = randomUUID();
   const number = nextNumber('shipment');
   const ev = [{ ts: now(), status: 'booked', location: '', note: carrier ? `${carrier} ${tracking_no}`.trim() : '' }];
@@ -287,7 +314,10 @@ export function addShipmentEvent(id, { status, location = '', note = '' }, actor
   if (!s.rma_id) {
     const o = getOrder(s.order_id);
     if (to === 'in_transit' && o.status === 'ready_to_ship') setOrderStatus(o.id, 'shipped', { actor: 'system', note: s.number });
-    if (to === 'delivered' && ['ready_to_ship', 'shipped'].includes(o.status)) { if (o.status === 'ready_to_ship') setOrderStatus(o.id, 'shipped', { actor: 'system' }); setOrderStatus(o.id, 'delivered', { actor: 'system', note: s.number }); }
+    // the order is delivered only when nothing is left to ship and every shipment has arrived
+    const allIn = shippedQty(o).every((l) => l.remaining === 0) && shipmentsFor(o.id).filter((x) => !x.rma_id).every((x) => x.status === 'delivered');
+    if (to === 'delivered' && allIn && ['ready_to_ship', 'shipped'].includes(o.status)) { if (o.status === 'ready_to_ship') setOrderStatus(o.id, 'shipped', { actor: 'system' }); setOrderStatus(o.id, 'delivered', { actor: 'system', note: s.number }); }
+    else if (to === 'delivered' && o.status === 'ready_to_ship') setOrderStatus(o.id, 'shipped', { actor: 'system', note: `${s.number}（部分到货）` });
   }
   return getShipment(id);
 }

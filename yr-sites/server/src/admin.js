@@ -1,10 +1,16 @@
 // 内部线索后台（中文界面）：线索、对话、转人工、CSV 导出
 import { config, aiEnabled } from './config.js';
 import { listLeads, listConversations, conversationMessages, stats } from './db.js';
+import { currentUser, can, permissionFor, ROLES } from './auth.js';
+
+// Main navigation; each entry is only shown to staff whose role may open it.
+export const NAV = [['/admin', '线索'], ['/admin/conversations', '对话'], ['/admin/ops', '业务闭环'], ['/admin/products', '商品'], ['/admin/content', '内容'], ['/admin/geo', 'GEO 监测'], ['/admin/leads.csv', '导出 CSV'], ['/admin/users', '账号权限']];
+const navHtml = () => { const u = currentUser(); return NAV.filter(([h]) => !u || can(u, permissionFor(h))).map(([h, l]) => `<a href="${h}">${l}</a>`).join(''); };
+const userHtml = () => { const u = currentUser(); return u ? `<span class="mute">${esc(u.name || u.username)}（${esc(ROLES[u.role]?.zh || u.role)}）</span> <a href="/admin/me">修改密码</a> <form method="post" action="/admin/logout" style="display:inline"><button>退出</button></form>` : ''; };
 
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 export const fmt = (iso) => (iso ? new Date(iso).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false }) : '');
-const STATUS = { new: '新线索', contacted: '已联系', quoted: '已报价', won: '已成交', lost: '丢单', spam: '无效' };
+export const LEAD_STATUS = { new: '新线索', contacted: '已联系', quoted: '已报价', won: '已成交', lost: '丢单', spam: '无效' };
 
 export function shell(title, body) {
   return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
@@ -21,8 +27,8 @@ th{background:#fafbfc;font-weight:600;font-size:12px;color:var(--mute);white-spa
 .wrap{overflow-x:auto}.msg{background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:8px 0;max-width:760px}.msg.user{margin-left:auto;background:#eef4ff}
 .pill{font-size:12px;padding:1px 8px;border-radius:10px;background:#eceff1;white-space:nowrap}.warn{background:#fff4e5;border:1px solid #ffcc80;padding:10px 14px;border-radius:8px;margin-bottom:16px}
 select,button{font:inherit}a{color:#1565c0}
-</style></head><body><header><b>${esc(config.profile.brand)} · AI 销售后台</b><nav><a href="/admin">线索</a><a href="/admin/conversations">对话</a><a href="/admin/ops"><b>业务闭环</b></a><a href="/admin/content">内容</a><a href="/admin/geo">GEO 监测</a><a href="/admin/leads.csv">导出 CSV</a></nav>
-<span class="mute">站点 ${esc(config.site)} · ${aiEnabled() ? 'AI 模式：' + esc(config.llm.provider + ' / ' + config.llm.model) : '规则模式（未配置大模型密钥）'}</span></header><main>${body}</main></body></html>`;
+</style></head><body><header><b>${esc(config.profile.brand)} · AI 销售后台</b><nav>${navHtml()}</nav>
+<span class="mute">站点 ${esc(config.site)} · ${aiEnabled() ? 'AI 模式：' + esc(config.llm.provider + ' / ' + config.llm.model) : '规则模式（未配置大模型密钥）'}</span><span style="margin-left:auto">${userHtml()}</span></header><main>${body}</main></body></html>`;
 }
 
 const SRC = { 'quote-page': '询价单', 'quote-form': '产品页询价', 'lighting-design': '免费灯光设计', wholesale: '批发/经销申请', 'oem-odm': 'OEM/ODM', 'chat-form': 'AI 对话留资', calculator: '收益测算', partner: '渠道合作', contact: '联系表单' };
@@ -44,7 +50,7 @@ export function leadsPage() {
 <td><b>${esc(l.company || '—')}</b><div>${esc(l.name)}</div><div class="mute">${esc(l.country)}</div></td>
 <td>${esc(l.email)}<div>${esc(l.whatsapp || l.phone)}</div></td><td>${esc(l.product_id)}<div class="mute">${l.quantity ? '数量 ' + l.quantity : ''} ${esc(l.timeline)}</div></td>
 <td style="max-width:320px">${esc(l.needs)}${extraSummary(l.extra)}<div class="mute">${esc(JSON.parse(l.reasons || '[]').join('，'))}</div></td>
-<td><form method="post" action="/admin/lead/${esc(l.id)}/status"><select name="status" onchange="this.form.submit()">${Object.entries(STATUS).map(([k, v]) => `<option value="${k}"${l.status === k ? ' selected' : ''}>${v}</option>`).join('')}</select></form>
+<td><form method="post" action="/admin/lead/${esc(l.id)}/status"><select name="status" onchange="this.form.submit()">${Object.entries(LEAD_STATUS).map(([k, v]) => `<option value="${k}"${l.status === k ? ' selected' : ''}>${v}</option>`).join('')}</select></form>
 <a href="/admin/quotes/new?lead=${esc(l.id)}">生成报价</a> ${l.conv_id ? `<a href="/admin/conv/${esc(l.conv_id)}">看对话</a>` : ''}</td></tr>`)
     .join('');
   return shell('线索', `${aiEnabled() ? '' : '<div class="warn">当前为规则模式：AI 对话使用内置规则答复。配置 LLM_PROVIDER / LLM_API_KEY / LLM_MODEL 后自动切换为大模型。</div>'}

@@ -112,7 +112,7 @@ describe('orders & payments', () => {
   });
   test('SV-13 zero amount rejected; refunds are stored as negative', () => {
     const o = S.acceptQuote(sentQuote().token);
-    assert.throws(() => S.recordPayment(o.id, { amount: 0 }), /不能为 0/);
+    assert.throws(() => S.recordPayment(o.id, { amount: 0 }), /必须大于 0/);
     S.recordPayment(o.id, { amount: 500 });
     assert.equal(S.recordPayment(o.id, { kind: 'refund', amount: 200 }).paid, 300);
   });
@@ -214,5 +214,45 @@ describe('shipments, inventory, after-sales', () => {
     assert.ok(st.receivable > 0);
     assert.ok(st.byStatus.some((r) => r.status === 'delivered'));
     assert.ok(st.rmaOpen >= 0);
+  });
+  test('SV-26 payments: negative, over-total and over-refund amounts are rejected; unknown kinds rejected', () => {
+    const o = S.acceptQuote(sentQuote().token);
+    assert.throws(() => S.recordPayment(o.id, { kind: 'deposit', amount: -999 }), /必须大于 0/);
+    assert.throws(() => S.recordPayment(o.id, { kind: 'deposit', amount: 999999 }), /超过订单总额/);
+    assert.throws(() => S.recordPayment(o.id, { kind: 'bitcoin', amount: 10 }), /类型无效/);
+    S.recordPayment(o.id, { amount: 1000 });
+    assert.throws(() => S.recordPayment(o.id, { kind: 'refund', amount: 1001 }), /不能超过已收金额/);
+    assert.equal(S.recordPayment(o.id, { kind: 'balance', amount: o.total - 1000 }).paid, o.total, 'paying exactly the total is fine');
+  });
+  test('SV-27 an order with money received cannot be cancelled until it is refunded', () => {
+    const o = S.acceptQuote(sentQuote().token);
+    S.recordPayment(o.id, { amount: 500 });
+    assert.throws(() => S.setOrderStatus(o.id, 'cancelled'), /请先登记退款/);
+    S.recordPayment(o.id, { kind: 'refund', amount: 500 });
+    assert.equal(S.setOrderStatus(o.id, 'cancelled').status, 'cancelled');
+    assert.throws(() => S.recordPayment(o.id, { amount: 10 }), /只能登记退款/);
+  });
+  test('SV-28 partial shipments: remaining quantity tracked, over-shipping and re-shipping refused', () => {
+    const o = orderReadyToShip();
+    const s1 = S.createShipment({ order_id: o.id, lines: [{ sku: 'YR-HB-U2', qty: 40 }] });
+    assert.equal(s1.lines[0].qty, 40);
+    assert.deepEqual(S.shippedQty(S.getOrder(o.id)).map((l) => [l.shipped, l.remaining]), [[40, 60]]);
+    assert.throws(() => S.createShipment({ order_id: o.id, lines: [{ sku: 'YR-HB-U2', qty: 61 }] }), /超过剩余未发数量 60/);
+    assert.throws(() => S.createShipment({ order_id: o.id, lines: [{ sku: 'NOPE', qty: 1 }] }), /订单中没有/);
+    const s2 = S.createShipment({ order_id: o.id });
+    assert.equal(s2.lines[0].qty, 60, 'default = everything still unshipped');
+    assert.throws(() => S.createShipment({ order_id: o.id }), /已全部发出/);
+  });
+  test('SV-29 order becomes delivered only when every shipment has arrived and nothing is left', () => {
+    const o = orderReadyToShip();
+    const a = S.createShipment({ order_id: o.id, lines: [{ sku: 'YR-HB-U2', qty: 30 }] });
+    S.addShipmentEvent(a.id, { status: 'in_transit' });
+    S.addShipmentEvent(a.id, { status: 'delivered' });
+    assert.equal(S.getOrder(o.id).status, 'shipped', '70 pcs still to ship');
+    const b = S.createShipment({ order_id: o.id });
+    S.addShipmentEvent(b.id, { status: 'in_transit' });
+    assert.equal(S.getOrder(o.id).status, 'shipped');
+    S.addShipmentEvent(b.id, { status: 'delivered' });
+    assert.equal(S.getOrder(o.id).status, 'delivered');
   });
 });
