@@ -5,7 +5,7 @@ import { currentUser, can, permissionFor, ROLES } from './auth.js';
 import { humanActive, waitingCount } from './livechat.js';
 
 // Main navigation; each entry is only shown to staff whose role may open it.
-export const NAV = [['/admin/dashboard', '看板'], ['/admin', '线索'], ['/admin/conversations', '对话'], ['/admin/ops', '业务闭环'], ['/admin/deals', 'AI 议价'], ['/admin/shop', '网店'], ['/admin/coupons', '优惠券'], ['/admin/reviews', '评价'], ['/admin/products', '商品'], ['/admin/categories', '品类'], ['/admin/settings', '站点设置'], ['/admin/content', '内容'], ['/admin/geo', 'GEO 监测'], ['/admin/leads.csv', '导出 CSV'], ['/admin/users', '账号权限']];
+export const NAV = [['/admin/dashboard', '看板'], ['/admin', '线索'], ['/admin/conversations', '对话'], ['/admin/ops', '业务闭环'], ['/admin/deals', 'AI 议价'], ['/admin/shop', '网店'], ['/admin/coupons', '优惠券'], ['/admin/reviews', '评价'], ['/admin/products', '商品'], ['/admin/categories', '品类'], ['/admin/settings', '站点设置'], ['/admin/content', '内容'], ['/admin/geo', 'GEO 监测'], ['/admin/leads.csv', '导出 CSV'], ['/admin/users', '账号权限'], ['/admin/system', '系统']];
 const navHtml = () => { const u = currentUser(); return NAV.filter(([h]) => !u || can(u, permissionFor(h))).map(([h, l]) => `<a href="${h}">${l}</a>`).join(''); };
 const userHtml = () => { const u = currentUser(); return u ? `<span class="mute">${esc(u.name || u.username)}（${esc(ROLES[u.role]?.zh || u.role)}）</span> <a href="/admin/me">修改密码</a> <form method="post" action="/admin/logout" style="display:inline"><button>退出</button></form>` : ''; };
 

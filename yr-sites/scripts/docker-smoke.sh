@@ -37,5 +37,8 @@ echo "ok   chat"
 test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:18787/admin)" = 401
 test "$(curl -s -o /dev/null -w '%{http_code}' -u admin:smoke-pass http://127.0.0.1:18787/admin)" = 200
 echo "ok   admin auth"
+loc=$(curl -s -o /dev/null -w '%{redirect_url}' -u admin:smoke-pass -X POST http://127.0.0.1:18787/admin/system/backup)
+echo "$loc" | grep -q 'm=' || { echo "backup failed: $loc"; exit 1; }
+echo "ok   database backup in the data volume (snapshot + restore check)"
 docker inspect --format '{{.State.Health.Status}}' "$NAME" | grep -Eq 'healthy|starting'
 echo "PASS docker smoke ($SITE)"

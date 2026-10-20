@@ -17,6 +17,8 @@ import { startScheduler } from './content/scheduler.js';
 import { mountOpsAdmin } from './ops/admin-ops.js';
 import { mountPortal } from './ops/portal.js';
 import { mountDeals } from './ops/admin-deals.js';
+import { mountSystemAdmin } from './ops/admin-system.js';
+import { startBackupJob } from './ops/backup.js';
 import { mountCatalogAdmin } from './catalog/admin-catalog.js';
 import { mountShop } from './shop/storefront.js';
 import { startShopJobs } from './shop/checkout.js';
@@ -191,6 +193,7 @@ mountShop(app, { ipOf });
 mountShopAdmin(app);
 mountMarketingAdmin(app);
 mountDeals(app, { ipOf });
+mountSystemAdmin(app);
 app.post('/admin/lead/:id/status', async (c) => {
   const f = await c.req.parseBody();
   const status = String(f.status || '');
@@ -205,6 +208,7 @@ startShopJobs();
 startTrackingJob();
 startMarketingJobs();
 startAutolistJobs();
+startBackupJob();
 serve({ fetch: app.fetch, port: config.port }, () => {
   console.log(`[${config.site}] sales server on :${config.port} — mode: ${aiEnabled() ? `AI (${config.llm.provider}/${config.llm.model})` : 'rules (no LLM key)'}`);
 });
