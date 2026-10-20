@@ -1,6 +1,7 @@
 ---
 import Base from '../layouts/Base.astro';
 import Illus from '../components/Illus.astro';
+import ProductCard from '../components/ProductCard.astro';
 import catalog from '../data/catalog.json';
 import site from '../data/site.json';
 import { getCollection } from 'astro:content';
@@ -11,6 +12,8 @@ const finder = catalog.products.map((p) => ({ n: p.name, s: p.slug, u: `/product
 const news = (await getCollection('news', (e) => e.data.status === 'published')).sort((a, b) => +b.data.date - +a.data.date).slice(0, 3);
 const catIllus = { 'high-bay': 'ufo', area: 'shoebox', flood: 'flood', 'wall-canopy': 'wallpack', indoor: 'triproof' };
 const count = (id: string) => catalog.products.filter((p) => p.category === id).length;
+// "recommended" products, set in the admin (商品 → 设为推荐), in sort order
+const featured = catalog.products.filter((p: any) => p.featured);
 ---
 <Base title="Commercial LED lighting, quoted in minutes | YAORONG" description={site.about} current="/">
   <section class="hero">
@@ -64,6 +67,15 @@ const count = (id: string) => catalog.products.filter((p) => p.category === id).
       <li><b>Samples in about a week</b><span>Test before you commit to volume</span></li>
     </ul>
   </section>
+
+  {featured.length > 0 && (
+    <section class="section section--white" data-featured>
+      <div class="wrap">
+        <div class="section-head"><h2>Recommended products</h2><a href="/products/">All products</a></div>
+        <div class="featured-grid">{featured.map((p: any, i: number) => <ProductCard p={p} order={i} />)}</div>
+      </div>
+    </section>
+  )}
 
   <section class="section section--white">
     <div class="wrap">

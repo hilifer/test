@@ -7,7 +7,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { db } from './db.js';
 import { config } from './config.js';
-import { migrate } from './migrate.js';
+import { migrate, addColumn } from './migrate.js';
 
 export const ROLES = {
   admin: { zh: '管理员', perms: ['*'] },
@@ -51,6 +51,9 @@ migrate([{
     CREATE TABLE staff_sessions (token TEXT PRIMARY KEY, staff_id INTEGER, created_at TEXT, last_seen INTEGER, ip TEXT);
     CREATE TABLE login_attempts (id INTEGER PRIMARY KEY AUTOINCREMENT, key TEXT, ts INTEGER, ok INTEGER);
     CREATE INDEX idx_login_attempts ON login_attempts(key, ts);`),
+}, {
+  id: '2026-10-28-staff-lang',
+  up: () => addColumn('staff', 'lang', 'TEXT'),
 }]);
 
 const now = () => new Date().toISOString();
@@ -84,7 +87,16 @@ export function ensureBootstrapAdmin() {
   else if (!checkPassword(config.adminPassword, u.pw_hash) || u.role !== 'admin' || !u.active) db.prepare('UPDATE staff SET pw_hash = ?, role = ?, active = 1 WHERE id = ?').run(hashPassword(config.adminPassword), 'admin', u.id);
 }
 
-export const listStaff = () => db.prepare('SELECT id, username, name, role, active, created_at, last_login_at FROM staff ORDER BY id').all();
+export const listStaff = () => db.prepare('SELECT id, username, name, role, active, lang, created_at, last_login_at FROM staff ORDER BY id').all();
+/** System default admin language (系统设置), used for users who have not chosen one. */
+export function defaultAdminLang() {
+  try { const v = JSON.parse(db.prepare("SELECT value FROM settings WHERE key = 'admin_lang'").get()?.value || 'null'); return v === 'en' ? 'en' : 'zh'; } catch { return 'zh'; }
+}
+export const adminLang = (user, cookie) => (['zh', 'en'].includes(user?.lang) ? user.lang : ['zh', 'en'].includes(cookie) ? cookie : defaultAdminLang());
+export function setStaffLang(id, lang) {
+  if (!['zh', 'en'].includes(lang)) throw new Error('语言无效');
+  db.prepare('UPDATE staff SET lang = ? WHERE id = ?').run(lang, id);
+}
 export const getStaff = (id) => db.prepare('SELECT id, username, name, role, active FROM staff WHERE id = ?').get(id);
 
 export function saveStaff({ id, username, name, role, password, active }) {
@@ -126,7 +138,7 @@ export function verifyLogin(username, password, ip) {
   keys.forEach((k) => record(k, ok));
   if (!ok) return { error: '用户名或密码错误' };
   db.prepare('UPDATE staff SET last_login_at = ? WHERE id = ?').run(now(), u.id);
-  return { user: { id: u.id, username: u.username, name: u.name, role: u.role } };
+  return { user: { id: u.id, username: u.username, name: u.name, role: u.role, lang: u.lang } };
 }
 
 export function createSession(user, ip) {
@@ -136,10 +148,10 @@ export function createSession(user, ip) {
 }
 export function sessionUser(token) {
   if (!token) return null;
-  const s = db.prepare('SELECT s.*, u.username, u.name, u.role, u.active FROM staff_sessions s JOIN staff u ON u.id = s.staff_id WHERE s.token = ?').get(token);
+  const s = db.prepare('SELECT s.*, u.username, u.name, u.role, u.active, u.lang FROM staff_sessions s JOIN staff u ON u.id = s.staff_id WHERE s.token = ?').get(token);
   if (!s || !s.active || Date.now() - s.last_seen > SESSION_IDLE_MS) { if (s) db.prepare('DELETE FROM staff_sessions WHERE token = ?').run(token); return null; }
   db.prepare('UPDATE staff_sessions SET last_seen = ? WHERE token = ?').run(Date.now(), token);
-  return { id: s.staff_id, username: s.username, name: s.name, role: s.role };
+  return { id: s.staff_id, username: s.username, name: s.name, role: s.role, lang: s.lang };
 }
 export const endSession = (token) => db.prepare('DELETE FROM staff_sessions WHERE token = ?').run(token || '');
 

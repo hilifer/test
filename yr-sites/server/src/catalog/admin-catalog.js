@@ -4,6 +4,7 @@ import { bodyLimit } from 'hono/body-limit';
 import { config } from '../config.js';
 import { shell, esc, fmt } from '../admin.js';
 import * as C from './store.js';
+import { currentUser } from '../auth.js';
 import { STATUSES, specsText, bandsText, productToRow, rowToProduct, toCsv, parseCsv, parseXlsx, validateProduct, parseBands } from './validate.js';
 import { rebuild, indexNow, buildRunning } from '../content/publisher.js';
 import { recentRuns } from '../content/store.js';
@@ -44,24 +45,34 @@ function publishBar() {
 
 // ---------------------------------------------------------------- list
 function listPage(c) {
-  const q = c.req.query('q') || '', category = c.req.query('category') || '', status = c.req.query('status') || '';
+  const q = c.req.query('q') || '', category = c.req.query('category') || '', status = c.req.query('status') || '', featured = c.req.query('featured') || '';
   const page = Math.max(1, Number(c.req.query('page')) || 1);
-  const { total, rows } = C.listProducts({ q, category, status, page, pageSize: 50 });
+  const { total, rows } = C.listProducts({ q, category, status, featured, page, pageSize: 50 });
+  const fmax = C.featuredMax(), fcount = C.featuredIds().length;
   const cats = C.listCategories();
   const stock = new Map(stockView().map((s) => [s.sku, s]));
   const tr = rows.map((p) => {
     const vs = C.skusFor(p.id);
     const prices = vs.map((v) => v.price).filter((x) => x != null);
     const avail = vs.reduce((a, v) => a + (stock.get(v.sku)?.available || 0), 0);
-    return `<tr><td>${p.image ? `<img class="thumb" src="${esc(p.image)}" alt="">` : '<span class="thumb"></span>'}</td><td><a href="/admin/products/${encodeURIComponent(p.id)}"><b>${esc(p.name)}</b></a><div class="mute">${esc(p.id)}${p.nameZh ? ' · ' + esc(p.nameZh) : ''}</div></td>
+    return `<tr draggable="true" data-id="${esc(p.id)}"><td><input type="checkbox" name="ids" value="${esc(p.id)}" aria-label="选择 ${esc(p.id)}"></td><td class="drag" title="拖动调整顺序" style="cursor:grab;color:#90a4ae">⋮⋮</td><td><input name="sort_${esc(p.id)}" value="${p._sort}" inputmode="numeric" style="width:64px" aria-label="排序号"></td><td>${p.image ? `<img class="thumb" src="${esc(p.image)}" alt="">` : '<span class="thumb"></span>'}</td><td><a href="/admin/products/${encodeURIComponent(p.id)}"><b>${esc(p.name)}</b></a>${p._featured ? ' <span class="pill" style="background:#ffb000;color:#1d2733">推荐</span>' : ''}<div class="mute">${esc(p.id)}${p.nameZh ? ' · ' + esc(p.nameZh) : ''}</div></td>
 <td>${esc(cats.find((x) => x.id === p.category)?.name || p.category)}</td><td><span class="pill">${esc(STATUSES[p._status])}</span><div class="mute">${esc(MODES[p._salesMode])}</div></td>
 <td class="n">${prices.length ? `${money(Math.min(...prices))}${prices.length > 1 && Math.max(...prices) !== Math.min(...prices) ? ' 起' : ''}` : '—'}</td><td class="n">${vs.length}</td><td class="n">${avail}</td><td class="mute">${fmt(p._updatedAt)}<br>${esc(p._updatedBy || '')}</td></tr>`;
   }).join('');
   const pages = Math.max(1, Math.ceil(total / 50));
   return view('商品', `<h2>商品（${total}）</h2><form class="acts" method="get"><input name="q" value="${esc(q)}" placeholder="型号 / 名称"><select name="category"><option value="">全部品类</option>${cats.map((x) => `<option value="${esc(x.id)}"${x.id === category ? ' selected' : ''}>${esc(x.name)}</option>`).join('')}</select>
-<select name="status"><option value="">全部状态</option>${Object.entries(STATUSES).map(([k, v]) => `<option value="${k}"${k === status ? ' selected' : ''}>${v}</option>`).join('')}</select><button class="btn l">筛选</button><a class="btn" href="/admin/products/new">＋ 新增商品</a></form>
-<div class="wrap"><table><thead><tr><th></th><th>商品</th><th>品类</th><th>状态</th><th class="n">售价</th><th class="n">规格数</th><th class="n">可售库存</th><th>最近修改</th></tr></thead><tbody>${tr || '<tr><td colspan="8" class="mute">没有符合条件的商品</td></tr>'}</tbody></table></div>
-${pages > 1 ? `<p class="acts">${Array.from({ length: pages }, (_, i) => `<a class="btn ${i + 1 === page ? '' : 'l'}" href="?${new URLSearchParams({ q, category, status, page: i + 1 })}">${i + 1}</a>`).join('')}</p>` : ''}`, c);
+<select name="status"><option value="">全部状态</option>${Object.entries(STATUSES).map(([k, v]) => `<option value="${k}"${k === status ? ' selected' : ''}>${v}</option>`).join('')}</select><label><input type="checkbox" name="featured" value="1"${featured ? ' checked' : ''}> 只看推荐</label><button class="btn l">筛选</button><a class="btn" href="/admin/products/new">＋ 新增商品</a></form>
+<form method="post" action="/admin/products/bulk" id="bulk">
+<div class="acts" style="position:sticky;top:0;background:var(--bg);padding:6px 0;z-index:2"><label><input type="checkbox" id="all"> 全选</label>
+<button class="btn g" name="action" value="publish">批量上架</button><button class="btn r" name="action" value="archive">批量下架</button><button class="btn l" name="action" value="feature">设为推荐</button><button class="btn l" name="action" value="unfeature">取消推荐</button><button class="btn" name="action" value="sort">保存排序号</button>
+<span class="mute">推荐 ${fcount}${fmax ? ` / 上限 ${fmax}` : '（不限数量）'} · 排序号越小越靠前，可拖动行调整后点"保存排序号"</span></div>
+<div class="wrap"><table><thead><tr><th></th><th></th><th>排序</th><th></th><th>商品</th><th>品类</th><th>状态</th><th class="n">售价</th><th class="n">规格数</th><th class="n">可售库存</th><th>最近修改</th></tr></thead><tbody id="rows">${tr || '<tr><td colspan="11" class="mute">没有符合条件的商品</td></tr>'}</tbody></table></div></form>
+<form method="post" action="/admin/products/featured-max" class="acts"><label>推荐商品数量上限 <input name="max" value="${fmax}" style="width:60px" inputmode="numeric"></label><button class="btn l">保存</button><span class="mute">0 = 不限。推荐商品显示在网站首页"推荐产品"区，按排序号排列。</span></form>
+<script>(()=>{const all=document.getElementById('all');all&&all.addEventListener('change',()=>document.querySelectorAll('#rows input[name=ids]').forEach((x)=>x.checked=all.checked));
+const tb=document.getElementById('rows');let drag=null;tb.addEventListener('dragstart',(e)=>{drag=e.target.closest('tr');e.dataTransfer.effectAllowed='move';});
+tb.addEventListener('dragover',(e)=>{e.preventDefault();const t=e.target.closest('tr');if(!drag||!t||t===drag)return;const r=t.getBoundingClientRect();tb.insertBefore(drag,e.clientY>r.top+r.height/2?t.nextSibling:t);});
+tb.addEventListener('drop',(e)=>{e.preventDefault();const base=${(page - 1) * 50};[...tb.querySelectorAll('tr[data-id]')].forEach((tr,i)=>{tr.querySelector('input[name^=sort_]').value=(base+i+1)*10;});drag=null;});})();</script>
+${pages > 1 ? `<p class="acts">${Array.from({ length: pages }, (_, i) => `<a class="btn ${i + 1 === page ? '' : 'l'}" href="?${new URLSearchParams({ q, category, status, featured, page: i + 1 })}">${i + 1}</a>`).join('')}</p>` : ''}`, c);
 }
 
 // ---------------------------------------------------------------- edit
@@ -84,7 +95,7 @@ function editPage(c, p, { isNew = false, errors = [], warnings = [], variants = 
 ${errors.length ? `<div class="flash err"><b>请修正以下问题：</b><ul>${errors.map((e) => `<li>${esc(e)}</li>`).join('')}</ul></div>` : ''}${warnings.length ? `<div class="flash warn"><ul>${warnings.map((e) => `<li>${esc(e)}</li>`).join('')}</ul></div>` : ''}
 <form method="post" action="${action}" enctype="multipart/form-data"><input type="hidden" name="_version" value="${esc(p._version ?? '')}">
 <div class="card"><h3>基本信息</h3><div class="grid2">${inp('型号/编码 *', 'id', p.id, isNew ? 'required' : 'readonly')}${inp('名称 *', 'name', p.name, 'required maxlength="120"')}${zh() ? inp('中文名称', 'nameZh', p.nameZh) : ''}
-${sel('品类 *', 'category', cats.map((x) => [x.id, x.name]), p.category)}${inp('网址别名（留空自动生成）', 'slug', p.slug)}${sel('状态', 'status', Object.entries(STATUSES), p._status || 'draft')}${sel('销售方式', 'salesMode', Object.entries(MODES), p._salesMode || 'both')}
+${sel('品类 *', 'category', cats.map((x) => [x.id, x.name]), p.category)}${inp('网址别名（留空自动生成）', 'slug', p.slug)}${sel('状态', 'status', Object.entries(STATUSES), p._status || 'draft')}${sel('销售方式', 'salesMode', Object.entries(MODES), p._salesMode || 'both')}${inp('排序号（越小越靠前）', 'sort', p._sort ?? '', 'inputmode="numeric"')}<label class="fl"><span>推荐</span><span><input type="checkbox" name="featured" value="1"${p._featured ? ' checked' : ''}> 在首页推荐区展示</span></label>
 ${sel('示意图（无照片时显示）', 'illus', (ILLUS[config.site] || []).map((k) => [k, k]), p.illus)}</div>
 ${area('一句话简介 *', 'summary', p.summary, 'required maxlength="300" style="min-height:60px"')}${zh() ? area('中文简介', 'summaryZh', p.summaryZh, 'style="min-height:60px"') : ''}
 <div class="grid2">${area('卖点（每行一条）', 'highlights', (p.highlights || []).join('\n'))}${zh() ? area('中文卖点（每行一条）', 'highlightsZh', (p.highlightsZh || []).join('\n')) : ''}${area('应用场景（每行一个）', 'applications', (p.applications || []).join('\n'))}${area('认证（每行一个）', 'certifications', (p.certifications || []).join('\n'))}${area('搜索关键词（每行一个）', 'keywords', (p.keywords || []).join('\n'))}</div>${feat}</div>
@@ -93,9 +104,15 @@ ${area('一句话简介 *', 'summary', p.summary, 'required maxlength="300" styl
 ${inp('批量参考价档位（询价/AI 报价用，如 50-499:39-52 | 500-1999:35-46 | 2000+:32-42）', 'priceBands', bandsText(p.priceBands))}</div>
 <div class="card"><h3>规格 / SKU（每行一个可售规格；留空的行会忽略）</h3><div class="wrap"><table class="vt"><thead><tr><th>SKU 编码</th><th>规格（名=值; 名=值）</th><th>售价</th><th>划线价</th><th>阶梯价（数量:单价）</th><th>起订</th><th>重量 kg</th><th>库存</th><th>每箱数量</th><th>箱体积 m³</th><th>箱毛重 kg</th><th>金蝶物料编码</th></tr></thead><tbody>${rows}</tbody></table></div><p class="mute">需要更多规格：先保存，页面会再给出空行。售价用于网站在线购买；阶梯价按购买数量自动生效。</p></div>
 <div class="card"><h3>图片（JPG / PNG / WebP，每张 ≤5 MB，第一张为主图）</h3><div class="imgs">${imgs || '<span class="mute">还没有图片</span>'}</div><p><input type="file" name="upload" accept="image/jpeg,image/png,image/webp" multiple></p></div>
-<div class="acts"><button class="btn" name="action" value="save">保存</button><button class="btn g" name="action" value="save_publish">保存并发布到网站</button></div></form>
+<div class="acts"><button class="btn" name="action" value="save">保存</button><button class="btn g" name="action" value="save_publish">保存并上架</button></div></form>
 ${isNew ? '' : `<div class="acts">${p._status !== 'published' ? `<form method="post" action="/admin/products/${encodeURIComponent(p.id)}/status"><input type="hidden" name="to" value="published"><button class="btn g">上架</button></form>` : `<form method="post" action="/admin/products/${encodeURIComponent(p.id)}/status"><input type="hidden" name="to" value="archived"><button class="btn r">下架</button></form>`}
 ${!p._publishedAt ? `<form method="post" action="/admin/products/${encodeURIComponent(p.id)}/delete" onsubmit="return confirm('确定删除？')"><button class="btn r">删除</button></form>` : ''}<a class="btn l" href="${esc(config.publicBaseUrl)}/products/${esc(p.slug)}/" target="_blank">在网站上查看</a></div>`}${revs}`, c);
+}
+
+/** Sort number and "recommended" flag from the edit form (validated; the product itself is already saved). */
+function applyExtras(id, sort, featured) {
+  if (sort != null && String(sort).trim() !== '' && Number(sort) !== C.getProduct(id)._sort) C.setSortNumbers({ [id]: String(sort).trim() });
+  if (featured !== C.getProduct(id)._featured) C.setFeatured([id], featured);
 }
 
 async function readForm(c) {
@@ -123,7 +140,9 @@ async function readForm(c) {
   };
   if (C.getSetting('catalog_meta', {}).features) input.features = [].concat(f.features || []).map(String);
   if (input.highlightsZh === undefined) delete input.highlightsZh;
-  return { input, variants, uploads, status: one('status'), salesMode: one('salesMode'), action: one('action'), version: one('_version') };
+  const action = one('action');
+  // "保存并上架" = status published + publish the site
+  return { input, variants, uploads, status: action === 'save_publish' ? 'published' : one('status'), salesMode: one('salesMode'), action, version: one('_version'), sort: one('sort'), featured: one('featured') === '1' };
 }
 
 async function storeUploads(uploads) {
@@ -236,11 +255,11 @@ export function mountCatalogAdmin(app) {
   app.get('/admin/products/template.csv', (c) => {
     c.header('content-type', 'text/csv; charset=utf-8'); c.header('content-disposition', 'attachment; filename="product-import-template.csv"');
     const ex = C.publishedCatalog().products[0];
-    return c.body(toCsv(ex ? [productToRow({ ...ex, id: 'NEW-MODEL-1', slug: '', images: [] }, 'draft')] : []));
+    return c.body(toCsv(ex ? [productToRow({ ...ex, id: 'NEW-MODEL-1', slug: '', images: [] }, 'draft')] : [], { labels: currentUser()?.lang !== 'en' }));
   });
   app.get('/admin/products/export.csv', (c) => {
     c.header('content-type', 'text/csv; charset=utf-8'); c.header('content-disposition', `attachment; filename="products-${config.site}.csv"`);
-    return c.body(toCsv(C.listProducts({ pageSize: 100000 }).rows.map((p) => productToRow(p, p._status))));
+    return c.body(toCsv(C.listProducts({ pageSize: 100000 }).rows.map((p) => productToRow(p, p._status)), { labels: currentUser()?.lang !== 'en' })); // column names follow the admin language
   });
   app.get('/admin/products/import', (c) => c.html(importPage(c)));
   app.post('/admin/products/import', limit, async (c) => {
@@ -285,15 +304,40 @@ export function mountCatalogAdmin(app) {
     return back(c, c.req.header('referer')?.includes('/admin/') ? new URL(c.req.header('referer')).pathname : '/admin/products', { m: `已发布 ${snap.products.length} 个商品：AI 销售和询价已立即使用新数据，网站正在重新构建，约 1 分钟后生效。` });
   });
   app.post('/admin/products/new', limit, async (c) => {
-    const { input, variants, uploads, status, salesMode, action } = await readForm(c);
+    const { input, variants, uploads, status, salesMode, action, sort, featured } = await readForm(c);
     try {
       input.images = [...input.images, ...(await storeUploads(uploads))];
       const { product, warnings } = C.saveProduct(input, { isNew: true, status, salesMode, variants });
+      applyExtras(product.id, sort, featured);
       if (action === 'save_publish') await publishNow();
-      return back(c, `/admin/products/${encodeURIComponent(product.id)}`, { m: action === 'save_publish' ? '已保存并发布' : '已创建（保存后点"发布到网站"生效）', w: warnings.join('；') || undefined });
+      return back(c, `/admin/products/${encodeURIComponent(product.id)}`, { m: action === 'save_publish' ? '已保存并上架，网站约 1 分钟后更新' : '已创建（保存后点"发布到网站"生效）', w: warnings.join('；') || undefined });
     } catch (e) {
       return c.html(editPage(c, { ...input, _status: status, _salesMode: salesMode }, { isNew: true, errors: e.errors || [e.message], warnings: e.warnings || [], variants }), 400);
     }
+  });
+  app.post('/admin/products/bulk', async (c) => {
+    const f = await c.req.parseBody({ all: true });
+    const ids = [].concat(f.ids || []).map(String);
+    const ref = c.req.header('referer') && new URL(c.req.header('referer')).pathname === '/admin/products' ? '/admin/products' + new URL(c.req.header('referer')).search : '/admin/products';
+    const go = (o) => back(c, ref.split('?')[0], { ...Object.fromEntries(new URLSearchParams(ref.split('?')[1] || '')), ...o });
+    try {
+      if (f.action === 'sort') {
+        const map = Object.fromEntries(Object.entries(f).filter(([k]) => k.startsWith('sort_')).map(([k, v]) => [k.slice(5), String([].concat(v)[0]).trim()]));
+        const changed = Object.fromEntries(Object.entries(map).filter(([id, v]) => C.getProduct(id)?._sort !== Number(v)));
+        return go({ m: `已更新 ${C.setSortNumbers(changed)} 个排序号（发布后网站生效）` });
+      }
+      if (!ids.length) return go({ e: '请先勾选商品' });
+      if (f.action === 'publish' || f.action === 'archive') {
+        const r = C.bulkStatus(ids, f.action === 'publish' ? 'published' : 'archived');
+        return go({ m: `${f.action === 'publish' ? '上架' : '下架'} ${r.done.length} 个${r.failed.length ? `，${r.failed.length} 个失败` : ''}（点"发布到网站"生效）`, e: r.failed.map((x) => `${x.id}：${x.error}`).slice(0, 5).join('；') || undefined });
+      }
+      if (f.action === 'feature' || f.action === 'unfeature') { C.setFeatured(ids, f.action === 'feature'); return go({ m: `${f.action === 'feature' ? '已设为推荐' : '已取消推荐'} ${ids.length} 个（发布后网站生效）` }); }
+      return go({ e: '未知操作' });
+    } catch (e) { return go({ e: e.message }); }
+  });
+  app.post('/admin/products/featured-max', async (c) => {
+    const f = await c.req.parseBody();
+    try { C.setFeaturedMax(String(f.max ?? '').trim()); return back(c, '/admin/products', { m: '推荐上限已保存' }); } catch (e) { return back(c, '/admin/products', { e: e.message }); }
   });
   app.get('/admin/products/autolist', (c) => c.html(autolistPage(c)));
   app.post('/admin/products/autolist/erp', async (c) => {
@@ -335,13 +379,14 @@ export function mountCatalogAdmin(app) {
     const id = c.req.param('id');
     const cur = C.getProduct(id);
     if (!cur) return c.text('商品不存在', 404);
-    const { input, variants, uploads, status, salesMode, action, version } = await readForm(c);
+    const { input, variants, uploads, status, salesMode, action, version, sort, featured } = await readForm(c);
     input.id = id;
     try {
       input.images = [...input.images, ...(await storeUploads(uploads))];
       const { warnings } = C.saveProduct(input, { expectVersion: version, status, salesMode, variants });
+      applyExtras(id, sort, featured);
       if (action === 'save_publish') await publishNow();
-      return back(c, `/admin/products/${encodeURIComponent(id)}`, { m: action === 'save_publish' ? '已保存并发布：AI 立即生效，网站约 1 分钟后更新' : '已保存（点"发布到网站"后生效）', w: warnings.join('；') || undefined });
+      return back(c, `/admin/products/${encodeURIComponent(id)}`, { m: action === 'save_publish' ? '已保存并上架：AI 立即生效，网站约 1 分钟后更新' : '已保存（点"发布到网站"后生效）', w: warnings.join('；') || undefined });
     } catch (e) {
       return c.html(editPage(c, { ...cur, ...input, _status: status, _salesMode: salesMode, _version: cur._version }, { errors: e.errors || [e.message], warnings: e.warnings || [], variants }), e.conflict ? 409 : 400);
     }

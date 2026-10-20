@@ -19,6 +19,8 @@ function multipart(path, fields, files = [], auth = AUTH) {
   for (const f of files) fd.append(f.name, new Blob([f.data], { type: f.type || 'application/octet-stream' }), f.filename);
   return fetch(api.url + path, { method: 'POST', body: fd, redirect: 'manual', headers: auth ? { authorization: auth } : {} });
 }
+const PW = 'Str0ngPassw0rd';
+const basic = (u) => 'Basic ' + Buffer.from(`${u}:${PW}`).toString('base64');
 const productForm = (o = {}) => ({
   id: 'NEW-UFO-200', name: 'New UFO 200W', category: 'high-bay', summary: 'Brand new UFO high bay.', status: 'draft', salesMode: 'both', illus: 'ufo',
   highlights: '170 lm/W\nIP66', applications: 'warehouse', certifications: 'CE\nRoHS', keywords: 'ufo', specs: 'Power: 200 W\nEfficacy: 170 lm/W',
@@ -38,7 +40,7 @@ describe('product create / edit', () => {
   });
   test('PA-02 create a product with a variant and two uploaded photos', async () => {
     const r = await multipart('/admin/products/new', productForm(), [{ name: 'upload', filename: 'a.png', data: PNG, type: 'image/png' }, { name: 'upload', filename: 'b.png', data: PNG, type: 'image/png' }]);
-    assert.equal(r.status, 302, await r.text());
+    assert.equal(r.status, 302, (await r.text()).match(/class="flash err"[^<]*<[^>]*>([\s\S]{0,400})/)?.[1]);
     assert.match(flash(r).path, /\/admin\/products\/NEW-UFO-200$/);
     const page = await (await api.admin('/admin/products/NEW-UFO-200')).text();
     const imgs = [...page.matchAll(/src="(\/media\/[a-f0-9]{24}\.png)"/g)].map((m) => m[1]);
@@ -72,7 +74,7 @@ describe('product create / edit', () => {
     const version = page.match(/name="_version" value="(\d+)"/)[1];
     const imgs = [...page.matchAll(/name="img_url_(\d)" value="([^"]+)"/g)].map((m) => m[2]);
     const r = await multipart('/admin/products/NEW-UFO-200', productForm({ _version: version, img_url_0: imgs[0], img_order_0: '2', img_url_1: imgs[1], img_order_1: '1', img_remove: imgs[0], v_0_price: '38', v_1_sku: 'NEW-UFO-200-40K', v_1_options: 'CCT=4000K', v_1_price: '38', v_1_min_qty: '20', v_1_weight_kg: '3.2' }));
-    assert.equal(r.status, 302, await r.text());
+    assert.equal(r.status, 302, (await r.text()).match(/class="flash err"[^<]*<[^>]*>([\s\S]{0,400})/)?.[1]);
     const after = await (await api.admin('/admin/products/NEW-UFO-200')).text();
     assert.equal([...after.matchAll(/name="img_url_\d" value="([^"]+)"/g)].map((m) => m[1]).join(), imgs[1]);
     assert.match(after, /value="NEW-UFO-200-40K"/);
@@ -203,14 +205,51 @@ describe('categories, settings, permissions', () => {
     await api.form('/admin/products/publish', {});
   });
   test('PA-20 roles: sales may view products but not change them; content staff may edit', async () => {
-    const PW = 'Str0ngPassw0rd';
     await api.form('/admin/users/new', { username: 'salesp', role: 'sales', password: PW });
     await api.form('/admin/users/new', { username: 'contentp', role: 'content', password: PW });
-    const basic = (u) => 'Basic ' + Buffer.from(`${u}:${PW}`).toString('base64');
     assert.equal((await api.get('/admin/products', { headers: { authorization: basic('salesp') } })).status, 200);
     assert.equal((await multipart('/admin/products/new', productForm({ id: 'S-1', slug: 's-1', v_0_sku: 'S-1-A' }), [], basic('salesp'))).status, 403);
     assert.equal((await api.form('/admin/products/publish', {}, { auth: false })).status, 401);
     assert.equal((await multipart('/admin/products/new', productForm({ id: 'C-1', slug: 'c-1', v_0_sku: 'C-1-A' }), [], basic('contentp'))).status, 302);
     assert.equal((await api.get('/admin/settings', { headers: { authorization: basic('salesp') } })).status, 403);
+  });
+
+  test('PA-21 bulk actions in the product list: list / delist, recommend with a limit, sort numbers; sales may not use them', async () => {
+    const ids = [...(await (await api.admin('/admin/products?status=published')).text()).matchAll(/name="ids" value="([^"]+)"/g)].map((m) => m[1]).slice(0, 3);
+    assert.equal(ids.length, 3);
+    const bulk = (data, auth = basic('contentp')) => fetch(`${api.url}/admin/products/bulk`, { method: 'POST', redirect: 'manual', headers: { authorization: auth, 'content-type': 'application/x-www-form-urlencoded' }, body: data });
+    const body = (action, list, extra = []) => new URLSearchParams([['action', action], ...list.map((i) => ['ids', i]), ...extra]);
+    assert.match(flash(await bulk(body('archive', ids.slice(0, 2)))).ok, /下架 2 个/);
+    assert.match(await (await api.admin('/admin/products?status=archived')).text(), new RegExp(ids[0]));
+    assert.match(flash(await bulk(body('publish', ids.slice(0, 2)))).ok, /上架 2 个/);
+    assert.match(flash(await bulk(body('publish', []))).err, /请先勾选/);
+    assert.match(flash(await api.form('/admin/products/featured-max', { max: '2' })).ok, /推荐上限已保存/);
+    assert.match(flash(await bulk(body('feature', ids.slice(0, 2)))).ok, /已设为推荐 2 个/);
+    assert.match(flash(await bulk(body('feature', [ids[2]]))).err, /最多 2 个/);
+    const list = await (await api.admin('/admin/products?featured=1')).text();
+    assert.equal([...list.matchAll(/name="ids"/g)].length, 2);
+    assert.match(list, /推荐 2 \/ 上限 2/);
+    assert.match(flash(await bulk(new URLSearchParams([['action', 'sort'], [`sort_${ids[2]}`, '1']]))).ok, /已更新 1 个排序号/);
+    assert.match(flash(await bulk(new URLSearchParams([['action', 'sort'], [`sort_${ids[2]}`, 'x']]))).err, /排序号/);
+    assert.match(await (await api.admin('/admin/products')).text(), new RegExp(`name="sort_${ids[2]}" value="1"`));
+    assert.equal((await bulk(body('archive', ids), basic('salesp'))).status, 403);
+    // after publishing, the recommended products are in the site's catalog.json
+    await api.form('/admin/products/publish', {});
+    const cat = JSON.parse(readFileSync(join(api.dir, 'site/src/data/catalog.json'), 'utf8'));
+    assert.deepEqual(cat.products.filter((p) => p.featured).map((p) => p.id).sort(), ids.slice(0, 2).sort());
+  });
+  test('PA-22 edit page: sort number and recommended flag; "save and list" lists the product', async () => {
+    const id = 'C-1';
+    await api.form('/admin/products/featured-max', { max: '0' });
+    const page = await (await api.admin(`/admin/products/${id}`)).text();
+    const version = page.match(/name="_version" value="(\d+)"/)[1];
+    assert.match(page, /保存并上架/);
+    const r = await multipart(`/admin/products/${id}`, productForm({ id, slug: 'c-1', v_0_sku: 'C-1-A', _version: version, sort: '5', featured: '1', status: 'draft', action: 'save_publish' }), [], basic('contentp'));
+    assert.equal(r.status, 302, (await r.text()).match(/class="flash err"[^<]*<[^>]*>([\s\S]{0,400})/)?.[1]);
+    assert.match(flash(r).ok, /已保存并上架/);
+    const after = await (await api.admin(`/admin/products/${id}`)).text();
+    assert.match(after, /name="sort" value="5"/);
+    assert.match(after, /name="featured" value="1" checked/);
+    assert.match(after, /已上架/);
   });
 });

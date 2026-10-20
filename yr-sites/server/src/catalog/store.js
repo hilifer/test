@@ -31,6 +31,9 @@ migrate([{
       CREATE TABLE media (id TEXT PRIMARY KEY, file TEXT, mime TEXT, bytes INTEGER, original_name TEXT, created_at TEXT, created_by TEXT);`);
     for (const [c, t] of [['price', 'REAL'], ['compare_at', 'REAL'], ['tier_prices', 'TEXT'], ['weight_kg', 'REAL'], ['options', 'TEXT'], ['image', 'TEXT'], ['min_qty', 'INTEGER DEFAULT 1'], ['sort', 'INTEGER DEFAULT 0']]) addColumn('skus', c, t);
   },
+}, {
+  id: '2026-10-28-featured',
+  up: () => addColumn('products', 'featured', 'INTEGER DEFAULT 0'),
 }]);
 
 // ---------------------------------------------------------------- settings
@@ -141,13 +144,14 @@ const skuReferenced = (sku) => Boolean(db.prepare("SELECT 1 FROM orders WHERE li
 // ---------------------------------------------------------------- products
 function row(r) {
   if (!r) return null;
-  return { ...J(r.data, {}), id: r.id, _status: r.status, _salesMode: r.sales_mode, _version: r.version, _sort: r.sort, _updatedAt: r.updated_at, _updatedBy: r.updated_by, _publishedAt: r.published_at };
+  return { ...J(r.data, {}), id: r.id, _featured: Boolean(r.featured), _status: r.status, _salesMode: r.sales_mode, _version: r.version, _sort: r.sort, _updatedAt: r.updated_at, _updatedBy: r.updated_by, _publishedAt: r.published_at };
 }
 export const getProduct = (id) => row(db.prepare('SELECT * FROM products WHERE id = ?').get(id));
 
-export function listProducts({ q = '', category = '', status = '', page = 1, pageSize = 50 } = {}) {
+export function listProducts({ q = '', category = '', status = '', featured = '', page = 1, pageSize = 50 } = {}) {
   const where = [];
   const args = [];
+  if (featured === '1') where.push('featured = 1');
   if (status) { where.push('status = ?'); args.push(status); }
   if (category) { where.push("json_extract(data, '$.category') = ?"); args.push(category); }
   if (q) { where.push("(id LIKE ? OR json_extract(data, '$.name') LIKE ? OR json_extract(data, '$.nameZh') LIKE ?)"); args.push(`%${q}%`, `%${q}%`, `%${q}%`); }
@@ -249,8 +253,48 @@ export const revisionsFor = (id, n = 30) => db.prepare('SELECT id, version, ts, 
 
 export function reorderProducts(ids) {
   const st = db.prepare('UPDATE products SET sort = ? WHERE id = ?');
-  ids.forEach((id, i) => st.run(i, id));
+  db.exec('BEGIN');
+  try { ids.forEach((id, i) => st.run((i + 1) * 10, id)); db.exec('COMMIT'); } catch (e) { db.exec('ROLLBACK'); throw e; }
   markDirty();
+}
+
+// ---------------------------------------------------------------- sort numbers, bulk status, featured ("recommended")
+/** Set sort numbers ({id: number}); smaller first. */
+export function setSortNumbers(map) {
+  const entries = Object.entries(map).map(([id, v]) => [id, Number(v)]);
+  for (const [id, v] of entries) { if (!Number.isInteger(v) || v < 0 || v > 999999) throw new Error(`排序号必须是 0–999999 的整数（${id}）`); if (!getProduct(id)) throw new Error(`商品不存在：${id}`); }
+  const st = db.prepare('UPDATE products SET sort = ? WHERE id = ?');
+  db.exec('BEGIN');
+  try { for (const [id, v] of entries) st.run(v, id); db.exec('COMMIT'); } catch (e) { db.exec('ROLLBACK'); throw e; }
+  if (entries.length) markDirty();
+  return entries.length;
+}
+
+/** Bulk list / delist. Each product is checked on its own; returns { done: [ids], failed: [{id, error}] }. */
+export function bulkStatus(ids, status) {
+  const done = [], failed = [];
+  for (const id of ids) { try { setProductStatus(id, status); done.push(id); } catch (e) { failed.push({ id, error: e.message }); } }
+  return { done, failed };
+}
+
+export const featuredMax = () => Number(getSetting('featured_max', 8));
+export function setFeaturedMax(n) {
+  const v = Number(n);
+  if (!Number.isInteger(v) || v < 0 || v > 100) throw new Error('推荐数量上限须为 0–100 的整数（0 = 不限）');
+  setSetting('featured_max', v);
+}
+export const featuredIds = () => db.prepare("SELECT id FROM products WHERE featured = 1 AND status != 'archived' ORDER BY sort, id").all().map((r) => r.id);
+/** Mark / unmark as recommended. Only published (or draft, shown once published) products; respects the maximum. */
+export function setFeatured(ids, on) {
+  for (const id of ids) { const p = getProduct(id); if (!p) throw new Error(`商品不存在：${id}`); if (on && p._status === 'archived') throw new Error(`已下架的商品不能推荐：${id}`); }
+  if (on) {
+    const max = featuredMax();
+    const after = new Set([...featuredIds(), ...ids]);
+    if (max && after.size > max) throw new Error(`推荐商品最多 ${max} 个（当前 ${featuredIds().length} 个），请先取消部分推荐或在设置中调整上限`);
+  }
+  const st = db.prepare('UPDATE products SET featured = ?, updated_at = ?, updated_by = ? WHERE id = ?');
+  for (const id of ids) st.run(on ? 1 : 0, now(), actorName('system'), id);
+  if (ids.length) markDirty();
 }
 
 // ---------------------------------------------------------------- media
@@ -278,7 +322,7 @@ export function buildCatalog() {
   const products = db.prepare("SELECT * FROM products WHERE status = 'published' ORDER BY sort, id").all().map((r) => {
     const p = J(r.data, {});
     const variants = skusFor(r.id).map((s) => ({ sku: s.sku, options: s.options, label: s.variant, price: s.price, compareAt: s.compare_at, tiers: s.tier_prices, minQty: s.min_qty, weightKg: s.weight_kg, image: s.image }));
-    return { ...p, salesMode: r.sales_mode, variants };
+    return { ...p, salesMode: r.sales_mode, variants, ...(r.featured ? { featured: true } : {}) };
   });
   return { ...meta, categories, products };
 }

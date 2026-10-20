@@ -6,6 +6,8 @@ import { config, aiEnabled } from '../config.js';
 import { recentRuns } from '../content/store.js';
 import { erpLog, erpLabel } from './erp/index.js';
 import * as B from './backup.js';
+import { defaultAdminLang } from '../auth.js';
+import { setSetting } from '../catalog/store.js';
 
 const mb = (n) => `${(Number(n || 0) / 1048576).toFixed(1)} MB`;
 const dur = (s) => `${Math.floor(s / 86400)} 天 ${Math.floor((s % 86400) / 3600)} 小时 ${Math.floor((s % 3600) / 60)} 分`;
@@ -24,6 +26,7 @@ ${stale ? '<div class="warn">最近 36 小时没有成功的数据库备份，�
 ${s.disk && s.disk.free < 2 * 1073741824 ? `<div class="warn">磁盘剩余空间不足 2 GB（剩余 ${mb(s.disk.free)}）。</div>` : ''}
 <div class="tiles">${tile('版本', esc(s.version))}${tile('站点', esc(config.site))}${tile('运行时间', dur(s.uptimeSec))}${tile('内存', `${s.rssMb} MB`)}${tile('数据库', `${mb(s.db.bytes)}（WAL ${mb(s.db.wal)}）`)}${s.disk ? tile('磁盘剩余', `${mb(s.disk.free)} / ${mb(s.disk.total)}`) : ''}
 ${tile('大模型', aiEnabled() ? esc(`${config.llm.provider} / ${config.llm.model}`) : '规则模式')}${tile('ERP', esc(erpLabel()))}${tile('Node', esc(s.node))}</div>
+<h3>默认后台语言</h3><form method="post" action="/admin/system/lang" class="acts" style="display:flex;gap:8px"><select name="lang" aria-label="默认后台语言">${[['zh', '中文'], ['en', 'English']].map(([k, l]) => `<option value="${k}"${defaultAdminLang() === k ? ' selected' : ''}>${l}</option>`).join('')}</select><button>保存</button><span class="mute">没有自己设置语言的账号使用这里的默认值</span></form>
 <h3>数据库备份</h3>
 <p class="mute">每天 ${bc.hour}:00 自动备份（在线快照，不影响网站访问），压缩后做恢复校验（PRAGMA integrity_check），保留最近 ${bc.keep} 份。备份目录：<code>${esc(bc.dir)}</code>。
 ${bc.cmd ? `异地复制命令：<code>${esc(bc.cmd)}</code>` : '<b>尚未配置异地复制（BACKUP_CMD）</b>——备份和数据库在同一块磁盘上，服务器损坏时会一起丢失。'}${bc.enabled ? '' : ' <b>自动备份已关闭（BACKUP_ENABLED=false）。</b>'}</p>
@@ -40,6 +43,12 @@ ${[...recentRuns(15).map((r) => ({ ts: r.ts, kind: { build: '网站构建', arti
 
 export function mountSystemAdmin(app) {
   app.get('/admin/system', (c) => c.html(page(c)));
+  app.post('/admin/system/lang', async (c) => {
+    const f = await c.req.parseBody();
+    if (!['zh', 'en'].includes(f.lang)) return c.redirect('/admin/system?e=' + encodeURIComponent('语言无效'));
+    setSetting('admin_lang', f.lang);
+    return c.redirect('/admin/system?m=' + encodeURIComponent('默认后台语言已保存'));
+  });
   app.post('/admin/system/backup', async (c) => {
     const r = await B.backupNow();
     return c.redirect(`/admin/system?${r.ok ? `m=${encodeURIComponent(`备份完成：${r.file}（${mb(r.bytes)}），恢复校验通过`)}` : `e=${encodeURIComponent(`备份失败：${r.error || r.offsite?.out || ''}`)}`}`);

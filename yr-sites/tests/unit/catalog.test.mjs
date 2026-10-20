@@ -187,4 +187,45 @@ describe('store', () => {
     C.deleteCategory('solar-garden');
     assert.ok(!C.listCategories().some((c) => c.id === 'solar-garden'));
   });
+
+  test('PC-23 sort numbers: smaller first in the admin list and the published catalog; drag order renumbers; validation', () => {
+    const ids = C.listProducts({ status: 'published' }).rows.map((p) => p.id).slice(0, 3);
+    C.setSortNumbers({ [ids[2]]: '0' });
+    assert.equal(C.listProducts().rows[0].id, ids[2]);
+    C.publishCatalog();
+    assert.equal(config.catalog.products[0].id, ids[2]);
+    assert.throws(() => C.setSortNumbers({ [ids[0]]: '-1' }), /排序号/);
+    assert.throws(() => C.setSortNumbers({ [ids[0]]: '1.5' }), /排序号/);
+    assert.throws(() => C.setSortNumbers({ NOPE: '1' }), /商品不存在/);
+    C.reorderProducts([ids[1], ids[0]]);
+    assert.deepEqual([C.getProduct(ids[1])._sort, C.getProduct(ids[0])._sort], [10, 20]);
+    assert.equal(C.isDirty(), true);
+  });
+  test('PC-24 bulk list / delist: each product checked on its own; failures reported per product', () => {
+    const ok = C.listProducts({ status: 'published' }).rows.slice(0, 2).map((p) => p.id);
+    let r = C.bulkStatus(ok, 'archived');
+    assert.deepEqual(r, { done: ok, failed: [] });
+    assert.equal(C.getProduct(ok[0])._status, 'archived');
+    r = C.bulkStatus([...ok, 'NOPE'], 'published');
+    assert.deepEqual(r.done, ok);
+    assert.match(r.failed[0].error, /商品不存在/);
+    assert.throws(() => C.saveProduct({ id: ok[0] }, { variants: [] }), /至少需要一个规格/); // a product without SKUs cannot exist, so it can never be listed
+  });
+  test('PC-25 recommended: flag, limit, archived products refused, shown in the published catalog in sort order', () => {
+    C.setFeaturedMax('2');
+    const ids = C.listProducts({ status: 'published' }).rows.map((p) => p.id).slice(0, 3);
+    C.setFeatured([ids[0], ids[1]], true);
+    assert.throws(() => C.setFeatured([ids[2]], true), /最多 2 个/);
+    assert.deepEqual(C.listProducts({ featured: '1' }).rows.map((p) => p.id).sort(), [ids[0], ids[1]].sort());
+    C.publishCatalog();
+    assert.deepEqual(config.catalog.products.filter((p) => p.featured).map((p) => p.id), C.featuredIds());
+    C.setFeatured([ids[0]], false);
+    C.setFeatured([ids[2]], true);
+    assert.equal(C.featuredIds().length, 2);
+    const arch = C.listProducts({ status: 'archived' }).rows[0]?.id;
+    if (arch) assert.throws(() => C.setFeatured([arch], true), /已下架/);
+    assert.throws(() => C.setFeaturedMax('101'), /0–100/);
+    C.setFeaturedMax('0');
+    C.setFeatured(C.listProducts({ status: 'published' }).rows.map((p) => p.id), true); // 0 = no limit
+  });
 });

@@ -10,7 +10,8 @@ import { alertLead } from './alerts.js';
 import { leadsPage, conversationsPage, conversationPage, leadsCsv, LEAD_STATUS, messageHtml } from './admin.js';
 import * as Live from './livechat.js';
 import { currentUser } from './auth.js';
-import { ensureBootstrapAdmin, verifyLogin, createSession, sessionUser, endSession, permissionFor, can, runAs } from './auth.js';
+import { ensureBootstrapAdmin, verifyLogin, createSession, sessionUser, endSession, permissionFor, can, runAs, adminLang, setStaffLang } from './auth.js';
+import { toEnglish } from './i18n/index.js';
 import { loginPage, forbiddenPage, mountStaffAdmin } from './admin-staff.js';
 import { mountContentAdmin } from './content/admin-content.js';
 import { startScheduler } from './content/scheduler.js';
@@ -149,6 +150,31 @@ app.use('/portal/contract/*', sameOrigin); // e-signature
 // Staff login (sessions) — Basic auth is also accepted for scripts, with the same users and lockout.
 ensureBootstrapAdmin();
 const SESSION_COOKIE = 'yr_staff';
+// Admin language: pages are rendered in Chinese and translated to English for staff who chose English.
+const LANG_COOKIE = 'yr_admin_lang';
+const adminI18n = async (c, next) => {
+  await next();
+  const lang = adminLang(c.get('user'), getCookie(c, LANG_COOKIE));
+  if (lang !== 'en' || !/text\/html/.test(c.res.headers.get('content-type') || '')) return;
+  const html = await c.res.text();
+  const headers = new Headers(c.res.headers);
+  headers.delete('content-length');
+  c.res = new Response(toEnglish(html), { status: c.res.status, headers });
+};
+app.use('/admin/*', adminI18n);
+app.use('/admin', adminI18n);
+app.post('/admin/lang', async (c) => {
+  const f = await c.req.parseBody();
+  const lang = f.lang === 'en' ? 'en' : 'zh';
+  setCookie(c, LANG_COOKIE, lang, { sameSite: 'Lax', path: '/admin', maxAge: 365 * 864e2 });
+  const user = sessionUser(getCookie(c, SESSION_COOKIE));
+  if (user) setStaffLang(user.id, lang);
+  if (/fetch/.test(c.req.header('x-requested-with') || '')) return c.body(null, 204);
+  const ref = c.req.header('referer');
+  return c.redirect(ref && new URL(ref).pathname.startsWith('/admin') ? new URL(ref).pathname + new URL(ref).search : '/admin');
+});
+
+
 app.get('/admin/login', (c) => c.html(loginPage({ next: c.req.query('next') || '/admin' })));
 app.post('/admin/login', async (c) => {
   const f = await c.req.parseBody();
@@ -160,7 +186,7 @@ app.post('/admin/login', async (c) => {
 });
 app.post('/admin/logout', (c) => { endSession(getCookie(c, SESSION_COOKIE)); deleteCookie(c, SESSION_COOKIE, { path: '/admin' }); return c.redirect('/admin/login'); });
 const staffGate = async (c, next) => {
-  if (c.req.path === '/admin/login') return next();
+  if (c.req.path === '/admin/login' || c.req.path === '/admin/lang') return next();
   let user = sessionUser(getCookie(c, SESSION_COOKIE));
   const basic = c.req.header('authorization');
   if (!user && basic?.startsWith('Basic ')) {
@@ -171,6 +197,7 @@ const staffGate = async (c, next) => {
   }
   if (!user) return c.html(loginPage({ next: c.req.method === 'GET' ? c.req.path : '/admin' }), 401);
   if (!can(user, permissionFor(c.req.path, c.req.method))) return c.html(forbiddenPage(user), 403);
+  user.lang = adminLang(user, getCookie(c, LANG_COOKIE)); // effective language for this request
   c.set('user', user);
   return runAs(user, () => next());
 };

@@ -1,13 +1,14 @@
 // 内部线索后台（中文界面）：线索、对话、转人工、CSV 导出
 import { config, aiEnabled } from './config.js';
 import { listLeads, listConversations, conversationMessages, stats } from './db.js';
-import { currentUser, can, permissionFor, ROLES } from './auth.js';
+import { currentUser, can, permissionFor, ROLES, defaultAdminLang } from './auth.js';
 import { humanActive, waitingCount } from './livechat.js';
 
 // Main navigation; each entry is only shown to staff whose role may open it.
 export const NAV = [['/admin/dashboard', '看板'], ['/admin', '线索'], ['/admin/conversations', '对话'], ['/admin/ops', '业务闭环'], ['/admin/deals', 'AI 议价'], ['/admin/shop', '网店'], ['/admin/coupons', '优惠券'], ['/admin/reviews', '评价'], ['/admin/products', '商品'], ['/admin/categories', '品类'], ['/admin/settings', '站点设置'], ['/admin/content', '内容'], ['/admin/geo', 'GEO 监测'], ['/admin/leads.csv', '导出 CSV'], ['/admin/users', '账号权限'], ['/admin/system', '系统']];
 const navHtml = () => { const u = currentUser(); return NAV.filter(([h]) => !u || can(u, permissionFor(h))).map(([h, l]) => `<a href="${h}">${l}</a>`).join(''); };
-const userHtml = () => { const u = currentUser(); return u ? `<span class="mute">${esc(u.name || u.username)}（${esc(ROLES[u.role]?.zh || u.role)}）</span> <a href="/admin/me">修改密码</a> <form method="post" action="/admin/logout" style="display:inline"><button>退出</button></form>` : ''; };
+const langToggle = () => { const u = currentUser(); const en = (u?.lang || defaultAdminLang()) === 'en'; /* u.lang = effective language: own choice, cookie or system default */ return `<form method="post" action="/admin/lang" style="display:inline" data-lang-form><input type="hidden" name="lang" value="${en ? 'zh' : 'en'}"><button title="${en ? '切换到中文' : 'Switch to English'}">${en ? '&#20013;&#25991;' : 'EN'}</button></form>`; };
+const userHtml = () => { const u = currentUser(); return u ? `${langToggle()} <span class="mute">${esc(u.name || u.username)}（${esc(ROLES[u.role]?.zh || u.role)}）</span> <a href="/admin/me">修改密码</a> <form method="post" action="/admin/logout" style="display:inline"><button>退出</button></form>` : ''; };
 
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 export const fmt = (iso) => (iso ? new Date(iso).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false }) : '');
@@ -29,7 +30,8 @@ th{background:#fafbfc;font-weight:600;font-size:12px;color:var(--mute);white-spa
 .pill{font-size:12px;padding:1px 8px;border-radius:10px;background:#eceff1;white-space:nowrap}.warn{background:#fff4e5;border:1px solid #ffcc80;padding:10px 14px;border-radius:8px;margin-bottom:16px}
 select,button{font:inherit}a{color:#1565c0}
 </style></head><body><header><b>${esc(config.profile.brand)} · AI 销售后台</b><nav>${navHtml()}</nav>
-<span class="mute">站点 ${esc(config.site)} · ${aiEnabled() ? 'AI 模式：' + esc(config.llm.provider + ' / ' + config.llm.model) : '规则模式（未配置大模型密钥）'}</span><span style="margin-left:auto">${userHtml()}</span></header><main>${body}</main></body></html>`;
+<span class="mute">站点 ${esc(config.site)} · ${aiEnabled() ? 'AI 模式：' + esc(config.llm.provider + ' / ' + config.llm.model) : '规则模式（未配置大模型密钥）'}</span><span style="margin-left:auto">${userHtml()}</span></header><main>${body}</main>
+<script>document.querySelector('[data-lang-form]')?.addEventListener('submit',async(e)=>{e.preventDefault();const f=e.currentTarget;await fetch(f.action,{method:'POST',headers:{'x-requested-with':'fetch'},body:new URLSearchParams(new FormData(f))});const h=await (await fetch(location.href)).text();document.open();document.write(h);document.close();});</script></body></html>`;
 }
 
 const SRC = { 'quote-page': '询价单', 'quote-form': '产品页询价', 'lighting-design': '免费灯光设计', wholesale: '批发/经销申请', 'oem-odm': 'OEM/ODM', 'chat-form': 'AI 对话留资', calculator: '收益测算', partner: '渠道合作', contact: '联系表单' };

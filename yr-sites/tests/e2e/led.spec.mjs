@@ -221,3 +221,18 @@ test('E2E-L12 live chat: visitor asks for a person → salesperson replies in th
   expect(await box.locator('.yrc-m.bot').count()).toBe(bots); // the AI stayed silent
   await ctx.close();
 });
+
+test('E2E-L13 admin language: switch to English without a page reload, remembered on the next visit; switch back', async ({ browser }) => {
+  const { ctx, page } = await adminPage(browser);
+  await page.goto(SITE + '/admin/products');
+  await page.evaluate(() => { window.__noReload = true; });
+  await page.locator('[data-lang-form] button').click();
+  await expect(page.locator('header nav')).toContainText('Leads');
+  await expect(page.locator('main h2').first()).toContainText('Products');
+  expect(page.url()).toMatch(/\/admin\/products$/);
+  await page.goto(SITE + '/admin/dashboard');
+  await expect(page.locator('main')).toContainText('Business dashboard');
+  await page.locator('[data-lang-form] button').click();
+  await expect(page.locator('main')).toContainText('经营看板');
+  await ctx.close();
+});

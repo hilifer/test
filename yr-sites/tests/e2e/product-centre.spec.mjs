@@ -31,8 +31,8 @@ test('E2E-P01 create → upload photo → save & publish → live on the website
   await f('v_0_min_qty', '20');
   await f('v_0_weight_kg', '4.5');
   await page.locator('input[name="upload"]').setInputFiles({ name: 'bollard.png', mimeType: 'image/png', buffer: PNG });
-  await page.getByRole('button', { name: '保存并发布到网站' }).click();
-  await expect(page.locator('.flash').first()).toContainText('已保存并发布');
+  await page.getByRole('button', { name: '保存并上架' }).click();
+  await expect(page.locator('.flash').first()).toContainText('已保存并上架');
   await expect(page.locator('.imgs img')).toHaveCount(1);
 
   // the AI agent and MCP see it immediately
@@ -73,9 +73,37 @@ test('E2E-P02 AI auto-listing: paste product data → process queue → review t
   await expect(page.locator('[name="id"]')).toHaveValue('E2E-AUTO-50');
   await expect(page.locator('[name="name"]')).toHaveValue('Canopy light 50W');
   await expect(page.locator('[name="specs"]')).toHaveValue(/Power: 50W[\s\S]*IP rating: IP65[\s\S]*CCT: 5000K/);
-  await page.getByRole('button', { name: '上架' }).click();
+  await page.getByRole('button', { name: '上架', exact: true }).click();
   await page.locator('.pub').getByRole('button', { name: '发布到网站' }).click();
   await expect.poll(async () => (await request.get(SITE + '/api/shop/product/E2E-AUTO-50')).status(), { timeout: 30_000 }).toBe(200);
   await page.goto(SITE + '/admin/products/autolist');
   await expect(page.locator('main')).toContainText('E2E-AUTO-50');
+});
+
+test('E2E-P03 recommend products in bulk → publish → homepage "Recommended products" section; buy box is styled', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.goto(SITE + '/admin/login');
+  await page.locator('input[name="username"]').fill('admin');
+  await page.locator('input[name="password"]').fill('e2e-pass');
+  await page.getByRole('button', { name: '登录' }).click();
+  await page.waitForURL(/\/admin/);
+  await page.goto(SITE + '/admin/products?status=published');
+  const rows = page.locator('#rows tr[data-id]');
+  const first = await rows.nth(0).getAttribute('data-id');
+  const second = await rows.nth(1).getAttribute('data-id');
+  await rows.nth(0).locator('input[name="ids"]').check();
+  await rows.nth(1).locator('input[name="ids"]').check();
+  await page.getByRole('button', { name: '设为推荐' }).click();
+  await expect(page.locator('main')).toContainText('已设为推荐 2 个');
+  // drag the second row above the first, save the new order
+  await page.locator(`#rows tr[data-id="${second}"] .drag`).dragTo(page.locator(`#rows tr[data-id="${first}"] .drag`), { targetPosition: { x: 5, y: 2 } });
+  await page.getByRole('button', { name: '保存排序号' }).click();
+  await expect(page.locator('main')).toContainText('排序号');
+  await page.locator('.pub').getByRole('button', { name: '发布到网站' }).click();
+  await expect.poll(async () => (await (await page.request.get(SITE + '/')).text()).includes('Recommended products'), { timeout: 60_000 }).toBe(true);
+  await page.goto(SITE + '/');
+  const sec = page.locator('[data-featured]');
+  await expect(sec.locator('.pc')).toHaveCount(2);
+  await page.goto(SITE + '/products/ufo-high-bay-u2/');
+  await expect(page.locator('[data-buy-box] .buybox')).toHaveCSS('border-radius', '12px'); // shop widget styles are global, not scoped
 });

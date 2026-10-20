@@ -12,7 +12,8 @@ button{font:600 15px/1 inherit;padding:12px;border:0;border-radius:8px;backgroun
 export function loginPage({ next = '/admin', error = '', username = '' } = {}) {
   return page('登录', `<form method="post" action="/admin/login"><h1>${esc(config.profile.brand)} 后台登录</h1>${error ? `<div class="err">${esc(error)}</div>` : ''}
 <input type="hidden" name="next" value="${esc(next)}"><label>用户名<input name="username" value="${esc(username)}" autocomplete="username" required autofocus></label>
-<label>密码<input name="password" type="password" autocomplete="current-password" required></label><button>登录</button><p class="mute">连续输错 5 次将锁定 15 分钟。</p></form>`);
+<label>密码<input name="password" type="password" autocomplete="current-password" required></label><button>登录</button><p class="mute">连续输错 5 次将锁定 15 分钟。</p></form>
+<p style="text-align:center">${[['zh', '中文'], ['en', 'English']].map(([k, l]) => `<form method="post" action="/admin/lang" style="display:inline"><input type="hidden" name="lang" value="${k}"><button style="background:none;border:0;color:#1565c0;cursor:pointer;width:auto;padding:4px 8px">${l}</button></form>`).join(' | ')}</p>`);
 }
 
 export function forbiddenPage(user) {
@@ -47,7 +48,7 @@ export function mountStaffAdmin(app) {
     const id = Number(c.req.param('id'));
     try { saveStaff({ id, name: String(f.name || ''), role: String(f.role), active: f.active === '1', password: String(f.password || '') || null }); return back(c, `/admin/users/${id}`, '已保存'); } catch (e) { return back(c, `/admin/users/${id}`, e.message, true); }
   });
-  app.get('/admin/me', (c) => c.html(shell('修改密码', `${flash(c)}<h2>修改我的密码</h2><form method="post" action="/admin/me" style="display:grid;gap:8px;max-width:360px"><input name="old" type="password" placeholder="当前密码" required><input name="password" type="password" placeholder="新密码（≥10 位，含字母和数字）" required><button>保存</button></form>`)));
+  app.get('/admin/me', (c) => c.html(shell('修改密码', `${flash(c)}<h2>界面语言</h2><form method="post" action="/admin/lang" class="acts" style="display:flex;gap:8px;margin-bottom:18px"><select name="lang" aria-label="界面语言">${[['zh', '中文'], ['en', 'English']].map(([k, l]) => `<option value="${k}"${currentUser()?.lang === k ? ' selected' : ''}>${l}</option>`).join('')}</select><button>保存</button><span class="mute">每个账号单独设置，下次登录自动使用</span></form><h2>修改我的密码</h2><form method="post" action="/admin/me" style="display:grid;gap:8px;max-width:360px"><input name="old" type="password" placeholder="当前密码" required><input name="password" type="password" placeholder="新密码（≥10 位，含字母和数字）" required><button>保存</button></form>`)));
   app.post('/admin/me', async (c) => {
     const f = await c.req.parseBody();
     const me = currentUser();
