@@ -68,3 +68,14 @@ export function flash(res) {
   const u = new URL(loc, 'http://x');
   return { location: loc, path: u.pathname, ok: u.searchParams.get('m'), err: u.searchParams.get('e') };
 }
+
+/** Poll until fn() returns a truthy value (background jobs finish at their own pace on slow CI runners). */
+export async function waitFor(fn, { timeout = 10000, every = 50 } = {}) {
+  const end = Date.now() + timeout;
+  for (;;) {
+    const v = await fn();
+    if (v) return v;
+    if (Date.now() > end) return v;
+    await new Promise((r) => setTimeout(r, every));
+  }
+}

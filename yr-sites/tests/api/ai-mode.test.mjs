@@ -3,7 +3,7 @@
 // IDs AI-xx, KF-xx, GR-xx.
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { startServer, flash } from '../helpers/server.mjs';
+import { startServer, flash, waitFor } from '../helpers/server.mjs';
 import { mockServer } from '../helpers/mock-http.mjs';
 
 const turns = [];
@@ -121,9 +121,11 @@ describe('real Kingdee mode (mock Kingdee WebAPI)', () => {
         flash(await s.form(`/admin/quotes/${q}/status`, { to: 'sent' }));
         const token = (await (await s.admin(`/admin/quotes/${q}`)).text()).match(/\/portal\/pi\/([\w-]+)/)[1];
         await s.form(`/portal/pi/${token}`, {}, { auth: false });
-        await new Promise((r) => setTimeout(r, 400));
         const orders = await (await s.admin('/admin/orders')).text();
-        return orders.match(/\/admin\/orders\/([\w-]+)/)[1];
+        const id = orders.match(/\/admin\/orders\/([\w-]+)/)[1];
+        // the Kingdee push runs in the background: wait until the order shows a bill number or an error
+        await waitFor(async () => /销售订单号 <b>|color:#c62828/.test(await (await s.admin(`/admin/orders/${id}`)).text()));
+        return id;
       };
       const id = await accept('kd1@test.test');
       assert.match(await (await s.admin(`/admin/orders/${id}`)).text(), /XSDD-KD-1/);

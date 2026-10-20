@@ -56,7 +56,7 @@ test('LS-A05 a person approves the draft (上架) and publishes → live; first 
   assert.equal((await api.get('/api/shop/product/YR-TP-40')).status, 200);
   assert.match(await (await api.json('/mcp', { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'search_products', arguments: { query: 'tri-proof' } } })).text(), /YR-TP-40/); // AI agents see it now
   let page = '';
-  for (let i = 0; i < 50; i++) { page = await (await api.admin('/admin/products/autolist')).text(); if (/YR-TP-40<\/a><\/td><td><div>搜索引擎收录通知/.test(page)) break; await new Promise((r) => setTimeout(r, 50)); }
+  for (let i = 0; i < 200; i++) { page = await (await api.admin('/admin/products/autolist')).text(); if (/YR-TP-40<\/a><\/td><td><div>搜索引擎收录通知/.test(page)) break; await new Promise((r) => setTimeout(r, 50)); }
   assert.match(page, /YR-TP-40<\/a><\/td><td><div>搜索引擎收录通知（未配置 INDEXNOW_KEY，已跳过）/);
   assert.match(page, /GEO 监测问题 \d 个/);
   // publishing again does not promote it a second time

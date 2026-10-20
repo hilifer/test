@@ -151,7 +151,7 @@ describe('settings, auto-publish and GEO promotion', () => {
     assert.equal(p.moq, 10);
     assert.ok(config.catalog.products.some((x) => x.id === 'MAT-LED-9002')); // live for AI sales / MCP
     // promotion runs in the background
-    for (let i = 0; i < 50 && !AL.listPromotions().length; i++) await new Promise((r) => setTimeout(r, 20));
+    await AL.promotionIdle();
     const promo = AL.listPromotions()[0];
     assert.equal(promo.product_id, 'MAT-LED-9002');
     const idx = llm.calls.find((c) => c.url === '/indexnow');

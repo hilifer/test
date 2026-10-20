@@ -282,9 +282,12 @@ export async function publishAndPromote({ rebuildSite = true } = {}) {
   const pub = await import('../content/publisher.js');
   const paths = ['/products/', '/llms.txt', '/sitemap.xml', ...snap.products.slice(0, 50).map((p) => `/products/${p.slug}/`)];
   if (rebuildSite) pub.rebuild().then(() => pub.indexNow(paths)).catch(() => {});
-  if (fresh.length && autolistSettings().promote) promoteProducts(fresh.map((p) => p.id)).catch((e) => console.error('[promote]', e.message));
+  // promotion runs in the background (publish returns at once); promotionIdle() lets callers wait for it
+  if (fresh.length && autolistSettings().promote) inflight = promoteProducts(fresh.map((p) => p.id)).catch((e) => console.error('[promote]', e.message));
   return { snap, fresh: fresh.map((p) => p.id) };
 }
+let inflight = Promise.resolve();
+export const promotionIdle = () => inflight;
 
 /** Questions buyers would ask an AI answer engine about this product (added to the GEO monitor). */
 export function geoQuestionsFor(p) {

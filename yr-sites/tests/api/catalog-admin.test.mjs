@@ -4,7 +4,7 @@ import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { startServer, flash } from '../helpers/server.mjs';
+import { startServer, flash, waitFor } from '../helpers/server.mjs';
 import { makeXlsx, PNG } from '../helpers/xlsx.mjs';
 
 let api;
@@ -110,8 +110,7 @@ describe('publish', () => {
     assert.match(p.image, /^\/media\//);
     assert.equal(p.salesMode, 'both');
     assert.deepEqual(p.variants.map((v) => [v.sku, v.price, v.minQty, v.weightKg]), [['NEW-UFO-200-50K', 39, 20, 3.2]]); // as last saved in PA-07
-    await new Promise((r) => setTimeout(r, 300));
-    assert.match(await (await api.admin('/admin/content')).text(), /build/, 'site rebuild was triggered');
+    assert.ok(await waitFor(async () => /build/.test(await (await api.admin('/admin/content')).text())), 'site rebuild was triggered');
   });
   test('PA-11 archive + publish removes it from MCP; it cannot be deleted because it was published', async () => {
     await api.form('/admin/products/NEW-UFO-200/status', { to: 'archived' });
