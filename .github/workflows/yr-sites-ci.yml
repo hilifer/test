@@ -46,7 +46,7 @@ jobs:
           CI: 'true'
       - name: Test summary
         if: always()
-        run: node scripts/test-summary.mjs test-results/node-junit.xml test-results/e2e-junit.xml >> "$GITHUB_STEP_SUMMARY"
+        run: node scripts/test-summary.mjs test-results/node-junit.xml test-results/e2e-junit.xml
       - uses: actions/upload-artifact@v4
         if: always()
         with:
