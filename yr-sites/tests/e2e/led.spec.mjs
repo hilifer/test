@@ -194,3 +194,30 @@ test('E2E-L11 sales contract: staff create a PI and a contract → the buyer sig
   await page.locator('.note a').click();
   await expect(page.locator('main')).toContainText(/Awaiting deposit|待付定金/);
 });
+
+test('E2E-L12 live chat: visitor asks for a person → salesperson replies in the admin → reply appears in the website widget', async ({ browser, page }) => {
+  await page.goto(SITE + '/');
+  await page.locator('.yrc-launch').click();
+  const box = page.locator('.yrc.open');
+  await box.locator('textarea').fill('Can I talk to a person please?');
+  await box.locator('textarea').press('Enter');
+  await expect(box.locator('.yrc-m.bot').nth(1)).toBeVisible();
+  const sid = await page.evaluate(() => JSON.parse(localStorage.getItem('yrchat:sid')));
+  expect(sid).toBeTruthy();
+
+  const { ctx, page: admin } = await adminPage(browser);
+  await admin.goto(`${SITE}/admin/conv/${sid}`);
+  await expect(admin.locator('#log')).toContainText('Can I talk to a person please?');
+  await admin.locator('textarea[name="text"]').fill('Hi, this is our sales engineer. How many fixtures do you need?');
+  await admin.getByRole('button', { name: '发送' }).click();
+  await expect(admin.locator('main')).toContainText('正在人工接待');
+
+  await expect(box.locator('.yrc-m.agent')).toContainText('How many fixtures do you need?', { timeout: 15_000 });
+  await expect(box.locator('.yrc-head small')).toContainText('a person is replying');
+  const bots = await box.locator('.yrc-m.bot').count();
+  await box.locator('textarea').fill('About 400 pieces.');
+  await box.locator('textarea').press('Enter');
+  await expect(admin.locator('#log')).toContainText('About 400 pieces.', { timeout: 15_000 }); // staff page updates live
+  expect(await box.locator('.yrc-m.bot').count()).toBe(bots); // the AI stayed silent
+  await ctx.close();
+});

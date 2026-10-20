@@ -7,7 +7,9 @@ import { chat } from './agent.js';
 import { handleMcp } from './mcp.js';
 import { scoreLead } from '../../shared/sales-engine.js';
 import { alertLead } from './alerts.js';
-import { leadsPage, conversationsPage, conversationPage, leadsCsv, LEAD_STATUS } from './admin.js';
+import { leadsPage, conversationsPage, conversationPage, leadsCsv, LEAD_STATUS, messageHtml } from './admin.js';
+import * as Live from './livechat.js';
+import { currentUser } from './auth.js';
 import { ensureBootstrapAdmin, verifyLogin, createSession, sessionUser, endSession, permissionFor, can, runAs } from './auth.js';
 import { loginPage, forbiddenPage, mountStaffAdmin } from './admin-staff.js';
 import { mountContentAdmin } from './content/admin-content.js';
@@ -72,6 +74,13 @@ app.post('/api/chat', limit, async (c) => {
   const convId = ensureConversation(b.sessionId, { page: String(b.page || '').slice(0, 200), lang: b.lang, ip: ipOf(c) });
   const res = await chat({ convId, message: b.message, page: b.page });
   return c.json({ sessionId: convId, ...res });
+});
+
+// The widget polls for staff replies while a person may be handling the chat
+app.get('/api/chat/poll', (c) => {
+  const id = String(c.req.query('sessionId') || '');
+  if (!/^[\w-]{8,64}$/.test(id)) return c.json({ error: 'bad_session' }, 400);
+  return c.json(Live.poll(id, c.req.query('after')));
 });
 
 // Contact form, quote form, calculator report request, chat lead card
@@ -168,7 +177,12 @@ app.use('/admin', staffGate);
 mountStaffAdmin(app);
 app.get('/admin', (c) => c.html(leadsPage()));
 app.get('/admin/conversations', (c) => c.html(conversationsPage()));
-app.get('/admin/conv/:id', (c) => c.html(conversationPage(c.req.param('id'))));
+app.get('/admin/conv/:id', (c) => c.html(conversationPage(c.req.param('id'), { e: c.req.query('e') })));
+app.get('/admin/conv/:id/messages', (c) => { const ms = Live.messagesAfter(c.req.param('id'), c.req.query('after')); return c.json({ html: ms.map(messageHtml).join(''), lastId: ms.at(-1)?.id || Number(c.req.query('after')) || 0 }); });
+const convBack = (c, e) => c.redirect(`/admin/conv/${encodeURIComponent(c.req.param('id'))}${e ? `?e=${encodeURIComponent(e)}` : ''}`);
+app.post('/admin/conv/:id/reply', async (c) => { const f = await c.req.parseBody(); try { Live.agentReply(c.req.param('id'), currentUser(), f.text); return convBack(c); } catch (e) { return convBack(c, e.message); } });
+app.post('/admin/conv/:id/takeover', (c) => { try { Live.takeOver(c.req.param('id'), currentUser()); return convBack(c); } catch (e) { return convBack(c, e.message); } });
+app.post('/admin/conv/:id/release', (c) => { Live.release(c.req.param('id')); return convBack(c); });
 app.get('/admin/leads.csv', (c) => { c.header('content-type', 'text/csv; charset=utf-8'); c.header('content-disposition', `attachment; filename="leads-${config.site}.csv"`); return c.body(leadsCsv()); });
 mountContentAdmin(app);
 mountOpsAdmin(app);

@@ -5,6 +5,7 @@ import { demoReply, getProduct, isCJK } from '../../shared/sales-engine.js';
 import { addMessage, history, markHandoff } from './db.js';
 import { verifyOrder, orderStatusView, createRma } from './ops/service.js';
 import { alertOps } from './alerts.js';
+import { humanActive, customerWrote } from './livechat.js';
 
 function systemPrompt() {
   const p = config.profile;
@@ -91,8 +92,13 @@ function serviceReply(past, text, lang, convId) {
 export async function chat({ convId, message, page }) {
   const text = String(message || '').slice(0, 2000).trim();
   const lang = isCJK(text) ? 'zh' : 'en';
-  const past = history(convId, 20);
+  // staff replies become assistant turns for the model; join/leave notes are dropped
+  const past = history(convId, 30).filter((m) => m.role !== 'note').map((m) => (m.role === 'agent' ? { role: 'assistant', content: `[Sales engineer] ${m.content}` } : m)).slice(-20);
   addMessage(convId, 'user', text, { page });
+
+  // a person is handling this chat: the AI stays silent, the salesperson is notified
+  const human = humanActive(convId);
+  if (human) { customerWrote(convId, text); return { reply: null, human: true, agent: String(human.name || '').split(/\s+/)[0], products: [], quote: null, askLead: false, handoff: true, mode: 'human' }; }
 
   const ui = { products: new Map(), quote: null, askLead: false, handoff: false, leadSaved: false, link: null };
 

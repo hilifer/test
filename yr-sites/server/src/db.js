@@ -63,7 +63,7 @@ export function insertLead(lead) {
 
 export const listLeads = (limit = 200) => db.prepare('SELECT * FROM leads ORDER BY created_at DESC LIMIT ?').all(limit);
 export const listConversations = (limit = 100) => db.prepare('SELECT * FROM conversations ORDER BY updated_at DESC LIMIT ?').all(limit);
-export const conversationMessages = (id) => db.prepare('SELECT role, content, meta, ts FROM messages WHERE conv_id = ? ORDER BY id').all(id);
+export const conversationMessages = (id) => db.prepare('SELECT id, role, content, meta, ts FROM messages WHERE conv_id = ? ORDER BY id').all(id);
 export const setLeadStatus = (id, status) => db.prepare('UPDATE leads SET status = ? WHERE id = ?').run(status, id);
 export function stats() {
   const g = (sql) => db.prepare(sql).get();

@@ -6,8 +6,8 @@
 const cfg = Object.assign({ api: '/api/chat', leadsApi: '/api/leads', catalogUrl: '/products.json', lang: 'en', brand: 'Sales', suggestions: [] }, window.YR_CHAT || {});
 const zh = cfg.lang === 'zh';
 const T = zh
-  ? { title: `${cfg.brand} 销售助手`, sub: 'AI 助手 · 7×24 在线', placeholder: '输入您的需求，例如功率、数量、目的地…', send: '发送', close: '关闭', disclose: '您正在与 AI 助手对话。价格均为参考区间，以正式 PI 为准。', human: '转人工', moq: '起订', view: '查看产品', ref: '参考价', total: '合计约', lead: '留下联系方式，业务工程师会发送正式报价', name: '姓名', company: '公司', email: '邮箱', wa: 'WhatsApp / 电话', country: '国家/地区', consent: '我同意贵司通过邮箱或电话与我联系', submit: '提交', thanks: '已收到，业务工程师会尽快联系您。', err: '网络不稳定，请稍后再试。', preview: '预览模式：使用内置规则答复', need: '请填写邮箱或 WhatsApp，并勾选同意。', typing: '正在输入', qty: '数量', unitp: '单价', term: '贸易条款', lt: '交期', days: '天' }
-  : { title: `${cfg.brand} Sales Assistant`, sub: 'AI assistant · replies 24/7', placeholder: 'Describe what you need — wattage, quantity, destination…', send: 'Send', close: 'Close', disclose: "You're chatting with an AI assistant. Prices are reference ranges, subject to a formal PI.", human: 'Talk to a person', moq: 'MOQ', view: 'View product', ref: 'Reference price', total: 'Total approx.', lead: 'Leave your details and a sales engineer will send a formal quotation', name: 'Name', company: 'Company', email: 'Email', wa: 'WhatsApp / phone', country: 'Country', consent: 'I agree to be contacted by email or phone', submit: 'Send my details', thanks: 'Thanks — a sales engineer will be in touch shortly.', err: 'Connection problem. Please try again.', preview: 'Preview mode: answering with built-in rules', need: 'Add an email or WhatsApp number and tick the consent box.', typing: 'Typing', qty: 'Qty', unitp: 'Unit price', term: 'Term', lt: 'Lead time', days: 'days' };
+  ? { title: `${cfg.brand} 销售助手`, sub: 'AI 助手 · 7×24 在线', placeholder: '输入您的需求，例如功率、数量、目的地…', send: '发送', close: '关闭', disclose: '您正在与 AI 助手对话。价格均为参考区间，以正式 PI 为准。', human: '转人工', moq: '起订', view: '查看产品', ref: '参考价', total: '合计约', lead: '留下联系方式，业务工程师会发送正式报价', name: '姓名', company: '公司', email: '邮箱', wa: 'WhatsApp / 电话', country: '国家/地区', consent: '我同意贵司通过邮箱或电话与我联系', submit: '提交', thanks: '已收到，业务工程师会尽快联系您。', err: '网络不稳定，请稍后再试。', preview: '预览模式：使用内置规则答复', need: '请填写邮箱或 WhatsApp，并勾选同意。', typing: '正在输入', qty: '数量', unitp: '单价', term: '贸易条款', lt: '交期', days: '天', staff: '人工客服', staffOn: '人工客服在线' }
+  : { title: `${cfg.brand} Sales Assistant`, sub: 'AI assistant · replies 24/7', placeholder: 'Describe what you need — wattage, quantity, destination…', send: 'Send', close: 'Close', disclose: "You're chatting with an AI assistant. Prices are reference ranges, subject to a formal PI.", human: 'Talk to a person', moq: 'MOQ', view: 'View product', ref: 'Reference price', total: 'Total approx.', lead: 'Leave your details and a sales engineer will send a formal quotation', name: 'Name', company: 'Company', email: 'Email', wa: 'WhatsApp / phone', country: 'Country', consent: 'I agree to be contacted by email or phone', submit: 'Send my details', thanks: 'Thanks — a sales engineer will be in touch shortly.', err: 'Connection problem. Please try again.', preview: 'Preview mode: answering with built-in rules', need: 'Add an email or WhatsApp number and tick the consent box.', typing: 'Typing', qty: 'Qty', unitp: 'Unit price', term: 'Term', lt: 'Lead time', days: 'days', staff: 'sales team (human)', staffOn: 'a person is replying' };
 
 const store = {
   get(k) { try { return JSON.parse(localStorage.getItem('yrchat:' + k)); } catch { return null; } },
@@ -18,6 +18,8 @@ let sessionId = store.get('sid');
 let transcript = store.get('log') || [];
 let offline = null; // {engine, catalog} once loaded
 let busy = false;
+let lastSeen = store.get('last') || 0; // last staff message shown
+let pollTimer = null;
 
 const css = `
 .yrc-launch{position:fixed;right:20px;bottom:20px;z-index:9998;display:flex;align-items:center;gap:10px;padding:12px 18px 12px 14px;border:0;border-radius:999px;background:var(--chat-accent,#123);color:var(--chat-on-accent,#fff);font:600 15px/1 var(--chat-font,system-ui);box-shadow:0 6px 24px rgba(10,20,30,.25);cursor:pointer}
@@ -34,6 +36,7 @@ const css = `
 .yrc-note{font-size:12px;color:var(--chat-mute,#5f6b77);text-align:center;padding:2px 10px}
 .yrc-m{max-width:88%;padding:9px 12px;border-radius:12px;white-space:pre-wrap;word-wrap:break-word}
 .yrc-m.bot{background:var(--chat-bg,#fff);border:1px solid var(--chat-line,#dde3e8);border-top-left-radius:4px;align-self:flex-start}
+.yrc-m.agent{background:#eaf6ec;border:1px solid #b9dfc0;border-top-left-radius:4px;align-self:flex-start}.yrc-m.agent b{display:block;font-size:12px;color:#2e6b3a;margin-bottom:2px}
 .yrc-m.me{background:var(--chat-accent,#123);color:var(--chat-on-accent,#fff);border-top-right-radius:4px;align-self:flex-end}
 .yrc-cards{display:flex;flex-direction:column;gap:8px;align-self:stretch}
 .yrc-card{display:block;background:var(--chat-bg,#fff);border:1px solid var(--chat-line,#dde3e8);border-left:4px solid var(--chat-accent2,var(--chat-accent,#123));border-radius:10px;padding:10px 12px;text-decoration:none;color:inherit}
@@ -75,18 +78,19 @@ function build(container) {
   const box = el('section', { class: 'yrc' + (inline ? ' inline' : ''), role: inline ? 'region' : 'dialog', 'aria-label': T.title });
   const log = el('div', { class: 'yrc-log', 'aria-live': 'polite' });
   const chips = el('div', { class: 'yrc-chips' });
+  const sub = el('small', {}, T.sub);
   const ta = el('textarea', { rows: 1, placeholder: T.placeholder, 'aria-label': T.placeholder });
   const sendBtn = el('button', { class: 'yrc-btn', type: 'submit' }, T.send);
   const form = el('form', { class: 'yrc-foot' }, ta, sendBtn);
   box.append(
-    el('header', { class: 'yrc-head' }, el('span', { class: 'yrc-dot', 'aria-hidden': 'true' }), el('div', {}, el('b', {}, T.title), el('small', {}, T.sub)), el('button', { class: 'yrc-x', type: 'button', 'aria-label': T.close, onclick: () => close() }, '×')),
+    el('header', { class: 'yrc-head' }, el('span', { class: 'yrc-dot', 'aria-hidden': 'true' }), el('div', {}, el('b', {}, T.title), sub), el('button', { class: 'yrc-x', type: 'button', 'aria-label': T.close, onclick: () => close() }, '×')),
     log, chips, form
   );
   ta.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); } });
   form.addEventListener('submit', (e) => { e.preventDefault(); const v = ta.value.trim(); if (v) { ta.value = ''; send(v); } });
   if (!inline) box.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
   (container || document.body).append(box);
-  return { box, log, chips, ta };
+  return { box, log, chips, ta, sub };
 }
 
 let ui; // the active widget (launcher dialog or inline instance)
@@ -97,6 +101,9 @@ function renderChips() {
 }
 
 function addBot(r, save = true) {
+  if (r.human) { live(true); return; } // a person is handling the chat: their replies arrive by polling
+  if (r.handoff) live(true);
+  if (!r.reply) return;
   ui.log.append(el('div', { class: 'yrc-m bot' }, r.reply));
   if (r.products?.length)
     ui.log.append(el('div', { class: 'yrc-cards' }, r.products.map((p) => el('a', { class: 'yrc-card', href: p.url }, el('b', {}, p.name), el('span', {}, p.summary), p.highlights?.length ? el('span', {}, p.highlights.join(' · ')) : null, el('em', {}, `${T.moq} ${p.moq} ${p.unit} — ${T.view}`)))));
@@ -181,16 +188,44 @@ async function send(text) {
   busy = false;
 }
 
-function persist() { transcript = transcript.slice(-40); store.set('log', transcript.map(({ role, content, r }) => ({ role, content, r: r ? { reply: r.reply, products: r.products, quote: r.quote, link: r.link } : undefined }))); }
+// Staff replies (live takeover): poll while a person may be handling the chat (after a hand-off, for 30 minutes).
+function live(on) { if (on) store.set('liveUntil', Date.now() + 30 * 60e3); startPolling(); }
+function addStaff(m, save = true) {
+  if (m.role === 'note') ui.log.append(el('div', { class: 'yrc-note' }, m.content));
+  else ui.log.append(el('div', { class: 'yrc-m agent' }, el('b', {}, `${m.name} · ${T.staff}`), m.content));
+  if (save) { transcript.push({ role: m.role, content: m.content, name: m.name }); persist(); }
+  ui.log.scrollTop = ui.log.scrollHeight;
+}
+async function pollOnce() {
+  if (!sessionId || offline) return;
+  try {
+    const r = await fetch(`${cfg.api}/poll?sessionId=${encodeURIComponent(sessionId)}&after=${lastSeen}`);
+    if (!r.ok) return;
+    const j = await r.json();
+    for (const m of j.messages) if (m.id > lastSeen) addStaff(m);
+    if (j.messages.length) { lastSeen = j.messages.at(-1).id; store.set('last', lastSeen); }
+    if (j.human) store.set('liveUntil', Date.now() + 30 * 60e3);
+    ui.sub.textContent = j.human ? `${j.agent} · ${T.staffOn}` : T.sub;
+  } catch { /* network blip */ }
+}
+function startPolling() {
+  if (pollTimer || !(store.get('liveUntil') > Date.now())) return;
+  pollOnce();
+  pollTimer = setInterval(() => { if (!(store.get('liveUntil') > Date.now())) { clearInterval(pollTimer); pollTimer = null; return; } pollOnce(); }, 4000);
+}
+
+function persist() { transcript = transcript.slice(-40); store.set('log', transcript.map(({ role, content, r, name }) => ({ role, content, name, r: r ? { reply: r.reply, products: r.products, quote: r.quote, link: r.link } : undefined }))); }
 
 function hydrate() {
   ui.log.append(el('div', { class: 'yrc-note' }, T.disclose));
   if (!transcript.length) addBot({ reply: cfg.greeting || (zh ? '您好！我可以帮您选型、查认证和交期，并给出参考价。请问您在找什么产品？' : "Hi! I can help you choose models, check certifications and lead times, and give a reference price. What are you looking for?") }, false);
   for (const m of transcript) {
     if (m.role === 'user') ui.log.append(el('div', { class: 'yrc-m me' }, m.content));
+    else if (m.role === 'agent' || m.role === 'note') addStaff(m, false);
     else addBot({ ...(m.r || { reply: m.content }), askLead: false }, false);
   }
   renderChips();
+  startPolling();
 }
 
 function open(prompt) {

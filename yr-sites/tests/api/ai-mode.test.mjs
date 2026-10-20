@@ -156,3 +156,18 @@ describe('YR GRID site backend', () => {
     } finally { await g.stop(); }
   });
 });
+
+test('AI-11 after a human takeover is released, the model sees the staff replies as assistant turns (notes left out)', async () => {
+  turns.push(say('Hello! I am an AI assistant.'));
+  const sid = (await (await api.json('/api/chat', { message: 'hi there' })).json()).sessionId;
+  await api.form(`/admin/conv/${sid}/reply`, { text: 'Anna here — we can do DDP Houston.' });
+  const silent = await (await api.json('/api/chat', { sessionId: sid, message: 'great' })).json();
+  assert.equal(silent.mode, 'human');
+  await api.form(`/admin/conv/${sid}/release`, {});
+  turns.push(say('Happy to help further.'));
+  await api.json('/api/chat', { sessionId: sid, message: 'one more question' });
+  const msgs = llm.calls.at(-1).body.messages;
+  assert.ok(msgs.some((m) => m.role === 'assistant' && /^\[Sales engineer\] Anna here/.test(m.content)));
+  assert.ok(!msgs.some((m) => /joined the chat|assistant is back/.test(typeof m.content === 'string' ? m.content : '')));
+  assert.ok(msgs.every((m) => ['user', 'assistant'].includes(m.role)));
+});

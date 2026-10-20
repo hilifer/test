@@ -2,6 +2,7 @@
 import { config, aiEnabled } from './config.js';
 import { listLeads, listConversations, conversationMessages, stats } from './db.js';
 import { currentUser, can, permissionFor, ROLES } from './auth.js';
+import { humanActive, waitingCount } from './livechat.js';
 
 // Main navigation; each entry is only shown to staff whose role may open it.
 export const NAV = [['/admin/dashboard', '看板'], ['/admin', '线索'], ['/admin/conversations', '对话'], ['/admin/ops', '业务闭环'], ['/admin/deals', 'AI 议价'], ['/admin/shop', '网店'], ['/admin/coupons', '优惠券'], ['/admin/reviews', '评价'], ['/admin/products', '商品'], ['/admin/categories', '品类'], ['/admin/settings', '站点设置'], ['/admin/content', '内容'], ['/admin/geo', 'GEO 监测'], ['/admin/leads.csv', '导出 CSV'], ['/admin/users', '账号权限']];
@@ -24,7 +25,7 @@ header b{font-size:16px}header nav a{margin-right:14px;color:var(--ink)}main{pad
 table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line)}th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
 th{background:#fafbfc;font-weight:600;font-size:12px;color:var(--mute);white-space:nowrap}td:first-child{white-space:nowrap}.g{display:inline-block;width:24px;text-align:center;border-radius:4px;color:#fff;font-weight:700}
 .gA{background:var(--a)}.gB{background:var(--b)}.gC{background:var(--c)}.gD{background:var(--d)}.mute{color:var(--mute)}
-.wrap{overflow-x:auto}.msg{background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:8px 0;max-width:760px}.msg.user{margin-left:auto;background:#eef4ff}
+.wrap{overflow-x:auto}.msg{background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:8px 0;max-width:760px}.msg.user{margin-left:auto;background:#eef4ff}.msg.agent{background:#e8f5e9;border-color:#a5d6a7}.msg.note{background:transparent;border:0;text-align:center;max-width:none;font-size:12px;color:var(--mute)}
 .pill{font-size:12px;padding:1px 8px;border-radius:10px;background:#eceff1;white-space:nowrap}.warn{background:#fff4e5;border:1px solid #ffcc80;padding:10px 14px;border-radius:8px;margin-bottom:16px}
 select,button{font:inherit}a{color:#1565c0}
 </style></head><body><header><b>${esc(config.profile.brand)} · AI 销售后台</b><nav>${navHtml()}</nav>
@@ -60,16 +61,29 @@ export function leadsPage() {
 <div class="wrap"><table><thead><tr><th>级</th><th>时间/来源</th><th>客户</th><th>联系方式</th><th>产品/数量</th><th>需求与评级依据</th><th>状态</th></tr></thead><tbody>${rows || '<tr><td colspan="7" class="mute">还没有线索。网站对话或表单留资后会出现在这里。</td></tr>'}</tbody></table></div>`);
 }
 
+const liveTag = (c) => (c.agent && humanActive(c.id) ? `<span class="pill" style="background:#c8e6c9">${esc(c.agent_name || c.agent)} 接待中</span>${c.waiting ? ' <span class="pill" style="background:#ef8f00;color:#fff">客户等待回复</span>' : ''}` : '');
 export function conversationsPage() {
   const rows = listConversations()
-    .map((c) => `<tr><td>${fmt(c.updated_at)}</td><td>${c.msg_count}</td><td>${esc(c.page)}</td><td>${esc(c.lang)}</td><td>${c.handoff ? `<span class="pill" style="background:#ffe0b2">转人工</span> ${esc(c.handoff_reason)}` : ''}</td><td>${c.lead_id ? '已留资' : ''}</td><td><a href="/admin/conv/${esc(c.id)}">查看</a></td></tr>`)
+    .map((c) => `<tr><td>${fmt(c.updated_at)}</td><td>${c.msg_count}</td><td>${esc(c.page)}</td><td>${esc(c.lang)}</td><td>${liveTag(c)} ${c.handoff ? `<span class="pill" style="background:#ffe0b2">转人工</span> ${esc(c.handoff_reason)}` : ''}</td><td>${c.lead_id ? '已留资' : ''}</td><td><a href="/admin/conv/${esc(c.id)}">${c.handoff ? '接待' : '查看'}</a></td></tr>`)
     .join('');
-  return shell('对话', `<div class="wrap"><table><thead><tr><th>最近更新</th><th>消息数</th><th>入口页面</th><th>语言</th><th>转人工</th><th>线索</th><th></th></tr></thead><tbody>${rows || '<tr><td colspan="7" class="mute">暂无对话</td></tr>'}</tbody></table></div>`);
+  const w = waitingCount();
+  return shell('对话', `${w ? `<div class="warn">有 ${w} 位客户正在等待人工回复</div>` : ''}<meta http-equiv="refresh" content="30"><div class="wrap"><table><thead><tr><th>最近更新</th><th>消息数</th><th>入口页面</th><th>语言</th><th>转人工</th><th>线索</th><th></th></tr></thead><tbody>${rows || '<tr><td colspan="7" class="mute">暂无对话</td></tr>'}</tbody></table></div>`);
 }
 
-export function conversationPage(id) {
-  const msgs = conversationMessages(id).map((m) => `<div class="msg ${m.role}"><div class="mute">${m.role === 'user' ? '客户' : 'AI'} · ${fmt(m.ts)}</div>${esc(m.content).replace(/\n/g, '<br>')}</div>`).join('');
-  return shell('对话详情', `<p><a href="/admin/conversations">← 返回对话列表</a></p>${msgs || '<p class="mute">没有消息</p>'}`);
+const WHO = { user: '客户', assistant: 'AI', agent: '人工', note: '系统' };
+export const messageHtml = (m) => { const meta = (() => { try { return JSON.parse(m.meta || '{}'); } catch { return {}; } })(); return `<div class="msg ${esc(m.role)}" data-id="${m.id}"><div class="mute">${WHO[m.role] || esc(m.role)}${m.role === 'agent' ? ` ${esc(meta.by || '')}` : ''} · ${fmt(m.ts)}</div>${esc(m.content).replace(/\n/g, '<br>')}</div>`; };
+export function conversationPage(id, flash = {}) {
+  const list = conversationMessages(id);
+  const h = humanActive(id);
+  const me = currentUser();
+  const lastId = list.at(-1)?.id || 0;
+  const bar = h
+    ? `<div class="warn" style="background:#e8f5e9;border-color:#a5d6a7"><b>${esc(h.name || h.username)}</b> 正在人工接待，AI 暂停回复（30 分钟无人回复后自动交还 AI）。 <form method="post" action="/admin/conv/${esc(id)}/release" style="display:inline"><button>交还 AI</button></form></div>`
+    : `<div class="warn">当前由 AI 接待。<form method="post" action="/admin/conv/${esc(id)}/takeover" style="display:inline"><button>人工接管</button></form> 或直接在下面回复（回复即接管）。</div>`;
+  return shell('对话详情', `<p><a href="/admin/conversations">← 返回对话列表</a></p>${flash.e ? `<div class="warn" style="background:#fdecea">${esc(flash.e)}</div>` : ''}${bar}
+<div id="log">${list.map(messageHtml).join('') || '<p class="mute">没有消息</p>'}</div>
+<form method="post" action="/admin/conv/${esc(id)}/reply" style="max-width:760px;display:grid;gap:8px;margin-top:12px"><textarea name="text" rows="3" required placeholder="以 ${esc(me?.name || me?.username || '')} 的身份回复客户（客户在网站聊天框中实时看到）"></textarea><div><button>发送</button></div></form>
+<script>(()=>{let last=${lastId};const log=document.getElementById('log');setInterval(async()=>{try{const r=await fetch('/admin/conv/${esc(id)}/messages?after='+last);if(!r.ok)return;const j=await r.json();if(j.html){log.insertAdjacentHTML('beforeend',j.html);last=j.lastId;}}catch{}},4000);})();</script>`);
 }
 
 export function leadsCsv() {
