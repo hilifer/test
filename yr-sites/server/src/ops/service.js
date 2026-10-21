@@ -100,8 +100,12 @@ export function stockView() {
   const onHand = new Map();
   if (erp) for (const r of db.prepare('SELECT sku, SUM(qty) q, MAX(synced_at) s FROM inventory GROUP BY sku').all()) onHand.set(r.sku, { q: r.q, s: r.s });
   const reserved = new Map();
-  for (const o of db.prepare("SELECT lines FROM orders WHERE status IN ('pending_payment','awaiting_deposit','in_production','ready_to_ship')").all())
-    for (const l of J(o.lines)) reserved.set(l.sku, (reserved.get(l.sku) || 0) + Number(l.qty || 0));
+  // open orders reserve what they have not shipped yet (shipped goods have already left the stock)
+  for (const o of db.prepare("SELECT id, lines FROM orders WHERE status IN ('pending_payment','awaiting_deposit','in_production','ready_to_ship')").all()) {
+    const shipped = new Map();
+    for (const s of db.prepare('SELECT lines FROM shipments WHERE order_id = ? AND rma_id IS NULL').all(o.id)) for (const l of J(s.lines)) shipped.set(l.sku, (shipped.get(l.sku) || 0) + Number(l.qty || 0));
+    for (const l of J(o.lines)) reserved.set(l.sku, (reserved.get(l.sku) || 0) + Math.max(0, Number(l.qty || 0) - (shipped.get(l.sku) || 0)));
+  }
   return listSkus().map((s) => {
     const oh = erp ? onHand.get(s.sku)?.q ?? 0 : s.stock_local || 0;
     const rs = reserved.get(s.sku) || 0;

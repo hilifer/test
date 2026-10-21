@@ -41,7 +41,7 @@ const RULES = [
   [/^\/admin\/contracts\/template/, 'admin'], [/^\/admin\/contracts/, 'contracts'], [/^\/admin\/quotes\/[^/]+\/contract/, 'contracts'],
   [/^\/admin\/quotes/, 'quotes'], [/^\/admin\/customers/, 'customers'],
   [/^\/admin\/orders\/[^/]+\/(payment|refund)/, 'payments'], [/^\/admin\/orders\/[^/]+\/(ship)/, 'shipments'], [/^\/admin\/orders/, 'orders'],
-  [/^\/admin\/shipments/, 'shipments'], [/^\/admin\/rma/, 'rma'], [/^\/admin\/(skus|inventory)/, 'inventory'],
+  [/^\/admin\/warehouse\/(stock|safety|move)/, 'inventory'], [/^\/admin\/warehouse/, 'shipments'], [/^\/admin\/shipments/, 'shipments'], [/^\/admin\/rma/, 'rma'], [/^\/admin\/(skus|inventory)/, 'inventory'],
   [/^\/admin\/(content|geo)/, 'content'], [/^\/admin\/settings/, 'settings'],
   [/^\/admin\/copy/, 'catalog'], [/^\/admin\/products\/(export|template)\.csv/, 'catalog.export'], [/^\/admin\/products\/[^/]+\/delete/, 'catalog.delete'], [/^\/admin\/(products|categories|media)/, 'catalog'],
   [/^\/admin\/shop\/[^/]+\/refund/, 'shop.refund'], [/^\/admin\/shop\/[^/]+\/(fulfil|ship)/, 'shop.fulfil'], [/^\/admin\/shop/, 'shop'],

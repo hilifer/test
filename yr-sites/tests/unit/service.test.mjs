@@ -166,10 +166,11 @@ describe('shipments, inventory, after-sales', () => {
     S.addShipmentEvent(s.id, { status: 'delivered' });
     assert.equal(S.getOrder(o.id).status, 'delivered', 'ready_to_ship → shipped → delivered');
   });
-  test('SV-21 open orders reserve stock (local mode)', () => {
+  test('SV-21 open orders reserve the stock they have not shipped yet (local mode)', () => {
     const v = S.stockView().find((r) => r.sku === 'YR-HB-U2');
     assert.equal(v.on_hand, 500);
-    const open = S.listOrders("WHERE o.status IN ('awaiting_deposit','in_production','ready_to_ship')").reduce((a, o) => a + o.lines.reduce((x, l) => x + l.qty, 0), 0);
+    // what open orders have not shipped yet (part-shipped goods are no longer reserved)
+    const open = S.listOrders("WHERE o.status IN ('awaiting_deposit','in_production','ready_to_ship')").reduce((a, o) => a + S.shippedQty(o).filter((l) => l.sku === 'YR-HB-U2').reduce((x, l) => x + l.remaining, 0), 0);
     assert.equal(v.reserved, open);
     assert.equal(v.available, 500 - open);
   });

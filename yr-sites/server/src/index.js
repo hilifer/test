@@ -53,6 +53,8 @@ import { mountGrowthAdmin } from './marketing/admin-growth.js';
 import { mountEmailPublic } from './marketing/email.js';
 import { mountFinanceAdmin } from './finance/admin-finance.js';
 import { startFinanceJobs } from './finance/finance.js';
+import { mountWarehouseAdmin } from './warehouse/admin-warehouse.js';
+import { startWarehouseJobs } from './warehouse/warehouse.js';
 
 const app = new Hono();
 
@@ -278,6 +280,7 @@ mountDeals(app, { ipOf });
 mountSystemAdmin(app);
 mountAuditAdmin(app);
 mountTasksAdmin(app);
+mountWarehouseAdmin(app);
 mountFinanceAdmin(app);
 mountGrowthAdmin(app);
 mountOpsCenter(app);
@@ -304,6 +307,7 @@ startAutolistJobs();
 startBackupJob();
 startAssetJobs();
 startTasks();
+startWarehouseJobs();
 startFinanceJobs();
 startCrmJobs();
 startServiceChecks();

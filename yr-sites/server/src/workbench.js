@@ -14,6 +14,7 @@ import { systemStatus } from './ops/backup.js';
 import { errorStats } from './ops/errors.js';
 import { failingServices, peerSites, lastChecks } from './ops/services.js';
 import { listJobs } from './jobs.js';
+import { readyToShip, lowStock } from './warehouse/warehouse.js';
 import { receivables, reconRuns } from './finance/finance.js';
 import { funnel, productStats } from './marketing/analytics.js';
 import { running as runningPromos } from './marketing/promotions.js';
@@ -82,11 +83,17 @@ const BOARDS = [
         ...(lastRecon && lastRecon.issues ? [{ text: `上次对账有 ${lastRecon.issues} 处差异`, href: '/admin/finance/reconcile' }] : [])],
       links: [['应收账款', '/admin/finance'], ['对账', '/admin/finance/reconcile'], ['财务报表', '/admin/finance/report'], ['订单', '/admin/orders'], ['网店', '/admin/shop']] };
   } },
-  { perm: 'shipments', title: '仓库：发货与物流', build: () => ({
-    kpis: [['待发货订单', n("SELECT COUNT(*) n FROM orders WHERE status = 'ready_to_ship'"), '/admin/orders?status=ready_to_ship'], ['运输中', n("SELECT COUNT(*) n FROM shipments WHERE status = 'in_transit'"), '/admin/shipments'], ['物流异常', n("SELECT COUNT(*) n FROM shipments WHERE status = 'exception'"), '/admin/shipments']],
-    todos: [...todo(db.prepare("SELECT id, number FROM orders WHERE status = 'ready_to_ship' ORDER BY created_at LIMIT 5").all(), (r) => `订单 ${r.number} 待发货`, (r) => `/admin/orders/${r.id}`),
-      ...todo(db.prepare("SELECT id, number FROM shipments WHERE status = 'exception' LIMIT 3").all(), (r) => `发货单 ${r.number} 物流异常`, (r) => `/admin/shipments/${r.id}`)],
-    links: [['发货物流', '/admin/shipments'], ['运费模板', '/admin/shop/freight']] }) },
+  { perm: 'shipments', title: '仓库：发货与物流', build: () => {
+    const ready = readyToShip();
+    const low = lowStock();
+    const replacements = db.prepare("SELECT id, number FROM rmas WHERE status IN ('approved','in_progress') AND resolution = 'replace' ORDER BY created_at LIMIT 5").all();
+    return {
+      kpis: [['待发货订单', ready.length, '/admin/warehouse'], ['今日已发', n("SELECT COUNT(*) n FROM shipments WHERE created_at >= ?", since(24)), '/admin/shipments'], ['在途', n("SELECT COUNT(*) n FROM shipments WHERE status IN ('booked','in_transit','arrived')"), '/admin/shipments'],
+        ['物流异常', n("SELECT COUNT(*) n FROM shipments WHERE status = 'exception'"), '/admin/shipments'], ['低库存 SKU', low.length, '/admin/warehouse/stock'], ['待处理补发', replacements.length, '/admin/rma']],
+      todos: [...ready.slice(0, 5).map((o) => ({ text: `订单 ${o.number} 待发货`, href: '/admin/warehouse' })), ...todo(db.prepare("SELECT id, number FROM shipments WHERE status = 'exception' LIMIT 3").all(), (r) => `发货单 ${r.number} 物流异常`, (r) => `/admin/shipments/${r.id}`),
+        ...low.slice(0, 4).map((s) => ({ text: `${s.sku} 可售 ${s.available}，低于安全库存 ${s.safety}`, href: `/admin/warehouse/stock?sku=${encodeURIComponent(s.sku)}` })), ...replacements.map((r) => ({ text: `售后 ${r.number} 待补发`, href: `/admin/rma/${r.id}` }))],
+      links: [['发货台', '/admin/warehouse'], ['库存与出入库', '/admin/warehouse/stock'], ['物流商对比', '/admin/warehouse/carriers'], ['发货物流', '/admin/shipments'], ['运费模板', '/admin/shop/freight']] };
+  } },
   { perm: 'rma', title: '售后', build: () => ({
     kpis: [['未结售后', n("SELECT COUNT(*) n FROM rmas WHERE status IN ('submitted','reviewing','approved')"), '/admin/rma']],
     todos: todo(db.prepare("SELECT id, number, issue FROM rmas WHERE status IN ('submitted','reviewing') ORDER BY created_at LIMIT 6").all(), (r) => `售后 ${r.number} 待处理`, (r) => `/admin/rma/${r.id}`),

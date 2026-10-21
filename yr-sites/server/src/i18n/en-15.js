@@ -1,0 +1,19 @@
+// Admin UI English, part 15: warehouse — shipping desk, picking list, bulk shipping, stock and safety stock, carriers.
+export default {
+  '发货台': 'Shipping desk', '库存与出入库': 'Stock & movements', '物流商对比': 'Carriers', '卡车': 'Truck',
+  '待发货的订单（含部分已发的）。勾选后可以打印拣货单，或在右边填运单号批量发货——每单会生成发货单、标记为运输中并通知客户': 'Orders waiting to ship (including part-shipped ones). Select them to print a picking list, or fill in tracking numbers on the right to ship many at once — each gets a shipment, is marked in transit and the customer is told',
+  '批量发货结果：成功': 'Bulk shipping: shipped', '已发货，发货单': 'shipped, shipment', '待发': 'To ship', '箱数 / 体积': 'Cartons / volume', '物流商': 'Carrier', '部分缺装箱数据': 'some packing data missing', '没有待发货的订单': 'No orders to ship',
+  '打印选中订单的拣货单': 'Print picking list for selected', '按填写的运单号批量发货': 'Ship orders with a tracking number', '没填运单号的订单不会发货': 'orders without a tracking number are not shipped', '粘贴导入运单号': 'Paste tracking numbers',
+  '每行：订单号, 物流商, 运单号, 方式（express / air / sea / rail / truck，可省略）。可以从物流商系统或表格复制': 'One per line: order number, carrier, tracking number, mode (express / air / sea / rail / truck, optional). Copy from the carrier\'s system or a spreadsheet',
+  '导入并发货': 'Import and ship', '拣货单': 'Picking list', '打印时间': 'Printed', '个订单': 'orders', '件': 'units', '打印': 'Print', '按 SKU 汇总': 'By SKU', '品名 / 规格': 'Name / option', '每箱': 'Per carton', '箱数': 'Cartons', '按订单': 'By order',
+  '拣货人：____________　复核人': 'Picked by: ____________　Checked by', '本地库存模式：发货时自动扣减，入库、出库、盘点在下面登记': 'Local stock mode: shipping deducts stock automatically; record goods in, goods out and stock counts below', '已接': 'Connected to',
+  '现有库存以金蝶同步为准，这里只设置安全库存': 'stock on hand comes from Kingdee; only safety stock is set here', '现有 − 未发货订单占用。低于安全库存的 SKU 标红，并在每天 8:00 推送企业微信': 'on hand − reserved by unshipped orders. SKUs under their safety stock are red and pushed to WeCom every day at 8:00',
+  '现有': 'On hand', '安全库存': 'Safety stock', '保存安全库存': 'Save safety stock', '默认安全库存': 'Default safety stock', '留空的 SKU 使用默认值': 'empty uses the default', '登记出入库': 'Record a movement', '数量（盘点填实际数量）': 'Quantity (for a count: the counted quantity)',
+  '单号 / 来源': 'Reference', '登记': 'Record', '出入库记录': 'Movements', '结存': 'Balance', '国家代码，如': 'Country code, e.g.', '体积': 'Volume', '报价对比': 'Compare quotes', '运费模板报价': 'Freight template quotes', '时效（天）': 'Transit (days)',
+  '没有可用的运费模板': 'No freight template applies', '实际表现（全部发货单）': 'Actual performance (all shipments)', '平均运输天数': 'Avg. transit days', '异常率': 'Exception rate', '还没有发货记录': 'No shipments yet', '运费模板在': 'Freight templates are kept in', '网店 → 运费模板': 'Shop → Freight', '维护': '',
+  '请至少填写一个运单号': 'Enter at least one tracking number', '没有读到运单号，格式：订单号, 物流商, 运单号': 'No tracking numbers found — format: order number, carrier, tracking number', '默认安全库存须为不小于 0 的整数': 'Default safety stock must be a whole number of 0 or more', '个 SKU 的安全库存': 'SKUs\' safety stock',
+  '已登记': 'Recorded', '入库': 'Goods in', '出库': 'Goods out', '盘点调整': 'Stock count', '退货入库': 'Return to stock', '已接金蝶，库存以金蝶为准，请在金蝶做出入库': 'Connected to Kingdee — stock is kept in Kingdee; record movements there', '出入库类型无效': 'Invalid movement type',
+  '盘点数量须为不小于 0 的整数': 'A count must be a whole number of 0 or more', '数量须为正整数': 'Quantity must be a positive whole number', '库存只有': 'only has', '不能出库': 'in stock, cannot take out', '安全库存须为不小于 0 的整数（留空': 'Safety stock must be a whole number of 0 or more (empty', '使用默认值）': 'uses the default)',
+  '个 SKU 低于安全库存': 'SKUs under safety stock', '请先勾选订单': 'Select orders first', '缺少运单号': 'Missing tracking number', '运输方式应为': 'Mode must be', '低库存提醒': 'Low stock reminder', '个 SKU 新低于安全库存': 'SKUs newly under safety stock', '今日已发': 'Shipped today', '在途': 'In transit',
+  '低库存': 'Low stock', '待处理补发': 'Replacements to send', '低于安全库存': 'under safety stock', '待补发': 'replacement to send',
+};
