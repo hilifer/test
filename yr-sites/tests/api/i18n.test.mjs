@@ -39,7 +39,7 @@ test('IN-A02 every admin page in English has no Chinese left (form values and te
   await emma.post('/admin/lang', { lang: 'en' });
   const pages = ['/admin', '/admin/dashboard', '/admin/conversations', '/admin/ops', '/admin/quotes', '/admin/orders', '/admin/shipments', '/admin/rma', '/admin/skus', '/admin/inventory', '/admin/customers',
     '/admin/shop', '/admin/shop/freight', '/admin/coupons', '/admin/reviews', '/admin/products', '/admin/products/new', '/admin/products/YR-HB-U2', '/admin/products/autolist', '/admin/products/import',
-    '/admin/categories', '/admin/settings', '/admin/content', '/admin/geo', '/admin/users', '/admin/me', '/admin/deals', '/admin/deals/policy', '/admin/contracts', '/admin/contracts/template', '/admin/system'];
+    '/admin/categories', '/admin/settings', '/admin/content', '/admin/geo', '/admin/users', '/admin/me', '/admin/deals', '/admin/deals/policy', '/admin/contracts', '/admin/contracts/template', '/admin/system', '/admin/home', '/admin/audit', '/admin/roles'];
   for (const p of pages) {
     const r = await emma.get(p);
     assert.equal(r.status, 200, p);

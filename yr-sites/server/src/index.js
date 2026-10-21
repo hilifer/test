@@ -12,6 +12,9 @@ import * as Live from './livechat.js';
 import { currentUser } from './auth.js';
 import { ensureBootstrapAdmin, verifyLogin, createSession, sessionUser, endSession, permissionFor, can, runAs, adminLang, setStaffLang } from './auth.js';
 import { toEnglish } from './i18n/index.js';
+import * as Audit from './audit.js';
+import { mountAuditAdmin } from './admin-audit.js';
+import { workbench } from './workbench.js';
 import { loginPage, forbiddenPage, mountStaffAdmin } from './admin-staff.js';
 import { mountContentAdmin } from './content/admin-content.js';
 import { startScheduler } from './content/scheduler.js';
@@ -175,16 +178,17 @@ app.post('/admin/lang', async (c) => {
 });
 
 
-app.get('/admin/login', (c) => c.html(loginPage({ next: c.req.query('next') || '/admin' })));
+app.get('/admin/login', (c) => c.html(loginPage({ next: c.req.query('next') || '/admin/home' })));
 app.post('/admin/login', async (c) => {
   const f = await c.req.parseBody();
-  const next = /^\/admin(\/|$)/.test(String(f.next || '')) ? String(f.next) : '/admin';
+  const next = /^\/admin(\/|$)/.test(String(f.next || '')) ? String(f.next) : '/admin/home';
   const r = verifyLogin(String(f.username || ''), String(f.password || ''), ipOf(c));
+  Audit.record({ username: String(f.username || '').slice(0, 40), roles: r.user?.role || '', path: '/admin/login', action: r.error ? 'login_failed' : 'login', status: r.error ? (r.lockedMs ? 429 : 401) : 302, message: r.error || '', ip: ipOf(c) });
   if (r.error) return c.html(loginPage({ next, error: r.error, username: String(f.username || '') }), r.lockedMs ? 429 : 401);
   setCookie(c, SESSION_COOKIE, createSession(r.user, ipOf(c)), { httpOnly: true, sameSite: 'Lax', secure: config.publicBaseUrl.startsWith('https://'), path: '/admin' });
   return c.redirect(next);
 });
-app.post('/admin/logout', (c) => { endSession(getCookie(c, SESSION_COOKIE)); deleteCookie(c, SESSION_COOKIE, { path: '/admin' }); return c.redirect('/admin/login'); });
+app.post('/admin/logout', (c) => { const u = sessionUser(getCookie(c, SESSION_COOKIE)); if (u) Audit.record({ username: u.username, roles: u.role, path: '/admin/logout', action: 'logout', status: 302, ip: ipOf(c) }); endSession(getCookie(c, SESSION_COOKIE)); deleteCookie(c, SESSION_COOKIE, { path: '/admin' }); return c.redirect('/admin/login'); });
 const staffGate = async (c, next) => {
   if (c.req.path === '/admin/login' || c.req.path === '/admin/lang') return next();
   let user = sessionUser(getCookie(c, SESSION_COOKIE));
@@ -196,10 +200,22 @@ const staffGate = async (c, next) => {
     else if (r.lockedMs) return c.text(r.error, 429);
   }
   if (!user) return c.html(loginPage({ next: c.req.method === 'GET' ? c.req.path : '/admin' }), 401);
-  if (!can(user, permissionFor(c.req.path, c.req.method))) return c.html(forbiddenPage(user), 403);
+  const write = !['GET', 'HEAD'].includes(c.req.method);
+  if (!can(user, permissionFor(c.req.path, c.req.method))) {
+    if (write) Audit.record({ username: user.username, roles: user.role, method: c.req.method, path: c.req.path, status: 403, message: '无权限', ip: ipOf(c) });
+    return c.html(forbiddenPage(user), 403);
+  }
   user.lang = adminLang(user, getCookie(c, LANG_COOKIE)); // effective language for this request
   c.set('user', user);
-  return runAs(user, () => next());
+  if (!write) return runAs(user, () => next());
+  // operation log: what was submitted (no secrets) and how it ended (status + the message shown to the user)
+  let fields = {};
+  if (/form-data|x-www-form-urlencoded/.test(c.req.header('content-type') || '')) fields = await c.req.parseBody({ all: true }).catch(() => ({}));
+  await runAs(user, () => next());
+  const loc = c.res.headers.get('location') || '';
+  const q = loc.includes('?') ? new URLSearchParams(loc.split('?')[1]) : null;
+  const message = q?.get('e') ? `e=${q.get('e')}` : q?.get('m') || '';
+  try { Audit.record({ username: user.username, roles: user.role, method: c.req.method, path: c.req.path, status: c.res.status, message, fields, ip: ipOf(c) }); } catch (e) { console.error('[audit]', e.message); }
 };
 app.use('/admin/*', staffGate);
 app.use('/admin', staffGate);
@@ -221,6 +237,8 @@ mountShopAdmin(app);
 mountMarketingAdmin(app);
 mountDeals(app, { ipOf });
 mountSystemAdmin(app);
+mountAuditAdmin(app);
+app.get('/admin/home', (c) => c.html(workbench()));
 app.post('/admin/lead/:id/status', async (c) => {
   const f = await c.req.parseBody();
   const status = String(f.status || '');

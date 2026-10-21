@@ -30,7 +30,7 @@ describe('login, sessions, lockout', () => {
   });
   test('AU-02 open redirect via "next" is not possible', async () => {
     const r = await fetch(`${api.url}/admin/login`, { method: 'POST', redirect: 'manual', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ username: 'admin', password: 'test-pass', next: 'https://evil.test/' }) });
-    assert.equal(r.headers.get('location'), '/admin');
+    assert.equal(r.headers.get('location'), '/admin/home'); // falls back to the workbench
   });
   test('AU-03 logout invalidates the session server-side', async () => {
     const { as, cookie } = await login('admin', 'test-pass');

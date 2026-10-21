@@ -4,6 +4,7 @@ import p2 from './en-2.js';
 import p3 from './en-3.js';
 import p4 from './en-4.js';
 import p5 from './en-5.js';
+import p6 from './en-6.js';
 import { DICT } from '../../../shared/dictionary.js';
 
 const fromDict = {};
@@ -14,4 +15,4 @@ for (const ent of Object.values(DICT)) {
     for (const v of Array.isArray(group) ? group : Object.values(group)) if (v && v.zh && v.en) fromDict[v.zh] = v.en;
   }
 }
-export const EN = { ...fromDict, ...p1, ...p2, ...p3, ...p4, ...p5 };
+export const EN = { ...fromDict, ...p1, ...p2, ...p3, ...p4, ...p5, ...p6 };

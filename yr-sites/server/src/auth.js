@@ -9,39 +9,62 @@ import { db } from './db.js';
 import { config } from './config.js';
 import { migrate, addColumn } from './migrate.js';
 
+// Permission catalogue. "x" also grants "x.view"; ".export", ".delete" etc. must be granted explicitly.
+export const PERMISSIONS = {
+  leads: ['线索：查看和处理', '销售'], 'leads.view': ['线索：只看', '销售'], 'leads.export': ['线索：导出', '销售'], chat: ['对话：查看和人工接待', '销售'],
+  quotes: ['报价 / PI', '销售'], 'quotes.view': ['报价：只看', '销售'], contracts: ['合同：生成、作废', '销售'], 'contracts.view': ['合同：只看', '销售'],
+  deals: ['AI 议价：审批', '销售'], 'deals.view': ['AI 议价：只看', '销售'], customers: ['客户档案', '销售'], 'customers.view': ['客户：只看', '销售'],
+  orders: ['订单：处理', '订单与财务'], 'orders.view': ['订单：只看', '订单与财务'], payments: ['收款、退款、议价政策', '订单与财务'], 'shop.refund': ['网店退款', '订单与财务'],
+  shipments: ['发货与物流', '仓库'], 'shop.fulfil': ['网店发货', '仓库'], rma: ['售后', '仓库'], inventory: ['SKU 与库存', '仓库'],
+  catalog: ['商品：编辑、上下架', '商品与内容'], 'catalog.view': ['商品：只看', '商品与内容'], 'catalog.export': ['商品：导出', '商品与内容'], 'catalog.delete': ['商品：删除', '商品与内容'],
+  content: ['内容与 GEO', '商品与内容'], marketing: ['优惠券与评价', '商品与内容'], settings: ['站点设置', '商品与内容'], shop: ['网店设置（运费、支付）', '商品与内容'], 'shop.view': ['网店：只看', '商品与内容'],
+  system: ['系统状态与备份', '系统'], audit: ['操作日志', '系统'], users: ['账号与岗位', '系统'],
+};
+// Built-in roles (kept in code so they stay current). Admins add their own roles in 账号权限 → 岗位.
 export const ROLES = {
   admin: { zh: '管理员', perms: ['*'] },
-  sales: { zh: '销售', perms: ['leads', 'quotes', 'orders', 'customers', 'catalog.view', 'shop.view', 'deals.view', 'contracts'] },
+  sales: { zh: '销售', perms: ['leads', 'leads.export', 'chat', 'quotes', 'orders', 'customers', 'catalog.view', 'shop.view', 'deals.view', 'contracts'] },
   finance: { zh: '财务', perms: ['orders', 'payments', 'customers', 'shop.view', 'shop.refund', 'deals', 'contracts.view'] },
   warehouse: { zh: '仓库/物流', perms: ['orders.view', 'shipments', 'rma', 'inventory', 'catalog.view', 'shop.view', 'shop.fulfil'] },
-  content: { zh: '内容运营', perms: ['content', 'catalog', 'marketing', 'settings'] },
+  content: { zh: '内容运营', perms: ['content', 'catalog', 'catalog.export', 'catalog.delete', 'marketing', 'settings'] },
+  service: { zh: '客服', perms: ['chat', 'leads.view', 'orders.view', 'customers.view', 'rma', 'shop.view'] },
+  designer: { zh: '美工', perms: ['catalog', 'catalog.view'] },
+  ops: { zh: '运维', perms: ['system', 'audit', 'orders.view', 'catalog.view'] },
 };
 
 // Path prefix → permission. First match wins; anything else under /admin needs "admin".
 const RULES = [
-  [/^\/admin\/?$/, 'leads'], [/^\/admin\/(lead|conversations|conv|leads\.csv)/, 'leads'],
+  [/^\/admin\/?$/, 'leads'], [/^\/admin\/leads\.csv/, 'leads.export'], [/^\/admin\/lead/, 'leads'], [/^\/admin\/(conversations|conv)/, 'chat'],
   [/^\/admin\/deals\/(policy|floors)/, 'payments'], [/^\/admin\/deals/, 'deals'],
   [/^\/admin\/contracts\/template/, 'admin'], [/^\/admin\/contracts/, 'contracts'], [/^\/admin\/quotes\/[^/]+\/contract/, 'contracts'],
   [/^\/admin\/quotes/, 'quotes'], [/^\/admin\/customers/, 'customers'],
   [/^\/admin\/orders\/[^/]+\/(payment|refund)/, 'payments'], [/^\/admin\/orders\/[^/]+\/(ship)/, 'shipments'], [/^\/admin\/orders/, 'orders'],
   [/^\/admin\/shipments/, 'shipments'], [/^\/admin\/rma/, 'rma'], [/^\/admin\/(skus|inventory)/, 'inventory'],
-  [/^\/admin\/(content|geo)/, 'content'], [/^\/admin\/settings/, 'settings'], [/^\/admin\/(products|categories|media)/, 'catalog'],
+  [/^\/admin\/(content|geo)/, 'content'], [/^\/admin\/settings/, 'settings'],
+  [/^\/admin\/products\/(export|template)\.csv/, 'catalog.export'], [/^\/admin\/products\/[^/]+\/delete/, 'catalog.delete'], [/^\/admin\/(products|categories|media)/, 'catalog'],
   [/^\/admin\/shop\/[^/]+\/refund/, 'shop.refund'], [/^\/admin\/shop\/[^/]+\/(fulfil|ship)/, 'shop.fulfil'], [/^\/admin\/shop/, 'shop'],
   [/^\/admin\/(coupons|reviews|marketing)/, 'marketing'], [/^\/admin\/dashboard/, 'orders'],
-  [/^\/admin\/(ops|me|logout)/, null], // any logged-in user
+  [/^\/admin\/system/, 'system'], [/^\/admin\/audit/, 'audit'], [/^\/admin\/(users|roles)/, 'users'],
+  [/^\/admin\/(ops|me|logout|home)/, null], // any logged-in user
 ];
 
 export function permissionFor(path, method = 'GET') {
   for (const [re, perm] of RULES) if (re.test(path)) return perm && method === 'GET' && !perm.includes('.') ? [perm, `${perm}.view`] : perm ? [perm] : [];
   return ['admin'];
 }
+/** All permissions of a user (union of their roles). */
+export function permsOf(user) {
+  const all = allRoles();
+  return [...new Set(String(user?.role || '').split(',').filter(Boolean).flatMap((r) => all[r]?.perms || []))];
+}
 export function can(user, perms) {
   if (!user) return false;
-  const have = ROLES[user.role]?.perms || [];
+  const have = permsOf(user);
   if (have.includes('*')) return true;
   if (!perms.length) return true;
-  return perms.some((p) => have.includes(p) || have.includes(p.split('.')[0]));
+  return perms.some((p) => have.includes(p) || (p.endsWith('.view') && have.includes(p.slice(0, -5))));
 }
+export const roleNames = (roleList) => String(roleList || '').split(',').filter(Boolean).map((r) => allRoles()[r]?.zh || r).join(' + ');
 
 migrate([{
   id: '2026-10-20-staff-auth',
@@ -55,6 +78,42 @@ migrate([{
   id: '2026-10-28-staff-lang',
   up: () => addColumn('staff', 'lang', 'TEXT'),
 }]);
+migrate([{
+  id: '2026-10-29-custom-roles',
+  up: () => db.exec('CREATE TABLE roles (key TEXT PRIMARY KEY, name TEXT NOT NULL, perms TEXT NOT NULL, created_at TEXT, updated_at TEXT, updated_by TEXT)'),
+}]);
+
+// ---- roles: built-in (code) + custom (database), cached
+let roleCache = null;
+export function allRoles() {
+  if (!roleCache) {
+    const custom = Object.fromEntries(db.prepare('SELECT * FROM roles ORDER BY key').all().map((r) => [r.key, { zh: r.name, perms: JSON.parse(r.perms), custom: true }]));
+    roleCache = { ...custom, ...ROLES }; // built-in keys cannot be overridden
+  }
+  return roleCache;
+}
+export function saveRole({ key, name, perms }, actor = 'admin') {
+  const k = String(key || '').trim().toLowerCase();
+  if (!/^[a-z][a-z0-9_-]{1,31}$/.test(k)) throw new Error('岗位编码：2–32 位小写字母、数字、横线或下划线，以字母开头');
+  if (ROLES[k]) throw new Error('内置岗位不能修改，请新建一个岗位');
+  if (!String(name || '').trim()) throw new Error('岗位名称必填');
+  const list = [...new Set([].concat(perms || []).map(String))];
+  const bad = list.filter((p) => !PERMISSIONS[p]);
+  if (bad.length) throw new Error(`权限无效：${bad.join('、')}`);
+  if (!list.length) throw new Error('请至少勾选一项权限');
+  const t = new Date().toISOString();
+  db.prepare('INSERT INTO roles (key, name, perms, created_at, updated_at, updated_by) VALUES (?,?,?,?,?,?) ON CONFLICT(key) DO UPDATE SET name = excluded.name, perms = excluded.perms, updated_at = excluded.updated_at, updated_by = excluded.updated_by')
+    .run(k, String(name).trim().slice(0, 40), JSON.stringify(list), t, t, actor);
+  roleCache = null;
+  return k;
+}
+export function deleteRole(key) {
+  if (ROLES[key]) throw new Error('内置岗位不能删除');
+  const users = db.prepare("SELECT username FROM staff WHERE ',' || role || ',' LIKE ?").all(`%,${key},%`).map((u) => u.username);
+  if (users.length) throw new Error(`还有账号在使用这个岗位：${users.join('、')}`);
+  db.prepare('DELETE FROM roles WHERE key = ?').run(key);
+  roleCache = null;
+}
 
 const now = () => new Date().toISOString();
 const SESSION_IDLE_MS = 12 * 3600e3;
@@ -100,11 +159,13 @@ export function setStaffLang(id, lang) {
 export const getStaff = (id) => db.prepare('SELECT id, username, name, role, active FROM staff WHERE id = ?').get(id);
 
 export function saveStaff({ id, username, name, role, password, active }) {
-  if (!ROLES[role]) throw new Error('角色无效');
+  const roles = [...new Set([].concat(role || []).flatMap((r) => String(r).split(',')).map((r) => r.trim()).filter(Boolean))];
+  if (!roles.length || roles.some((r) => !allRoles()[r])) throw new Error('角色无效');
+  role = roles.join(',');
   if (id) {
     const u = getStaff(id);
     if (!u) throw new Error('账号不存在');
-    if (u.username === config.adminUser && (role !== 'admin' || active === false)) throw new Error('初始管理员账号不能降级或停用');
+    if (u.username === config.adminUser && (!roles.includes('admin') || active === false)) throw new Error('初始管理员账号不能降级或停用');
     if (password) { const p = passwordProblem(password); if (p) throw new Error(p); }
     db.prepare('UPDATE staff SET name = ?, role = ?, active = ?, pw_hash = COALESCE(?, pw_hash) WHERE id = ?').run(String(name || ''), role, active === false ? 0 : 1, password ? hashPassword(password) : null, id);
     if (active === false || password) db.prepare('DELETE FROM staff_sessions WHERE staff_id = ?').run(id);

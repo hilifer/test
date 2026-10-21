@@ -1,14 +1,18 @@
 // 内部线索后台（中文界面）：线索、对话、转人工、CSV 导出
 import { config, aiEnabled } from './config.js';
 import { listLeads, listConversations, conversationMessages, stats } from './db.js';
-import { currentUser, can, permissionFor, ROLES, defaultAdminLang } from './auth.js';
+import { currentUser, can, permissionFor, roleNames, defaultAdminLang } from './auth.js';
 import { humanActive, waitingCount } from './livechat.js';
+import { todoCount } from './workbench.js';
 
 // Main navigation; each entry is only shown to staff whose role may open it.
-export const NAV = [['/admin/dashboard', '看板'], ['/admin', '线索'], ['/admin/conversations', '对话'], ['/admin/ops', '业务闭环'], ['/admin/deals', 'AI 议价'], ['/admin/shop', '网店'], ['/admin/coupons', '优惠券'], ['/admin/reviews', '评价'], ['/admin/products', '商品'], ['/admin/categories', '品类'], ['/admin/settings', '站点设置'], ['/admin/content', '内容'], ['/admin/geo', 'GEO 监测'], ['/admin/leads.csv', '导出 CSV'], ['/admin/users', '账号权限'], ['/admin/system', '系统']];
+export const NAV = [['/admin/home', '工作台'], ['/admin/dashboard', '看板'], ['/admin', '线索'], ['/admin/conversations', '对话'], ['/admin/ops', '业务闭环'], ['/admin/deals', 'AI 议价'], ['/admin/shop', '网店'], ['/admin/coupons', '优惠券'], ['/admin/reviews', '评价'], ['/admin/products', '商品'], ['/admin/categories', '品类'], ['/admin/settings', '站点设置'], ['/admin/content', '内容'], ['/admin/geo', 'GEO 监测'], ['/admin/leads.csv', '导出 CSV'], ['/admin/users', '账号权限'], ['/admin/audit', '操作日志'], ['/admin/system', '系统']];
 const navHtml = () => { const u = currentUser(); return NAV.filter(([h]) => !u || can(u, permissionFor(h))).map(([h, l]) => `<a href="${h}">${l}</a>`).join(''); };
 const langToggle = () => { const u = currentUser(); const en = (u?.lang || defaultAdminLang()) === 'en'; /* u.lang = effective language: own choice, cookie or system default */ return `<form method="post" action="/admin/lang" style="display:inline" data-lang-form><input type="hidden" name="lang" value="${en ? 'zh' : 'en'}"><button title="${en ? '切换到中文' : 'Switch to English'}">${en ? '&#20013;&#25991;' : 'EN'}</button></form>`; };
-const userHtml = () => { const u = currentUser(); return u ? `${langToggle()} <span class="mute">${esc(u.name || u.username)}（${esc(ROLES[u.role]?.zh || u.role)}）</span> <a href="/admin/me">修改密码</a> <form method="post" action="/admin/logout" style="display:inline"><button>退出</button></form>` : ''; };
+// to-do count in the header, cached per user for 30 s (the workbench queries are not free)
+const todoCache = new Map();
+const todoBadge = () => { const u = currentUser(); if (!u) return ''; let e = todoCache.get(u.username); if (!e || Date.now() - e.t > 30e3) { e = { t: Date.now(), n: todoCount() }; todoCache.set(u.username, e); } return `<a href="/admin/home" title="待办" style="margin-right:8px">待办 <b>${e.n}</b></a>`; };
+const userHtml = () => { const u = currentUser(); return u ? `${todoBadge()}${langToggle()} <span class="mute">${esc(u.name || u.username)}（${esc(roleNames(u.role))}）</span> <a href="/admin/me">修改密码</a> <form method="post" action="/admin/logout" style="display:inline"><button>退出</button></form>` : ''; };
 
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 export const fmt = (iso) => (iso ? new Date(iso).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false }) : '');
