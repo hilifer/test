@@ -51,6 +51,8 @@ import { startCrmJobs, getLead, canSeeLead, listLeadsFor } from './sales/crm.js'
 import { mountTracking, campaignOf, trackRequest } from './marketing/analytics.js';
 import { mountGrowthAdmin } from './marketing/admin-growth.js';
 import { mountEmailPublic } from './marketing/email.js';
+import { mountFinanceAdmin } from './finance/admin-finance.js';
+import { startFinanceJobs } from './finance/finance.js';
 
 const app = new Hono();
 
@@ -276,6 +278,7 @@ mountDeals(app, { ipOf });
 mountSystemAdmin(app);
 mountAuditAdmin(app);
 mountTasksAdmin(app);
+mountFinanceAdmin(app);
 mountGrowthAdmin(app);
 mountOpsCenter(app);
 mountCopyAdmin(app);
@@ -301,6 +304,7 @@ startAutolistJobs();
 startBackupJob();
 startAssetJobs();
 startTasks();
+startFinanceJobs();
 startCrmJobs();
 startServiceChecks();
 startOpsWatch();

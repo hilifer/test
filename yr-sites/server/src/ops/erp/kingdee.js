@@ -105,10 +105,36 @@ export function buildSalesOrder(order, customer, skuLookup) {
   };
 }
 
+/** Sales receipt (收款单, AR_RECEIVEBILL): one entry, T/T or online, against the customer; bill type and settlement codes are configurable. */
+export function buildReceipt(p, customer) {
+  const k = K();
+  const online = /^(stripe|paypal) /.test(p.ref || '') || p.kind === 'online';
+  return {
+    NeedUpDateFields: [], IsDeleteEntry: true, IsAutoSubmitAndAudit: false,
+    Model: {
+      FID: 0,
+      FBillTypeID: { FNUMBER: process.env.KD_RECEIPT_BILLTYPE || 'SKDLX01_SYS' },
+      FDATE: String(p.ts || new Date().toISOString()).slice(0, 10),
+      FCONTACTUNITTYPE: 'BD_Customer', FCONTACTUNIT: { FNumber: customer.erp_number },
+      FPAYUNITTYPE: 'BD_Customer', FPAYUNIT: { FNumber: customer.erp_number },
+      FCURRENCYID: { FNumber: k.currencyMap[p.currency] || k.currencyMap.USD },
+      FSETTLEORGID: { FNumber: k.orgNumber }, FSALEORGID: { FNumber: k.orgNumber }, FPAYORGID: { FNumber: k.orgNumber },
+      FREMARK: `独立站订单 ${p.order_number}${p.erp_order ? `（销售订单 ${p.erp_order}）` : ''} ${p.ref || ''}`.trim().slice(0, 255),
+      FRECEIVEBILLENTRY: [{
+        FSETTLETYPEID: { FNumber: online ? (process.env.KD_SETTLE_ONLINE || 'JSFS06_SYS') : (process.env.KD_SETTLE_TT || 'JSFS04_SYS') },
+        FPURPOSEID: { FNumber: 'SFKYT01_SYS' },
+        FRECTOTALAMOUNTFOR: p.amount,
+        FNOTE: `${p.kind} ${p.ref || ''}`.trim().slice(0, 255),
+      }],
+    },
+  };
+}
+
 export const kingdee = {
   mode: 'kingdee',
   async test() { await login(); const r = await query('BD_MATERIAL', 'FNumber', '', 1); return `登录成功，可读取物料（示例：${r[0]?.[0] || '无'}）`; },
   async pushCustomer(c) { return saveResult(await post(`${STUB}.DynamicFormService.Save`, { formid: 'BD_Customer', data: buildCustomer(c) })).number; },
+  async pushReceipt(p, customer) { return saveResult(await post(`${STUB}.DynamicFormService.Save`, { formid: 'AR_RECEIVEBILL', data: buildReceipt(p, customer) })).number; },
   async pushSalesOrder(order, customer, skuLookup) { return saveResult(await post(`${STUB}.DynamicFormService.Save`, { formid: 'SAL_SaleOrder', data: buildSalesOrder(order, customer, skuLookup) })).number; },
   async pullInventory(materialToSku) {
     const k = K();

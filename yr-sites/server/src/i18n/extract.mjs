@@ -3,7 +3,7 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
-export const EXCLUDE = /(storefront|portal|pi|mailer|agent|tools|mcp|notify|writer|geo|feeds|extract|en|alerts|copy-data)\.js$/;
+export const EXCLUDE = /(storefront|portal|pi|mailer|agent|tools|mcp|notify|writer|geo|feeds|extract|en|alerts|copy-data|trade-docs)\.js$/;
 export const FRAGMENT = /[\u4e00-\u9fff][^\x00-\x1f`'"<>${}=\\]*[\u4e00-\u9fff）」】]|[\u4e00-\u9fff]/g;
 
 export function fragments(root) {

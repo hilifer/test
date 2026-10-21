@@ -14,6 +14,7 @@ import { systemStatus } from './ops/backup.js';
 import { errorStats } from './ops/errors.js';
 import { failingServices, peerSites, lastChecks } from './ops/services.js';
 import { listJobs } from './jobs.js';
+import { receivables, reconRuns } from './finance/finance.js';
 import { funnel, productStats } from './marketing/analytics.js';
 import { running as runningPromos } from './marketing/promotions.js';
 import { seesAllLeads, dueFollowups, performance, upcomingDates } from './sales/crm.js';
@@ -66,10 +67,21 @@ const BOARDS = [
     kpis: [['待审批报价', n("SELECT COUNT(*) n FROM deal_offers WHERE status = 'needs_approval'"), '/admin/deals?status=needs_approval']],
     todos: todo(db.prepare("SELECT id, number, total, currency FROM deal_offers WHERE status = 'needs_approval' ORDER BY created_at LIMIT 6").all(), (r) => `议价 ${r.number} 待审批（${r.currency} ${r.total}）`, (r) => `/admin/deals/${r.id}`),
     links: [['AI 议价', '/admin/deals'], ['授权政策与底价', '/admin/deals/policy']] }) },
-  { perm: 'payments', title: '财务：收款', build: () => ({
-    kpis: [['待收定金', n("SELECT COUNT(*) n FROM orders WHERE status = 'awaiting_deposit'"), '/admin/orders?status=awaiting_deposit'], ['待收尾款', n("SELECT COUNT(*) n FROM orders WHERE status IN ('in_production','ready_to_ship') AND paid < total AND channel IS NOT 'shop'"), '/admin/orders'], ['今日到账', money(v("SELECT SUM(amount) v FROM payments WHERE ts >= ? AND amount > 0", since(24))), '/admin/orders']],
-    todos: todo(db.prepare("SELECT id, number, total, paid, currency FROM orders WHERE status = 'awaiting_deposit' ORDER BY created_at LIMIT 6").all(), (r) => `订单 ${r.number} 待收定金`, (r) => `/admin/orders/${r.id}`),
-    links: [['订单', '/admin/orders'], ['网店', '/admin/shop']] }) },
+  { perm: 'payments', title: '财务：收款', build: () => {
+    const ar = receivables();
+    const overdue = ar.filter((r) => r.overdueDays && r.channel !== 'shop');
+    const month = new Date().toISOString().slice(0, 7);
+    const lastRecon = reconRuns(1)[0];
+    const pendingRefunds = n("SELECT COUNT(*) n FROM rmas WHERE status = 'approved' AND resolution = 'refund'");
+    return {
+      kpis: [['待收定金', n("SELECT COUNT(*) n FROM orders WHERE status = 'awaiting_deposit'"), '/admin/orders?status=awaiting_deposit'], ['待收尾款', n("SELECT COUNT(*) n FROM orders WHERE status IN ('in_production','ready_to_ship') AND paid < total AND channel IS NOT 'shop'"), '/admin/finance'],
+        ['今日到账', money(v('SELECT SUM(amount) v FROM payments WHERE ts >= ? AND amount > 0', since(24))), '/admin/finance/report'], ['应收合计', money(ar.reduce((a, r) => a + r.outstanding, 0)), '/admin/finance'], ['已逾期', money(overdue.reduce((a, r) => a + r.outstanding, 0)), '/admin/finance'],
+        ['本月回款', money(v("SELECT SUM(amount) v FROM payments WHERE substr(ts, 1, 7) = ?", month)), '/admin/finance/report'], ['待退款', pendingRefunds, '/admin/rma']],
+      todos: [...overdue.slice(0, 6).map((r) => ({ text: `应收逾期 ${r.overdueDays} 天：${r.number} ${r.company || ''} ${r.currency} ${r.outstanding}`, href: `/admin/orders/${r.id}` })),
+        ...todo(db.prepare("SELECT id, number FROM orders WHERE status = 'awaiting_deposit' ORDER BY created_at LIMIT 4").all(), (r) => `订单 ${r.number} 待收定金`, (r) => `/admin/orders/${r.id}`),
+        ...(lastRecon && lastRecon.issues ? [{ text: `上次对账有 ${lastRecon.issues} 处差异`, href: '/admin/finance/reconcile' }] : [])],
+      links: [['应收账款', '/admin/finance'], ['对账', '/admin/finance/reconcile'], ['财务报表', '/admin/finance/report'], ['订单', '/admin/orders'], ['网店', '/admin/shop']] };
+  } },
   { perm: 'shipments', title: '仓库：发货与物流', build: () => ({
     kpis: [['待发货订单', n("SELECT COUNT(*) n FROM orders WHERE status = 'ready_to_ship'"), '/admin/orders?status=ready_to_ship'], ['运输中', n("SELECT COUNT(*) n FROM shipments WHERE status = 'in_transit'"), '/admin/shipments'], ['物流异常', n("SELECT COUNT(*) n FROM shipments WHERE status = 'exception'"), '/admin/shipments']],
     todos: [...todo(db.prepare("SELECT id, number FROM orders WHERE status = 'ready_to_ship' ORDER BY created_at LIMIT 5").all(), (r) => `订单 ${r.number} 待发货`, (r) => `/admin/orders/${r.id}`),

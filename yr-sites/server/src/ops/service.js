@@ -59,7 +59,7 @@ export function nextNumber(entity) {
 }
 
 // Listeners for shipment changes (e.g. the shop e-mails the buyer). Errors in listeners never break the caller.
-export const hooks = { shipment: [], quote: [] };
+export const hooks = { shipment: [], quote: [], payment: [] };
 const emitShipment = (kind, s) => { for (const fn of hooks.shipment) { try { fn(kind, s); } catch (e) { console.error('[hook]', e.message); } } };
 
 export function logEvent(entity, id, action, { from = null, to = null, actor = 'system', note = '' } = {}) {
@@ -241,10 +241,11 @@ export function recordPayment(orderId, { kind = 'deposit', amount, ref = '' }, a
   if (kind === 'refund' && amt > o.paid + 0.01) throw new Error(`退款金额不能超过已收金额 ${o.currency} ${o.paid}`);
   if (kind !== 'refund' && o.paid + amt > o.total + 0.01) throw new Error(`登记后已收（${o.currency} ${r2(o.paid + amt)}）将超过订单总额 ${o.currency} ${o.total}，请核对金额`);
   if (o.status === 'cancelled' && kind !== 'refund') throw new Error('已取消的订单只能登记退款');
-  db.prepare('INSERT INTO payments (order_id, kind, amount, currency, ref, ts) VALUES (?,?,?,?,?,?)').run(orderId, kind, kind === 'refund' ? -Math.abs(amt) : amt, o.currency, ref, now());
+  const pid = Number(db.prepare('INSERT INTO payments (order_id, kind, amount, currency, ref, ts) VALUES (?,?,?,?,?,?)').run(orderId, kind, kind === 'refund' ? -Math.abs(amt) : amt, o.currency, ref, now()).lastInsertRowid);
   const paid = r2(db.prepare('SELECT COALESCE(SUM(amount),0) s FROM payments WHERE order_id = ?').get(orderId).s);
   db.prepare('UPDATE orders SET paid = ?, updated_at = ? WHERE id = ?').run(paid, now(), orderId);
   logEvent('order', orderId, 'payment', { actor, note: `${label('payment', kind)} ${o.currency} ${amt} ${ref}`.trim() });
+  for (const h of hooks.payment) { try { h(pid); } catch (e) { console.error('[payment hook]', e.message); } }
   // deposit received → start production automatically
   if (o.status === 'awaiting_deposit' && paid >= o.deposit_due - 0.01) setOrderStatus(orderId, 'in_production', { actor: 'system', note: '定金已到账' });
   // online shop orders: paid in full → ready to ship from stock

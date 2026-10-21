@@ -15,6 +15,7 @@ const mock = {
   async test() { return '模拟模式：未连接真实金蝶'; },
   async pushCustomer() { return `CUST${String(Date.now()).slice(-6)}`; },
   async pushSalesOrder() { return `XSDD${String(Date.now()).slice(-6)}`; },
+  async pushReceipt() { return `SKD${String(Date.now()).slice(-6)}`; },
   async pullInventory(materialToSku) {
     return listSkus().map((s, i) => ({ sku: s.sku, material: s.erp_number || s.sku, warehouse: i % 2 ? '成品仓' : '外贸仓', qty: 200 + ((i * 137) % 900) })).map((r) => ({ ...r, sku: materialToSku(r.material) || r.sku }));
   },
