@@ -1,6 +1,6 @@
 // 内部线索后台（中文界面）：线索、对话、转人工、CSV 导出
 import { config, aiEnabled } from './config.js';
-import { listLeads, listConversations, conversationMessages, stats } from './db.js';
+import { listLeads, listConversations, conversationMessages } from './db.js';
 import { currentUser, can, permissionFor, roleNames, defaultAdminLang } from './auth.js';
 import { humanActive, waitingCount } from './livechat.js';
 import { todoCount } from './workbench.js';
@@ -38,35 +38,6 @@ select,button{font:inherit}a{color:#1565c0}
 <script>document.querySelector('[data-lang-form]')?.addEventListener('submit',async(e)=>{e.preventDefault();const f=e.currentTarget;await fetch(f.action,{method:'POST',headers:{'x-requested-with':'fetch'},body:new URLSearchParams(new FormData(f))});const h=await (await fetch(location.href)).text();document.open();document.write(h);document.close();});</script></body></html>`;
 }
 
-const SRC = { 'quote-page': '询价单', 'quote-form': '产品页询价', 'lighting-design': '免费灯光设计', wholesale: '批发/经销申请', 'oem-odm': 'OEM/ODM', 'chat-form': 'AI 对话留资', calculator: '收益测算', partner: '渠道合作', contact: '联系表单' };
-function extraSummary(raw) {
-  let x = {};
-  try { x = JSON.parse(raw || '{}'); } catch {}
-  const parts = [];
-  if (Array.isArray(x.lines)) parts.push(`询价单 ${x.lines.length} 项`);
-  for (const [k, v] of Object.entries(x)) if (!['lines', 'page', 'calculator'].includes(k) && v) parts.push(`${k}: ${String(v).slice(0, 80)}`);
-  if (x.calculator) parts.push(`测算：${x.calculator.kwp} kWp，回本 ${x.calculator.payback ? Number(x.calculator.payback).toFixed(1) + ' 年' : '—'}`);
-  return parts.length ? `<div class="mute" style="margin-top:4px">${esc(parts.join(' · '))}</div>` : '';
-}
-
-export function leadsPage() {
-  const s = stats();
-  const g = Object.fromEntries(s.byGrade.map((x) => [x.grade, x.n]));
-  const rows = listLeads()
-    .map((l) => `<tr><td><span class="g g${esc(l.grade)}">${esc(l.grade)}</span></td><td>${fmt(l.created_at)}<div class="mute">${esc(SRC[l.source] || l.source)}</div></td>
-<td><b>${esc(l.company || '—')}</b><div>${esc(l.name)}</div><div class="mute">${esc(l.country)}</div></td>
-<td>${esc(l.email)}<div>${esc(l.whatsapp || l.phone)}</div></td><td>${esc(l.product_id)}<div class="mute">${l.quantity ? '数量 ' + l.quantity : ''} ${esc(l.timeline)}</div></td>
-<td style="max-width:320px">${esc(l.needs)}${extraSummary(l.extra)}<div class="mute">${esc(JSON.parse(l.reasons || '[]').join('，'))}</div></td>
-<td><form method="post" action="/admin/lead/${esc(l.id)}/status"><select name="status" onchange="this.form.submit()">${Object.entries(LEAD_STATUS).map(([k, v]) => `<option value="${k}"${l.status === k ? ' selected' : ''}>${v}</option>`).join('')}</select></form>
-<a href="/admin/quotes/new?lead=${esc(l.id)}">生成报价</a> ${l.conv_id ? `<a href="/admin/conv/${esc(l.conv_id)}">看对话</a>` : ''}</td></tr>`)
-    .join('');
-  return shell('线索', `${aiEnabled() ? '' : '<div class="warn">当前为规则模式：AI 对话使用内置规则答复。配置 LLM_PROVIDER / LLM_API_KEY / LLM_MODEL 后自动切换为大模型。</div>'}
-<div class="tiles"><div class="tile"><span>对话总数</span><strong>${s.conversations}</strong></div><div class="tile"><span>近 7 天对话</span><strong>${s.conversations7d}</strong></div>
-<div class="tile"><span>线索总数</span><strong>${s.leads}</strong></div><div class="tile"><span>A / B / C / D</span><strong>${g.A || 0} / ${g.B || 0} / ${g.C || 0} / ${g.D || 0}</strong></div>
-<div class="tile"><span>转人工</span><strong>${s.handoffs}</strong></div></div>
-<div class="wrap"><table><thead><tr><th>级</th><th>时间/来源</th><th>客户</th><th>联系方式</th><th>产品/数量</th><th>需求与评级依据</th><th>状态</th></tr></thead><tbody>${rows || '<tr><td colspan="7" class="mute">还没有线索。网站对话或表单留资后会出现在这里。</td></tr>'}</tbody></table></div>`);
-}
-
 const liveTag = (c) => (c.agent && humanActive(c.id) ? `<span class="pill" style="background:#c8e6c9">${esc(c.agent_name || c.agent)} 接待中</span>${c.waiting ? ' <span class="pill" style="background:#ef8f00;color:#fff">客户等待回复</span>' : ''}` : '');
 export function conversationsPage() {
   const rows = listConversations()
@@ -92,9 +63,9 @@ export function conversationPage(id, flash = {}) {
 <script>(()=>{let last=${lastId};const log=document.getElementById('log');setInterval(async()=>{try{const r=await fetch('/admin/conv/${esc(id)}/messages?after='+last);if(!r.ok)return;const j=await r.json();if(j.html){log.insertAdjacentHTML('beforeend',j.html);last=j.lastId;}}catch{}},4000);})();</script>`);
 }
 
-export function leadsCsv() {
+export function leadsCsv(rows = listLeads(10000)) {
   const cols = ['created_at', 'grade', 'score', 'status', 'source', 'company', 'name', 'email', 'whatsapp', 'phone', 'country', 'buyer_type', 'product_id', 'quantity', 'timeline', 'needs', 'extra'];
   // Leading = + - @ (or tab/CR) would run as a formula in Excel: prefix with ' (CSV injection).
   const q = (v) => `"${String(v ?? '').replace(/^[=+\-@\t\r]/, "'$&").replace(/"/g, '""')}"`;
-  return '﻿' + [cols.join(','), ...listLeads(10000).map((l) => cols.map((c) => q(l[c])).join(','))].join('\n');
+  return '﻿' + [cols.join(','), ...rows.map((l) => cols.map((c) => q(l[c])).join(','))].join('\n');
 }

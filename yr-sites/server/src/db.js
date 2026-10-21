@@ -49,6 +49,8 @@ export function markHandoff(convId, reason) {
   db.prepare('UPDATE conversations SET handoff = 1, handoff_reason = ? WHERE id = ?').run(reason || '', convId);
 }
 
+/** Run after a lead is saved (e.g. assigning an owner). */
+export const leadHooks = [];
 export function insertLead(lead) {
   const id = randomUUID();
   db.prepare(`INSERT INTO leads (id, site, created_at, source, name, company, email, phone, whatsapp, country, buyer_type, needs, product_id, quantity, timeline, grade, score, reasons, consent, conv_id, extra)
@@ -58,6 +60,7 @@ export function insertLead(lead) {
     lead.grade, lead.score, JSON.stringify(lead.reasons || []), lead.consent ? 1 : 0, lead.conv_id || '', JSON.stringify(lead.extra || {})
   );
   if (lead.conv_id) db.prepare('UPDATE conversations SET lead_id = ? WHERE id = ?').run(id, lead.conv_id);
+  for (const h of leadHooks) { try { h(id); } catch (e) { console.error('[lead hook]', e.message); } }
   return id;
 }
 

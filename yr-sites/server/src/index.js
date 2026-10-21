@@ -7,7 +7,7 @@ import { chat } from './agent.js';
 import { handleMcp } from './mcp.js';
 import { scoreLead } from '../../shared/sales-engine.js';
 import { alertLead } from './alerts.js';
-import { leadsPage, conversationsPage, conversationPage, leadsCsv, LEAD_STATUS, messageHtml } from './admin.js';
+import { conversationsPage, conversationPage, leadsCsv, LEAD_STATUS, messageHtml } from './admin.js';
 import * as Live from './livechat.js';
 import { currentUser } from './auth.js';
 import { ensureBootstrapAdmin, verifyLogin, createSession, sessionUser, endSession, permissionFor, can, runAs, adminLang, setStaffLang } from './auth.js';
@@ -46,6 +46,8 @@ import { recordError } from './ops/errors.js';
 import { onLoginAttempt, startOpsWatch } from './ops/security.js';
 import { startServiceChecks } from './ops/services.js';
 import { onJobFailure } from './jobs.js';
+import { mountCrmAdmin } from './sales/admin-crm.js';
+import { startCrmJobs, getLead, canSeeLead, listLeadsFor } from './sales/crm.js';
 
 const app = new Hono();
 
@@ -247,7 +249,6 @@ const staffGate = async (c, next) => {
 app.use('/admin/*', staffGate);
 app.use('/admin', staffGate);
 mountStaffAdmin(app);
-app.get('/admin', (c) => c.html(leadsPage()));
 app.get('/admin/conversations', (c) => c.html(conversationsPage()));
 app.get('/admin/conv/:id', (c) => c.html(conversationPage(c.req.param('id'), { e: c.req.query('e') })));
 app.get('/admin/conv/:id/messages', (c) => { const ms = Live.messagesAfter(c.req.param('id'), c.req.query('after')); return c.json({ html: ms.map(messageHtml).join(''), lastId: ms.at(-1)?.id || Number(c.req.query('after')) || 0 }); });
@@ -255,8 +256,9 @@ const convBack = (c, e) => c.redirect(`/admin/conv/${encodeURIComponent(c.req.pa
 app.post('/admin/conv/:id/reply', async (c) => { const f = await c.req.parseBody(); try { Live.agentReply(c.req.param('id'), currentUser(), f.text); return convBack(c); } catch (e) { return convBack(c, e.message); } });
 app.post('/admin/conv/:id/takeover', (c) => { try { Live.takeOver(c.req.param('id'), currentUser()); return convBack(c); } catch (e) { return convBack(c, e.message); } });
 app.post('/admin/conv/:id/release', (c) => { Live.release(c.req.param('id')); return convBack(c); });
-app.get('/admin/leads.csv', (c) => { c.header('content-type', 'text/csv; charset=utf-8'); c.header('content-disposition', `attachment; filename="leads-${config.site}.csv"`); return c.body(leadsCsv()); });
+app.get('/admin/leads.csv', (c) => { c.header('content-type', 'text/csv; charset=utf-8'); c.header('content-disposition', `attachment; filename="leads-${config.site}.csv"`); return c.body(leadsCsv(listLeadsFor(c.get('user'), { scope: 'all', limit: 10000 }))); });
 mountContentAdmin(app);
+mountCrmAdmin(app); // before the ops routes: /admin/quotes/templates must win over /admin/quotes/:id
 mountOpsAdmin(app);
 mountCatalogAdmin(app);
 mountShop(app, { ipOf });
@@ -274,8 +276,11 @@ app.post('/admin/lead/:id/status', async (c) => {
   const f = await c.req.parseBody();
   const status = String(f.status || '');
   if (!LEAD_STATUS[status]) return c.text('invalid status', 400);
-  setLeadStatus(c.req.param('id'), status);
-  return c.redirect('/admin');
+  const lead = getLead(c.req.param('id'));
+  if (!canSeeLead(c.get('user'), lead)) return c.text('Not found', 404);
+  setLeadStatus(lead.id, status);
+  const ref = c.req.header('referer') || '';
+  return c.redirect(/\/admin\/lead\//.test(ref) ? `/admin/lead/${lead.id}?m=${encodeURIComponent('状态已更新')}` : '/admin');
 });
 
 startScheduler();
@@ -287,6 +292,7 @@ startAutolistJobs();
 startBackupJob();
 startAssetJobs();
 startTasks();
+startCrmJobs();
 startServiceChecks();
 startOpsWatch();
 startJobs();

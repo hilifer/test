@@ -59,7 +59,7 @@ export function nextNumber(entity) {
 }
 
 // Listeners for shipment changes (e.g. the shop e-mails the buyer). Errors in listeners never break the caller.
-export const hooks = { shipment: [] };
+export const hooks = { shipment: [], quote: [] };
 const emitShipment = (kind, s) => { for (const fn of hooks.shipment) { try { fn(kind, s); } catch (e) { console.error('[hook]', e.message); } } };
 
 export function logEvent(entity, id, action, { from = null, to = null, actor = 'system', note = '' } = {}) {
@@ -153,6 +153,7 @@ export function createQuote({ customer, lead_id = '', lines = [], currency, inco
   db.prepare(`INSERT INTO quotes (id, number, customer_id, lead_id, status, currency, incoterm, port, payment_terms, validity_days, freight, discount, notes, lines, subtotal, total, created_at, token)
     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(id, number, cust.id, lead_id, 'draft', currency || config.catalog.currency, incoterm, port, payment_terms, Number(validity_days) || 15, r2(freight), r2(discount), notes, JSON.stringify(L), subtotal, r2(subtotal + r2(freight) - r2(discount)), now(), token());
   logEvent('quote', id, 'created', { to: 'draft', note: number });
+  for (const h of hooks.quote) h(id);
   return getQuote(id);
 }
 export function updateQuote(id, f) {

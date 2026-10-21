@@ -10,6 +10,8 @@ import { erpLabel, erpLog, pushOrder, syncInventory, testConnection, pullMateria
 import { alertOps } from '../alerts.js';
 import { refundOrder, refundsFor } from '../shop/refunds.js';
 import { syncTracking, trackingEnabled } from '../shop/tracking.js';
+import { quoteCrmBox, customer360, filterCustomers } from '../sales/admin-crm.js';
+import { TIERS, customerTags } from '../sales/crm.js';
 
 const COLORS = { pending_payment: '#ef8f00', draft: '#90a4ae', sent: '#1565c0', accepted: '#2e7d32', expired: '#8d6e63', cancelled: '#9e9e9e', awaiting_deposit: '#ef8f00', in_production: '#6a1b9a', ready_to_ship: '#00838f', shipped: '#1565c0', delivered: '#2e7d32', completed: '#33691e', booked: '#5c6bc0', in_transit: '#1565c0', arrived: '#00838f', exception: '#c62828', submitted: '#ef8f00', reviewing: '#6a1b9a', approved: '#00838f', in_progress: '#1565c0', resolved: '#2e7d32', rejected: '#9e9e9e' };
 const pill = (entity, s) => `<span class="pill" style="background:${COLORS[s] || '#90a4ae'};color:#fff">${esc(label(entity, s))}</span>`;
@@ -82,7 +84,7 @@ function quoteEdit(id, f, e) {
 <p><b>合计：${money(q.currency, q.total)}</b> <span class="mute">（小计 ${money(q.currency, q.subtotal)} + 运费 ${q.freight} − 折扣 ${q.discount}）</span></p>
 ${editable ? '<div class="acts"><button class="btn l" name="action" value="save">保存</button><button class="btn" name="action" value="send">保存并发送给客户</button></div>' : ''}</form>
 <div class="acts"><a class="btn l" href="/admin/quotes/${q.id}/print" target="_blank">打印 / 导出 PDF</a>${q.status !== 'draft' && q.status !== 'cancelled' ? `<span>客户确认链接：<code>${esc(piLink(q))}</code></span>` : ''}${['draft', 'sent'].includes(q.status) ? `<form method="post" action="/admin/quotes/${q.id}/status"><input type="hidden" name="to" value="cancelled"><button class="btn r">作废</button></form>` : ''}${q.status === 'accepted' ? (() => { const o = S.getOrderByQuote(q.id); return o ? `<a class="btn g" href="/admin/orders/${o.id}">查看订单 ${esc(o.number)}</a>` : ''; })() : ''}</div>
-${contractBox(q)}${q.status === 'sent' ? `<div class="card"><b>发给客户的邮件模板（复制使用）</b><pre style="white-space:pre-wrap;margin:8px 0 0;font:13px/1.6 inherit">${esc(emailTemplate(q, c))}</pre></div>` : ''}
+${quoteCrmBox(q)}${contractBox(q)}${q.status === 'sent' ? `<div class="card"><b>发给客户的邮件模板（复制使用）</b><pre style="white-space:pre-wrap;margin:8px 0 0;font:13px/1.6 inherit">${esc(emailTemplate(q, c))}</pre></div>` : ''}
 <h3>记录</h3>${timeline('quote', q.id)}`, f, e);
 }
 
@@ -205,9 +207,9 @@ ${materials ? `<div class="card"><b>金蝶物料（${materials.length}）</b> �
 }
 
 // ---------------------------------------------------------------- customers
-function customersList(f, e) {
-  const rows = S.listCustomers().map((c) => `<tr><td><a href="/admin/customers/${c.id}"><b>${esc(c.company || c.contact || c.email)}</b></a></td><td>${esc(c.email)}</td><td>${esc(c.country)}</td><td class="n">${c.orders}</td><td class="n">${money(config.catalog.currency, c.revenue)}</td><td>${esc(c.erp_number || '')}</td><td>${d10(c.created_at)}</td></tr>`).join('');
-  return view('客户', `<h2>客户</h2><div class="wrap"><table><thead><tr><th>客户</th><th>邮箱</th><th>国家</th><th class="n">订单</th><th class="n">成交额</th><th>金蝶客户编码</th><th>创建</th></tr></thead><tbody>${rows || '<tr><td colspan="7" class="mute">暂无客户。从线索生成报价时自动建档。</td></tr>'}</tbody></table></div>`, f, e);
+function customersList(f, e, cq = {}) {
+  const rows = filterCustomers(S.listCustomers(), cq).map((c) => `<tr><td><a href="/admin/customers/${c.id}"><b>${esc(c.company || c.contact || c.email)}</b></a>${Number(c.vip) ? ' <span class="pill" style="background:#ffb000;color:#1d2733">VIP</span>' : ''}${c.tier ? ` <span class="pill">${esc(TIERS[c.tier] || c.tier)}</span>` : ''}${(() => { try { return JSON.parse(c.tags || '[]').map((t) => ` <span class="pill" style="background:#e3f2fd">${esc(t)}</span>`).join(''); } catch { return ''; } })()}</td><td>${esc(c.email)}</td><td>${esc(c.country)}</td><td class="n">${c.orders}</td><td class="n">${money(config.catalog.currency, c.revenue)}</td><td>${esc(c.erp_number || '')}</td><td>${d10(c.created_at)}</td></tr>`).join('');
+  return view('客户', `<h2>客户</h2><form method="get" class="acts"><select name="tier" aria-label="客户类型"><option value="">全部类型</option>${opt(Object.entries(TIERS), cq.tier)}</select><select name="tag" aria-label="标签"><option value="">全部标签</option>${opt(customerTags().map((t) => [t, t]), cq.tag)}</select><label><input type="checkbox" name="vip" value="1"${cq.vip ? ' checked' : ''}> 只看 VIP</label><button class="btn l">筛选</button></form><div class="wrap"><table><thead><tr><th>客户</th><th>邮箱</th><th>国家</th><th class="n">订单</th><th class="n">成交额</th><th>金蝶客户编码</th><th>创建</th></tr></thead><tbody>${rows || '<tr><td colspan="7" class="mute">暂无客户。从线索生成报价时自动建档。</td></tr>'}</tbody></table></div>`, f, e);
 }
 function customerView(id, f, e) {
   const c = S.getCustomer(id);
@@ -215,6 +217,7 @@ function customerView(id, f, e) {
   const orders = S.ordersForCustomer(id);
   return view(c.company || c.email, `<p><a href="/admin/customers">← 客户列表</a></p><h2>${esc(c.company || c.contact)}</h2><p>客户中心链接（可发给客户）：<code>${esc(portalLink(c))}</code></p>
 <form method="post" action="/admin/customers/${c.id}/save" class="card"><div class="grid2">${inp('公司', 'company', c.company)}${inp('联系人', 'contact', c.contact)}${inp('邮箱', 'email', c.email, 'type="email"')}${inp('电话', 'phone', c.phone)}${inp('WhatsApp', 'whatsapp', c.whatsapp)}${inp('国家', 'country', c.country)}${inp('地址', 'address', c.address)}${inp('金蝶客户编码', 'erp_number', c.erp_number)}<label class="fl"><span>文档语言</span><select name="lang">${opt([['en', 'English'], ['zh', '中文']], c.lang)}</select></label></div><button class="btn l">保存</button></form>
+${customer360(c)}
 <h3>订单</h3><table><tbody>${orders.map((o) => `<tr><td><a href="/admin/orders/${o.id}">${esc(o.number)}</a></td><td>${d10(o.created_at)}</td><td>${pill('order', o.status)}</td><td class="n">${money(o.currency, o.total)}</td></tr>`).join('') || '<tr><td class="mute">暂无</td></tr>'}</tbody></table>`, f, e);
 }
 
@@ -329,7 +332,7 @@ export function mountOpsAdmin(app) {
   app.post('/admin/inventory/test', guard(async (c) => back(c, '/admin/inventory', await testConnection()), () => '/admin/inventory'));
   app.post('/admin/inventory/materials', guard(async (c) => c.html(await inventoryPage('', '', await pullMaterials())), () => '/admin/inventory'));
 
-  app.get('/admin/customers', (c) => c.html(customersList(...q(c))));
+  app.get('/admin/customers', (c) => c.html(customersList(...q(c), { tier: c.req.query('tier') || '', tag: c.req.query('tag') || '', vip: c.req.query('vip') === '1' })));
   app.get('/admin/customers/:id', (c) => c.html(customerView(c.req.param('id'), ...q(c))));
   app.post('/admin/customers/:id/save', guard(async (c) => { S.updateCustomer(c.req.param('id'), await c.req.parseBody()); return back(c, `/admin/customers/${c.req.param('id')}`, '已保存'); }, (c) => `/admin/customers/${c.req.param('id')}`));
 }

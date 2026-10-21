@@ -14,6 +14,7 @@ import { systemStatus } from './ops/backup.js';
 import { errorStats } from './ops/errors.js';
 import { failingServices, peerSites, lastChecks } from './ops/services.js';
 import { listJobs } from './jobs.js';
+import { seesAllLeads, dueFollowups, performance, upcomingDates } from './sales/crm.js';
 import { backupOverdue, drillOverdue } from './ops/security.js';
 
 // storage usage walks the files: cache it for a minute
@@ -28,10 +29,29 @@ const todo = (rows, text, href) => rows.map((r) => ({ text: text(r), href: href(
 
 /** Board definitions: perm → { title, kpis, todos, links }. Order = display order. */
 const BOARDS = [
-  { perm: 'leads', title: '销售：线索', build: () => ({
-    kpis: [['今日新线索', n('SELECT COUNT(*) n FROM leads WHERE created_at >= ?', since(24)), '/admin'], ['今日 A/B 级', n("SELECT COUNT(*) n FROM leads WHERE created_at >= ? AND grade IN ('A','B')", since(24)), '/admin'], ['未处理线索', n("SELECT COUNT(*) n FROM leads WHERE status = 'new'"), '/admin']],
-    todos: todo(db.prepare("SELECT id, grade, company, name, email, created_at FROM leads WHERE status = 'new' AND grade IN ('A','B') ORDER BY created_at DESC LIMIT 6").all(), (r) => `${r.grade} 级线索：${r.company || r.name || r.email}`, () => '/admin'),
-    links: [['线索', '/admin'], ['导出 CSV', '/admin/leads.csv']] }) },
+  { perm: 'leads', title: '销售：线索', build: () => {
+    const me = currentUser();
+    const all = seesAllLeads(me);
+    const mine = all ? '' : 'AND owner = ?';
+    const args = all ? [] : [me.username];
+    const month = new Date().toISOString().slice(0, 7);
+    const perf = performance([month], { users: all ? null : [me.username] });
+    const sum = (k) => perf.reduce((a, p) => a + p.months[month][k], 0);
+    const pool = n('SELECT COUNT(*) n FROM leads WHERE owner IS NULL AND status IN (\'new\',\'contacted\',\'quoted\')');
+    const dueRows = dueFollowups(me.username);
+    const fresh = db.prepare(`SELECT id, grade, company, name, email, owner FROM leads WHERE status = 'new' AND grade IN ('A','B') AND created_at >= ? ${all ? '' : 'AND (owner = ? OR owner IS NULL)'} ORDER BY created_at DESC LIMIT 5`).all(since(72), ...args);
+    const unsigned = n(`SELECT COUNT(*) n FROM contracts k JOIN quotes q ON q.id = k.quote_id WHERE k.status = 'sent' ${all ? '' : 'AND q.owner = ?'}`, ...args);
+    const deposit = n(`SELECT COUNT(*) n FROM orders o JOIN quotes q ON q.id = o.quote_id WHERE o.status = 'awaiting_deposit' ${all ? '' : 'AND q.owner = ?'}`, ...args);
+    const opened = db.prepare(`SELECT q.id, q.number, MAX(v.ts) ts FROM link_views v JOIN quotes q ON q.id = v.ref_id WHERE v.kind = 'quote' AND v.ts >= ? AND q.status = 'sent' ${all ? '' : 'AND q.owner = ?'} GROUP BY q.id ORDER BY ts DESC LIMIT 5`).all(since(48), ...args);
+    const dates = upcomingDates(7, Date.now(), all ? null : me.username);
+    return {
+      kpis: [['今日新线索（A/B）', n(`SELECT COUNT(*) n FROM leads WHERE created_at >= ? AND grade IN ('A','B') ${mine}`, since(24), ...args), '/admin?scope=all&grade=A'], ['今天要跟进', dueRows.length, '/admin?scope=due'], ['公海线索', pool, '/admin?scope=pool'],
+        ['本月报价额', money(sum('quoted')), '/admin/sales/performance'], ['本月成交额', money(sum('wonAmount')), '/admin/sales/performance'], ['待客户签合同', unsigned, '/admin/contracts'], ['待收定金', deposit, '/admin/orders?status=awaiting_deposit']],
+      todos: [...dueRows.slice(0, 6).map((l) => ({ text: `跟进到期：${l.company || l.name || l.email}`, href: `/admin/lead/${l.id}` })), ...fresh.map((r) => ({ text: `${r.grade} 级线索：${r.company || r.name || r.email}${r.owner ? '' : '（公海，可领取）'}`, href: `/admin/lead/${r.id}` })),
+        ...opened.map((q) => ({ text: `客户刚打开了报价 ${q.number}，可以跟进了`, href: `/admin/quotes/${q.id}` })),
+        ...dates.map((d) => { const when = d.in ? `${d.in} 天后` : '今天'; return d.kind === 'birthday' ? { text: `客户生日（${when}）：${d.customer.company || d.customer.contact || d.customer.email}`, href: `/admin/customers/${d.customer.id}` } : { text: `${d.name}（${when}）：给 VIP 客户发祝福 · ${d.vipCount}`, href: '/admin/customers?vip=1' }; })],
+      links: [['线索', '/admin'], ['公海', '/admin?scope=pool'], ['销售业绩', '/admin/sales/performance'], ['报价', '/admin/quotes'], ['报价模板', '/admin/quotes/templates'], ['客户', '/admin/customers']] };
+  } },
   { perm: 'chat', title: '客服：在线对话', build: () => ({
     kpis: [['等待人工回复', n('SELECT COUNT(*) n FROM conversations WHERE waiting = 1 AND agent IS NOT NULL'), '/admin/conversations'], ['待接待（转人工）', n('SELECT COUNT(*) n FROM conversations WHERE handoff = 1 AND agent IS NULL AND updated_at >= ?', since(72)), '/admin/conversations'], ['今日对话', n('SELECT COUNT(*) n FROM conversations WHERE started_at >= ?', since(24)), '/admin/conversations']],
     todos: todo(db.prepare('SELECT id, handoff_reason, agent, waiting FROM conversations WHERE (waiting = 1 AND agent IS NOT NULL) OR (handoff = 1 AND agent IS NULL AND updated_at >= ?) ORDER BY updated_at DESC LIMIT 6').all(since(72)), (r) => (r.waiting ? '客户等待回复' : `转人工：${r.handoff_reason || ''}`), (r) => `/admin/conv/${r.id}`),

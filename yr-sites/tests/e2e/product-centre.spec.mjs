@@ -218,3 +218,33 @@ test('E2E-P06 title optimisation: product → "Optimise title" → generate → 
   await page.goto(SITE + '/admin/products/YR-PN-B6');
   await expect(page.locator('input[name="name"]')).toHaveValue(title);
 });
+
+test('E2E-P07 sales: a new lead waits in the pool → claim it → log a call with a next follow-up → it shows as due → quote from the lead', async ({ page, request }) => {
+  const email = `pool-${Date.now()}@buyer.test`;
+  expect((await request.post(SITE + '/api/leads', { data: { email, company: 'Pool Buyer LLC', product_id: 'YR-HB-U2', quantity: 120, consent: true } })).ok()).toBe(true);
+  await page.goto(SITE + '/admin/login');
+  await page.locator('input[name="username"]').fill('admin');
+  await page.locator('input[name="password"]').fill('e2e-pass');
+  await page.getByRole('button', { name: '登录' }).click();
+  await page.waitForURL(/\/admin\/home/);
+  await page.goto(SITE + '/admin?scope=pool');
+  const row = page.locator('tr', { hasText: email });
+  await row.getByRole('button', { name: '领取' }).click();
+  await expect(page.locator('main')).toContainText('已领取');
+  await expect(page.locator('main')).toContainText('Pool Buyer LLC');
+  await page.locator('select[name="kind"]').selectOption('call');
+  const past = new Date(Date.now() - 5 * 60e3);
+  const local = new Date(past.getTime() - past.getTimezoneOffset() * 60e3).toISOString().slice(0, 16);
+  await page.locator('input[name="next_at"]').fill(local);
+  await page.locator('textarea[name="content"]').fill('Called the buyer: wants 120 pcs, DLC needed');
+  await page.getByRole('button', { name: '保存跟进' }).click();
+  await expect(page.locator('main')).toContainText('跟进已保存');
+  await expect(page.locator('main')).toContainText('Called the buyer: wants 120 pcs');
+  await page.goto(SITE + '/admin?scope=due');
+  await expect(page.locator('tr', { hasText: email })).toBeVisible();
+  await page.locator('tr', { hasText: email }).getByRole('link', { name: '跟进' }).click();
+  await page.getByRole('link', { name: '生成报价' }).first().click();
+  await expect(page).toHaveURL(/\/admin\/quotes\//);
+  await expect(page.locator('main')).toContainText('负责人 admin');
+  await expect(page.locator('main')).toContainText('客户打开记录');
+});

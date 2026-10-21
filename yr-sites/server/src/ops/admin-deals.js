@@ -7,6 +7,7 @@ import { page as portalPage } from './portal.js';
 import { money } from './pi.js';
 import { listSkus, getCustomer, getQuote, getOrderByQuote } from './service.js';
 import * as D from './deals.js';
+import { recordView } from '../sales/crm.js';
 
 const OFFER_ST = { offered: ['AI 已报价', '#1565c0'], needs_approval: ['待审批', '#ef8f00'], approved: ['已审批', '#2e7d32'], rejected: ['已拒绝', '#9e9e9e'], contracted: ['已发合同', '#6a1b9a'], expired: ['已过期', '#8d6e63'] };
 const K_ST = { sent: ['待客户签署', '#1565c0'], signed: ['已签署', '#2e7d32'], void: ['已作废', '#9e9e9e'] };
@@ -121,6 +122,7 @@ export function mountDeals(app, { ipOf }) {
   app.get('/portal/contract/:t', (c) => {
     const k = D.contractByToken(c.req.param('t'));
     if (!k) return c.text('Not found', 404);
+    if (!/yr_staff=/.test(c.req.header('cookie') || '')) recordView('contract', k.id, { ip: ipOf(c), ua: c.req.header('user-agent') || '' });
     return c.html(contractPortal(k, { lang: c.req.query('lang') === 'zh' ? 'zh' : 'en' }));
   });
   app.post('/portal/contract/:t', async (c) => {

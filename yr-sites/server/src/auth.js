@@ -11,7 +11,7 @@ import { migrate, addColumn } from './migrate.js';
 
 // Permission catalogue. "x" also grants "x.view"; ".export", ".delete" etc. must be granted explicitly.
 export const PERMISSIONS = {
-  leads: ['线索：查看和处理', '销售'], 'leads.view': ['线索：只看', '销售'], 'leads.export': ['线索：导出', '销售'], chat: ['对话：查看和人工接待', '销售'],
+  leads: ['线索：查看和处理', '销售'], 'leads.view': ['线索：只看', '销售'], 'leads.export': ['线索：导出', '销售'], 'leads.all': ['线索：查看全部、分配和设置目标（主管）', '销售'], chat: ['对话：查看和人工接待', '销售'],
   quotes: ['报价 / PI', '销售'], 'quotes.view': ['报价：只看', '销售'], contracts: ['合同：生成、作废', '销售'], 'contracts.view': ['合同：只看', '销售'],
   deals: ['AI 议价：审批', '销售'], 'deals.view': ['AI 议价：只看', '销售'], customers: ['客户档案', '销售'], 'customers.view': ['客户：只看', '销售'],
   orders: ['订单：处理', '订单与财务'], 'orders.view': ['订单：只看', '订单与财务'], payments: ['收款、退款、议价政策', '订单与财务'], 'shop.refund': ['网店退款', '订单与财务'],
@@ -25,6 +25,7 @@ export const PERMISSIONS = {
 export const ROLES = {
   admin: { zh: '管理员', perms: ['*'] },
   sales: { zh: '销售', perms: ['leads', 'leads.export', 'chat', 'quotes', 'orders', 'customers', 'catalog.view', 'shop.view', 'deals.view', 'contracts', 'assets.view', 'assets.download'] },
+  sales_manager: { zh: '销售主管', perms: ['leads', 'leads.all', 'leads.export', 'chat', 'quotes', 'orders', 'customers', 'catalog.view', 'shop.view', 'deals.view', 'contracts', 'assets.view', 'assets.download'] },
   finance: { zh: '财务', perms: ['orders', 'payments', 'customers', 'shop.view', 'shop.refund', 'deals', 'contracts.view'] },
   warehouse: { zh: '仓库/物流', perms: ['orders.view', 'shipments', 'rma', 'inventory', 'catalog.view', 'shop.view', 'shop.fulfil'] },
   content: { zh: '内容运营', perms: ['content', 'catalog', 'catalog.export', 'catalog.delete', 'marketing', 'settings', 'assets', 'assets.download'] },
@@ -35,7 +36,7 @@ export const ROLES = {
 
 // Path prefix → permission. First match wins; anything else under /admin needs "admin".
 const RULES = [
-  [/^\/admin\/?$/, 'leads'], [/^\/admin\/leads\.csv/, 'leads.export'], [/^\/admin\/lead/, 'leads'], [/^\/admin\/(conversations|conv)/, 'chat'],
+  [/^\/admin\/?$/, 'leads'], [/^\/admin\/leads\.csv/, 'leads.export'], [/^\/admin\/sales\/(settings|targets)/, 'leads.all'], [/^\/admin\/sales/, 'leads'], [/^\/admin\/lead/, 'leads'], [/^\/admin\/(conversations|conv)/, 'chat'],
   [/^\/admin\/deals\/(policy|floors)/, 'payments'], [/^\/admin\/deals/, 'deals'],
   [/^\/admin\/contracts\/template/, 'admin'], [/^\/admin\/contracts/, 'contracts'], [/^\/admin\/quotes\/[^/]+\/contract/, 'contracts'],
   [/^\/admin\/quotes/, 'quotes'], [/^\/admin\/customers/, 'customers'],

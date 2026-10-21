@@ -11,6 +11,7 @@ import {
 import { alertOps } from '../alerts.js';
 import { pushOrder } from './erp/index.js';
 import { contractForQuote } from './deals.js';
+import { recordView } from '../sales/crm.js';
 
 const T = {
   en: { title: 'Customer portal', lookup: 'Track an order', lookupLede: 'Enter your order number and the email address on the order.', order: 'Order number', email: 'Email', go: 'Find my order', notFound: 'We could not find an order with that number and email. Check both, or contact us.', hello: 'Welcome', pis: 'Quotations (PI)', orders: 'Orders', rmas: 'After-sales requests', none: 'Nothing here yet.', view: 'View', placed: 'Placed', total: 'Total', paid: 'Paid', balance: 'Balance due', status: 'Status', items: 'Items', shipments: 'Shipments', noShip: 'Not shipped yet. We will add tracking details as soon as it ships.', tracking: 'Tracking', eta: 'ETA', etd: 'ETD', container: 'Container', history: 'Updates', rmaH: 'Report a problem with this order', rmaLede: 'Tell us what happened. Photos help: paste links to photos or a shared folder.', sku: 'Item', qty: 'Quantity affected', issue: 'Problem', desc: 'What happened?', photos: 'Photo links (optional)', submit: 'Send request', rmaOk: 'Request received. Your after-sales number is', back: 'Back to my account', contact: 'Questions? Email', lang: '中文' },
@@ -120,6 +121,7 @@ export function mountPortal(app) {
   app.get('/portal/pi/:t', (c) => {
     const q = quoteByToken(c.req.param('t'));
     if (!q || q.status === 'draft' || q.status === 'cancelled') return c.html(lookupPage('en', 'This quotation link is not valid.'), 404);
+    if (!/yr_staff=/.test(c.req.header('cookie') || '')) recordView('quote', q.id, { ip: (c.req.header('x-forwarded-for') || '').split(',')[0].trim(), ua: c.req.header('user-agent') || '' }); // staff previews are not counted
     const cust = getCustomer(q.customer_id);
     const order = q.status === 'accepted' ? getOrderByQuote(q.id) : null;
     return c.html(renderPI(q, { lang: langOf(cust, c.req.query('lang')), portal: true, order }));
