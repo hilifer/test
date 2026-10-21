@@ -8,6 +8,13 @@ import sharp from 'sharp';
 import * as C from '../catalog/store.js';
 import * as A from './store.js';
 import { registerHandler, createTask } from '../tasks.js';
+import { db } from '../db.js';
+import { aiEnabled } from '../config.js';
+import { migrate, addColumn } from '../migrate.js';
+import { completeWithImage, parseJson } from '../llm.js';
+import { actorName } from '../auth.js';
+
+migrate([{ id: '2026-11-03-asset-compliance', up: () => addColumn('assets', 'compliance', 'TEXT') }]);
 
 // ---------------------------------------------------------------- size presets (系统默认，可自定义)
 export const DEFAULT_PRESETS = [
@@ -224,3 +231,24 @@ export function queueBatch(ids, { op, params = {}, saveAs = 'version', prompt = 
   if ((op === 'cutout' || op === 'background') && !aiImageConfigured()) throw new Error('未配置 AI 图片服务（IMAGE_AI_KEY），无法抠图');
   return createTask({ kind: 'asset.process', title: `${OPS[op]} · ${rows.length} 张`, items, params: { op, params, saveAs, prompt } });
 }
+
+// ---------------------------------------------------------------- AI compliance check before listing (optional, needs a vision model)
+export const ISSUE_TYPES = { watermark: '水印 / 其他店铺标记', brand: '第三方品牌标志', text: '图片文字含夸大宣传', person: '可识别的人物（肖像权）', quality: '模糊或变形', other: '其他' };
+/** Ask the vision model whether an image is safe to list; the result is stored on the asset. */
+export async function complianceCheck(id) {
+  if (!aiEnabled()) throw new Error('未配置大模型，无法做 AI 合规检查');
+  const a = A.getAsset(id);
+  if (!a || a.kind !== 'image') throw new Error('只有图片可以做合规检查');
+  const data = await sharp(readFileSync(A.officialFile(a))).rotate().resize(1024, 1024, { fit: 'inside', withoutEnlargement: true }).flatten({ background: WHITE }).jpeg({ quality: 85 }).toBuffer();
+  const out = await completeWithImage({
+    system: 'You review product images before they are listed on a manufacturer\'s own website. Answer with JSON only: {"issues":[{"type":"watermark|brand|text|person|quality|other","detail":"short explanation in Simplified Chinese"}]}. Report only real problems: watermarks or other sellers\' marks, third-party brand logos, text in the image with exaggerated or unprovable claims, recognisable people, blurry or distorted images. Return {"issues":[]} when the image is fine.',
+    user: 'Check this product image.', image: { data, mime: 'image/jpeg' },
+  });
+  const parsed = parseJson(out);
+  if (!parsed || !Array.isArray(parsed.issues)) throw new Error('AI 返回的结果无法识别，请稍后重试');
+  const issues = parsed.issues.filter((i) => i && i.detail).slice(0, 10).map((i) => ({ type: ISSUE_TYPES[i.type] ? i.type : 'other', detail: String(i.detail).slice(0, 200) }));
+  const result = { ok: !issues.length, issues, version: a.official, ts: new Date().toISOString(), by: actorName('system') };
+  db.prepare('UPDATE assets SET compliance = ? WHERE id = ?').run(JSON.stringify(result), id);
+  return result;
+}
+export const complianceOf = (a) => { try { return a?.compliance ? JSON.parse(a.compliance) : null; } catch { return null; } };

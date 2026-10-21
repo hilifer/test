@@ -42,7 +42,7 @@ const RULES = [
   [/^\/admin\/orders\/[^/]+\/(payment|refund)/, 'payments'], [/^\/admin\/orders\/[^/]+\/(ship)/, 'shipments'], [/^\/admin\/orders/, 'orders'],
   [/^\/admin\/shipments/, 'shipments'], [/^\/admin\/rma/, 'rma'], [/^\/admin\/(skus|inventory)/, 'inventory'],
   [/^\/admin\/(content|geo)/, 'content'], [/^\/admin\/settings/, 'settings'],
-  [/^\/admin\/products\/(export|template)\.csv/, 'catalog.export'], [/^\/admin\/products\/[^/]+\/delete/, 'catalog.delete'], [/^\/admin\/(products|categories|media)/, 'catalog'],
+  [/^\/admin\/copy/, 'catalog'], [/^\/admin\/products\/(export|template)\.csv/, 'catalog.export'], [/^\/admin\/products\/[^/]+\/delete/, 'catalog.delete'], [/^\/admin\/(products|categories|media)/, 'catalog'],
   [/^\/admin\/shop\/[^/]+\/refund/, 'shop.refund'], [/^\/admin\/shop\/[^/]+\/(fulfil|ship)/, 'shop.fulfil'], [/^\/admin\/shop/, 'shop'],
   [/^\/admin\/(coupons|reviews|marketing)/, 'marketing'], [/^\/admin\/dashboard/, 'orders'],
   [/^\/admin\/assets\/(file|bulk-download)/, 'assets.download'], [/^\/admin\/assets\/trash\/purge/, 'assets.delete'], [/^\/admin\/assets/, 'assets'],

@@ -11,6 +11,7 @@ import { recentRuns } from '../content/store.js';
 import { seedSkus, stockView } from '../ops/service.js';
 import { publishAndPromote } from './autolist.js';
 import * as AL from './autolist.js';
+import './copywriting.js'; // banned-word check on every product save
 import { erpLabel } from '../ops/erp/index.js';
 import { aiEnabled } from '../config.js';
 
@@ -107,7 +108,7 @@ ${inp('批量参考价档位（询价/AI 报价用，如 50-499:39-52 | 500-1999
 <h3>详情图</h3><div class="imgs">${(p.detailImages || []).map((u, i) => `<figure><img src="${esc(u)}" alt=""><label><input type="checkbox" name="detail_remove" value="${esc(u)}"> 删除</label><input type="hidden" name="detail_url_${i}" value="${esc(u)}"></figure>`).join('') || '<span class="mute">还没有详情图（在素材仓库选图，位置选"详情图"）</span>'}</div></div>
 <div class="acts"><button class="btn" name="action" value="save">保存</button><button class="btn g" name="action" value="save_publish">保存并上架</button></div></form>
 ${isNew ? '' : `<div class="acts">${p._status !== 'published' ? `<form method="post" action="/admin/products/${encodeURIComponent(p.id)}/status"><input type="hidden" name="to" value="published"><button class="btn g">上架</button></form>` : `<form method="post" action="/admin/products/${encodeURIComponent(p.id)}/status"><input type="hidden" name="to" value="archived"><button class="btn r">下架</button></form>`}
-${!p._publishedAt ? `<form method="post" action="/admin/products/${encodeURIComponent(p.id)}/delete" onsubmit="return confirm('确定删除？')"><button class="btn r">删除</button></form>` : ''}<a class="btn l" href="${esc(config.publicBaseUrl)}/products/${esc(p.slug)}/" target="_blank">在网站上查看</a></div>`}${isNew ? '' : imageHistory(p.id)}${revs}`, c);
+${!p._publishedAt ? `<form method="post" action="/admin/products/${encodeURIComponent(p.id)}/delete" onsubmit="return confirm('确定删除？')"><button class="btn r">删除</button></form>` : ''}<a class="btn l" href="${esc(config.publicBaseUrl)}/products/${esc(p.slug)}/" target="_blank">在网站上查看</a><a class="btn l" href="/admin/products/${encodeURIComponent(p.id)}/preview">手机 / 电脑预览</a><a class="btn l" href="/admin/copy?product=${encodeURIComponent(p.id)}">优化标题</a></div>`}${isNew ? '' : imageHistory(p.id)}${revs}`, c);
 }
 
 /** Sort number and "recommended" flag from the edit form (validated; the product itself is already saved). */
@@ -401,6 +402,14 @@ export function mountCatalogAdmin(app) {
     } catch (e) {
       return c.html(editPage(c, { ...cur, ...input, _status: status, _salesMode: salesMode, _version: cur._version }, { errors: e.errors || [e.message], warnings: e.warnings || [], variants }), e.conflict ? 409 : 400);
     }
+  });
+  app.get('/admin/products/:id/preview', (c) => {
+    const p = C.getProduct(c.req.param('id'));
+    if (!p) return c.text('商品不存在', 404);
+    const url = `${config.publicBaseUrl}/products/${encodeURIComponent(p.slug)}/`;
+    return c.html(shell(`预览 ${p.id}`, `<p><a href="/admin/products/${encodeURIComponent(p.id)}">← ${esc(p.name)}</a></p><h2>手机 / 电脑预览</h2><p class="mute">显示网站上当前已发布的页面；修改后先"发布到网站"，约 1 分钟后刷新此页。${p._status !== 'published' ? ' <b>这个商品还没有上架，网站上暂时看不到。</b>' : ''}</p>
+<div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap"><figure style="margin:0"><figcaption class="mute">手机（390 px）</figcaption><iframe src="${esc(url)}" title="手机预览" style="width:390px;height:780px;border:1px solid var(--line);border-radius:16px;background:#fff"></iframe></figure>
+<figure style="margin:0;flex:1;min-width:600px"><figcaption class="mute">电脑（1280 px，按比例缩小）</figcaption><div style="width:100%;height:780px;overflow:hidden;border:1px solid var(--line);border-radius:8px;background:#fff"><iframe src="${esc(url)}" title="电脑预览" style="width:1280px;height:1300px;border:0;transform:scale(.6);transform-origin:0 0"></iframe></div></figure></div>`));
   });
   app.post('/admin/products/:id/images/restore', (c) => {
     try { C.restoreImages(c.req.param('id'), c.req.query('rev')); return back(c, `/admin/products/${encodeURIComponent(c.req.param('id'))}`, { m: '已恢复这组图片（点"发布到网站"后生效）' }); } catch (e) { return back(c, `/admin/products/${encodeURIComponent(c.req.param('id'))}`, { e: e.message }); }

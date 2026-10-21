@@ -168,6 +168,9 @@ const strip = (p) => Object.fromEntries(Object.entries(p).filter(([k]) => !k.sta
  * opts: { isNew, expectVersion (optimistic lock), status, salesMode, variants: [...] }
  * Returns { product, warnings }. Throws Error with .errors[] on validation failure.
  */
+/** Extra checks run on every product save: fn(product) → { errors: [], warnings: [] } (e.g. banned words). */
+const saveChecks = [];
+export const addSaveCheck = (fn) => { saveChecks.push(fn); };
 export function saveProduct(input, { isNew = false, expectVersion = null, status, salesMode, variants } = {}) {
   const current = input.id ? getProduct(input.id) : null;
   if (!isNew && !current) throw new Error('商品不存在');
@@ -183,6 +186,7 @@ export function saveProduct(input, { isNew = false, expectVersion = null, status
   if (vs) errors.push(...validateVariants(vs, product.id, mode));
   else if (isNew) errors.push('至少需要一个规格（SKU）');
   if (vs && vs.some((v) => v.weight_kg == null) && mode !== 'inquiry') warnings.push('有规格未填重量，运费将无法自动计算');
+  for (const chk of saveChecks) { const r = chk(product); errors.push(...(r.errors || [])); warnings.push(...(r.warnings || [])); }
   if (errors.length) { const e = new Error(errors.join('；')); e.errors = errors; e.warnings = warnings; throw e; }
 
   const changed = current ? Object.keys({ ...strip(current), ...product }).filter((k) => JSON.stringify(strip(current)[k]) !== JSON.stringify(product[k])) : ['新建'];

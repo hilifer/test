@@ -17,7 +17,7 @@ async function session(username, password = PW) {
   const post = (p, data, h = {}) => fetch(api.url + p, { method: 'POST', redirect: 'manual', headers: { cookie, 'content-type': 'application/x-www-form-urlencoded', ...h }, body: new URLSearchParams(data) });
   return { get, post, cookie };
 }
-const visible = (html) => html.replace(/<textarea[\s\S]*?<\/textarea>/g, '').replace(/\svalue="[^"]*"/g, '');
+const visible = (html) => html.replace(/<textarea[\s\S]*?<\/textarea>/g, '').replace(/<(span|b|pre|td|div)\b[^>]*\stranslate="no"[^>]*>[\s\S]*?<\/\1>/g, '').replace(/\svalue="[^"]*"/g, '');
 
 test('IN-A01 a user switches to English; the choice is remembered at the next login; others stay in Chinese', async () => {
   for (const [u, role] of [['emma', 'sales'], ['li01', 'sales']]) await api.form('/admin/users/new', { username: u, role, password: PW });
@@ -39,7 +39,7 @@ test('IN-A02 every admin page in English has no Chinese left (form values and te
   await emma.post('/admin/lang', { lang: 'en' });
   const pages = ['/admin', '/admin/dashboard', '/admin/conversations', '/admin/ops', '/admin/quotes', '/admin/orders', '/admin/shipments', '/admin/rma', '/admin/skus', '/admin/inventory', '/admin/customers',
     '/admin/shop', '/admin/shop/freight', '/admin/coupons', '/admin/reviews', '/admin/products', '/admin/products/new', '/admin/products/YR-HB-U2', '/admin/products/autolist', '/admin/products/import',
-    '/admin/categories', '/admin/settings', '/admin/content', '/admin/geo', '/admin/users', '/admin/me', '/admin/deals', '/admin/deals/policy', '/admin/contracts', '/admin/contracts/template', '/admin/system', '/admin/home', '/admin/audit', '/admin/roles', '/admin/assets', '/admin/assets/pull', '/admin/assets/watermarks', '/admin/assets/trash', '/admin/assets/settings', '/admin/assets/similar'];
+    '/admin/categories', '/admin/settings', '/admin/content', '/admin/geo', '/admin/users', '/admin/me', '/admin/deals', '/admin/deals/policy', '/admin/contracts', '/admin/contracts/template', '/admin/system', '/admin/home', '/admin/audit', '/admin/roles', '/admin/assets', '/admin/assets/pull', '/admin/assets/watermarks', '/admin/assets/trash', '/admin/assets/settings', '/admin/assets/similar', '/admin/tasks', '/admin/copy', '/admin/copy?product=YR-HB-U2', '/admin/copy/prompts', '/admin/copy/banned', '/admin/products/YR-HB-U2/preview'];
   for (const p of pages) {
     const r = await emma.get(p);
     assert.equal(r.status, 200, p);

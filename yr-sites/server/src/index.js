@@ -15,6 +15,7 @@ import { toEnglish } from './i18n/index.js';
 import * as Audit from './audit.js';
 import { mountAuditAdmin } from './admin-audit.js';
 import { mountTasksAdmin } from './admin-tasks.js';
+import { mountCopyAdmin } from './catalog/admin-copy.js';
 import { startTasks } from './tasks.js';
 import { mountAssetsAdmin } from './assets/admin-assets.js';
 import { startAssetJobs } from './assets/store.js';
@@ -243,6 +244,7 @@ mountDeals(app, { ipOf });
 mountSystemAdmin(app);
 mountAuditAdmin(app);
 mountTasksAdmin(app);
+mountCopyAdmin(app);
 mountAssetsAdmin(app);
 app.get('/admin/home', (c) => c.html(workbench()));
 app.post('/admin/lead/:id/status', async (c) => {

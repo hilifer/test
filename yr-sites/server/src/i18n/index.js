@@ -10,7 +10,8 @@ const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const PHRASE = new RegExp(`(?<![${CJK}])(?:${keys.map(esc).join('|')})(?![${CJK}])`, 'g');
 const PUNCT = { '——': ' — ', '（': ' (', '）': ')', '：': ': ', '，': ', ', '。': '. ', '、': ', ', '；': '; ', '？': '?', '！': '!', '「': '"', '」': '"', '“': '"', '”': '"', '…': '…' };
 const PUNCT_RE = new RegExp(`(?<![${CJK}])(?:——|[（）：，。、；？！「」“”])(?![${CJK}])`, 'g');
-const PROTECT = /<textarea\b[\s\S]*?<\/textarea>|\svalue="[^"]*"/gi;
+// also left alone: elements marked translate="no" (HTML standard) — used for content such as banned words or prompt texts
+const PROTECT = /<textarea\b[\s\S]*?<\/textarea>|<(span|b|pre|td|div)\b[^>]*\stranslate="no"[^>]*>[\s\S]*?<\/\1>|\svalue="[^"]*"/gi;
 const alnum = /[A-Za-z0-9]/;
 
 function translateText(t) {

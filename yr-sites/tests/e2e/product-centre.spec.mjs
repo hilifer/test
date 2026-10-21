@@ -164,7 +164,9 @@ test('E2E-P05 designer retouches a blemish by painting on the image, then batch-
   await page.locator('#op').selectOption('retouch');
   await expect(page.locator('fieldset[data-op="retouch"]')).toBeVisible();
   await expect(page.locator('fieldset[data-op="resize"]')).toBeHidden();
+  await expect.poll(() => page.locator('#stage canvas').evaluate((c) => c.width)).toBe(900); // overlay sized to the loaded image
   // paint over the black dot (image point 450,150) on the overlay canvas
+  await page.locator('#stage').scrollIntoViewIfNeeded();
   const box = await page.locator('#stage canvas').boundingBox();
   const at = (x, y) => [box.x + (x / 900) * box.width, box.y + (y / 900) * box.height];
   await page.mouse.move(...at(430, 150));
@@ -188,4 +190,31 @@ test('E2E-P05 designer retouches a blemish by painting on the image, then batch-
   await expect(page).toHaveURL(/\/admin\/tasks\//);
   await expect(page.locator('main h2')).toContainText('已完成', { timeout: 30_000 }); // the page refreshes itself while running
   await expect(page.locator('main table').first()).toContainText('已生成 v3');
+});
+
+test('E2E-P06 title optimisation: product → "Optimise title" → generate → banned words marked → use a title → product renamed, history kept', async ({ page }) => {
+  await page.goto(SITE + '/admin/login');
+  await page.locator('input[name="username"]').fill('admin');
+  await page.locator('input[name="password"]').fill('e2e-pass');
+  await page.getByRole('button', { name: '登录' }).click();
+  await page.waitForURL(/\/admin\/home/);
+  await page.goto(SITE + '/admin/products/YR-PN-B6');
+  await page.getByRole('link', { name: '优化标题' }).click();
+  await expect(page).toHaveURL(/\/admin\/copy\?product=YR-PN-B6/);
+  await page.locator('select[name="direction"]').selectOption('b2b');
+  await page.getByRole('button', { name: '生成标题' }).click();
+  await expect(page.locator('h3', { hasText: '建议标题' })).toContainText('按商品资料生成');
+  const first = page.locator('.tt').first();
+  const title = (await first.locator('b').textContent()).trim();
+  expect(title).toMatch(/Wholesale & OEM/);
+  await first.getByRole('button', { name: '应用到商品' }).click();
+  await expect(page.locator('main')).toContainText('标题已应用到商品');
+  await expect(page.locator('main')).toContainText(`英文：${title}`);
+  await expect(page.locator('table').last()).toContainText('按资料生成');
+  // banned words are flagged while typing a manual title
+  await page.getByPlaceholder('手动输入标题').fill('Best panel light, FDA approved');
+  await page.getByRole('button', { name: '检查并应用' }).click();
+  await expect(page.locator('main')).toContainText('标题含违禁词：FDA approved');
+  await page.goto(SITE + '/admin/products/YR-PN-B6');
+  await expect(page.locator('input[name="name"]')).toHaveValue(title);
 });

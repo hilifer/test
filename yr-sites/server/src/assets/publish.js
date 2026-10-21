@@ -97,6 +97,8 @@ export async function preflight(asset, position) {
       if (Math.abs(asset.width - asset.height) / Math.max(asset.width, asset.height) > 0.05) warnings.push(`${asset.original_name}：主图建议使用 1:1 方图`);
     }
     if (position === 'detail' && asset.width < 750) warnings.push(`${asset.original_name}：详情图宽度建议不小于 790 px`);
+    const cc = (() => { try { return asset.compliance ? JSON.parse(asset.compliance) : null; } catch { return null; } })();
+    if (cc && !cc.ok && cc.version === asset.official) warnings.push(`${asset.original_name}：AI 合规检查发现 ${cc.issues.length} 个问题（${cc.issues.map((i) => i.detail).join('；').slice(0, 120)}）`);
   }
   return { errors, warnings };
 }

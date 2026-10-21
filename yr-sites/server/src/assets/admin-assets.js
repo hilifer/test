@@ -5,7 +5,7 @@ import { Readable } from 'node:stream';
 import { bodyLimit } from 'hono/body-limit';
 import { shell, esc, fmt } from '../admin.js';
 import { currentUser, can } from '../auth.js';
-import { config } from '../config.js';
+import { config, aiEnabled } from '../config.js';
 import { setSetting } from '../catalog/store.js';
 import * as A from './store.js';
 import * as P from './publish.js';
@@ -120,13 +120,18 @@ function processPanel(a) {
 <button>开始处理</button></form>
 <form method="post" action="/admin/assets/${a.id}/sizes" class="fl2" style="margin-top:10px"><b>一键导出多尺寸</b><div>${X.presets().map((p) => `<label style="margin-right:10px"><input type="checkbox" name="presets" value="${esc(p.id)}"> ${esc(p.name)} ${p.width}×${p.height || '自适应'}</label>`).join('')}</div><button>导出为新素材</button> <a href="/admin/assets/settings#presets">管理尺寸预设</a></form></details>`;
 }
+function compliancePanel(a) {
+  const r = X.complianceOf(a);
+  const res = !r ? '<span class="mute">还没有检查过</span>' : `${r.ok ? '<b style="color:#2e7d32">✓ 未发现问题</b>' : `<b style="color:#c62828">发现 ${r.issues.length} 个问题</b><ul>${r.issues.map((i) => `<li>${esc(X.ISSUE_TYPES[i.type])}：${esc(i.detail)}</li>`).join('')}</ul>`}<div class="mute">v${r.version} · ${esc(r.by)} ${fmt(r.ts)}${r.version !== a.official ? ' · 正式版已更换，建议重新检查' : ''}</div>`;
+  return `<form method="post" action="/admin/assets/${a.id}/compliance" class="fl2" style="margin-top:12px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:12px"><b>AI 合规检查</b><div class="mute">上架前检查水印、第三方品牌标志、夸大宣传文字、人物肖像、模糊变形。</div>${res}${aiEnabled() ? '<button>检查正式版</button>' : '<span class="mute">未配置大模型，暂不可用</span>'}</form>`;
+}
 const PROCESS_JS = `<script>(()=>{const op=document.getElementById('op');if(!op)return;const sync=()=>document.querySelectorAll('#procform fieldset[data-op]').forEach((f)=>f.hidden=f.dataset.op!==op.value);op.onchange=()=>{sync();paint(op.value==='retouch');};sync();
 const st=document.getElementById('stage'),im=document.getElementById('img');let cv,ctx,on=false;
-function paint(yes){if(!st||!im)return;if(yes&&!cv){cv=document.createElement('canvas');cv.width=im.naturalWidth;cv.height=im.naturalHeight;cv.style.cssText='position:absolute;left:50%;top:50%;transform:'+im.style.transform+';transform-origin:center;opacity:.45;cursor:crosshair';st.appendChild(cv);ctx=cv.getContext('2d');new MutationObserver(()=>cv.style.transform=im.style.transform).observe(im,{attributes:true,attributeFilter:['style']});ctx.fillStyle='#000';ctx.fillRect(0,0,cv.width,cv.height);
+function paint(yes){if(!st||!im)return;if(yes&&!im.naturalWidth){im.addEventListener('load',()=>paint(op.value==='retouch'),{once:true});return;}if(yes&&!cv){cv=document.createElement('canvas');cv.width=im.naturalWidth;cv.height=im.naturalHeight;cv.style.cssText='position:absolute;left:50%;top:50%;transform:'+im.style.transform+';transform-origin:center;opacity:.45;cursor:crosshair';st.appendChild(cv);ctx=cv.getContext('2d');new MutationObserver(()=>cv.style.transform=im.style.transform).observe(im,{attributes:true,attributeFilter:['style']});ctx.fillStyle='#000';ctx.fillRect(0,0,cv.width,cv.height);
 const at=(e)=>{const r=cv.getBoundingClientRect();return[(e.clientX-r.left)*cv.width/r.width,(e.clientY-r.top)*cv.height/r.height];};
 cv.addEventListener('mousedown',(e)=>{e.stopPropagation();on=true;dot(e);});cv.addEventListener('mousemove',(e)=>{e.stopPropagation();if(on)dot(e);});addEventListener('mouseup',()=>on=false);
 function dot(e){const[x,y]=at(e);const b=Number(document.getElementById('brush').value)*cv.width/cv.getBoundingClientRect().width;ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(x,y,b/2,0,7);ctx.fill();}}
-if(cv)cv.hidden=!yes;}
+if(cv)cv.hidden=!yes;if(yes)st.scrollIntoView({block:'nearest'});}
 document.getElementById('clearmask').onclick=()=>{if(ctx){ctx.fillStyle='#000';ctx.fillRect(0,0,cv.width,cv.height);}};
 document.getElementById('procform').addEventListener('submit',()=>{if(op.value==='retouch'&&cv)document.getElementById('mask').value=cv.toDataURL('image/png');});})();</script>`;
 
@@ -151,7 +156,7 @@ function detailPage(c) {
 <div class="mute">${a.width ? `${a.width}×${a.height} px · ` : ''}${a.duration ? `${a.duration.toFixed(1)} 秒 · ` : ''}${esc(a.ext.toUpperCase())} · ${mb(a.bytes)}<br>产品：${esc(a.product_id || '—')}<br>上传：${esc(a.created_by)} ${fmt(a.created_at)}<br>原文件名：${esc(a.original_name)}</div>
 ${dl ? `<a href="/admin/assets/file/${a.id}/${a.official}">下载原图（正式版）</a>` : '<span class="mute">无下载原图权限</span>'}</form>
 <form method="post" action="/admin/assets/${a.id}/version" enctype="multipart/form-data" class="fl2" style="margin-top:12px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:12px"><b>上传新版本</b><input type="file" name="file" required><input name="note" placeholder="修改说明"><button>上传为新版本</button></form>
-${a.kind === 'image' ? processPanel(a) : ''}
+${a.kind === 'image' ? processPanel(a) : ''}${a.kind === 'image' ? compliancePanel(a) : ''}
 <form method="post" action="/admin/assets/bulk" style="margin-top:12px"><input type="hidden" name="ids" value="${a.id}"><button name="action" value="trash" onclick="return confirm('移到回收站？')">删除（移到回收站）</button></form></div></div>
 ${(() => { const pubs = P.publicationsOf(a.id); return pubs.length ? `<h3>上架记录</h3><ul>${pubs.map((p) => `<li>${fmt(p.ts)} · v${p.version} → <a href="/admin/products/${encodeURIComponent(p.product_id)}">${esc(p.product_id)}</a> ${esc({ main: '主图', gallery: '副图', detail: '详情图', sku: `SKU 图 ${p.sku}` }[p.position] || p.position)} · ${esc(p.actor)}</li>`).join('')}</ul>` : ''; })()}<h3>版本记录</h3><form method="get" action="/admin/assets/compare"><input type="hidden" name="id" value="${a.id}"><div class="wrap"><table><thead><tr><th>对比</th><th>版本</th><th>来源</th><th>尺寸 / 大小</th><th>说明 / 提示词</th><th>操作人</th><th></th></tr></thead><tbody>
 ${vs.map((v) => `<tr><td><input type="checkbox" name="v" value="${v.version}" aria-label="对比 v${v.version}"></td><td><b>v${v.version}</b>${v.version === a.official ? ' <span class="tag" style="background:#c8e6c9">正式版</span>' : ''}</td><td>${esc({ upload: '上传', process: '处理', rollback: '回滚', capture: '截帧', pull: '链接拉取' }[v.source] || v.source)}</td><td>${v.width ? `${v.width}×${v.height} · ` : ''}${mb(v.bytes)}</td><td>${esc(v.note || '')}${v.prompt ? `<div class="mute">提示词：${esc(v.prompt)}</div>` : ''}${v.title ? `<div class="mute">标题：${esc(v.title)}</div>` : ''}</td><td>${esc(v.created_by)}<div class="mute">${fmt(v.created_at)}</div></td>
@@ -363,6 +368,10 @@ ${u.pct >= 80 ? '<div class="warn">空间使用已超过 80%，请清理回收�
       const a = await X.processAsset(id, fromForm(f, 'op'), processParams(f), { saveAs: fromForm(f, 'saveAs') === 'new' ? 'new' : 'version', prompt: fromForm(f, 'prompt').trim() || null });
       return a.id === id ? back(c, `/admin/assets/${id}`, 'm', `处理完成，已生成 v${a.version}（可回滚）`) : back(c, `/admin/assets/${a.id}`, 'm', '处理完成，已另存为新素材');
     } catch (e) { return back(c, `/admin/assets/${id}`, 'e', e.message); }
+  });
+  app.post('/admin/assets/:id/compliance', async (c) => {
+    const id = c.req.param('id');
+    try { const r = await X.complianceCheck(id); return back(c, `/admin/assets/${id}`, r.ok ? 'm' : 'e', r.ok ? 'AI 合规检查：未发现问题' : `AI 合规检查发现 ${r.issues.length} 个问题，见右侧说明`); } catch (e) { return back(c, `/admin/assets/${id}`, 'e', e.message); }
   });
   app.post('/admin/assets/:id/sizes', async (c) => {
     const id = c.req.param('id');
