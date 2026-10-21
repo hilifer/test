@@ -12,6 +12,7 @@ import { refundOrder, refundsFor } from '../shop/refunds.js';
 import { syncTracking, trackingEnabled } from '../shop/tracking.js';
 import { quoteCrmBox, customer360, filterCustomers } from '../sales/admin-crm.js';
 import { TIERS, customerTags } from '../sales/crm.js';
+import { gate } from '../gate.js';
 
 const COLORS = { pending_payment: '#ef8f00', draft: '#90a4ae', sent: '#1565c0', accepted: '#2e7d32', expired: '#8d6e63', cancelled: '#9e9e9e', awaiting_deposit: '#ef8f00', in_production: '#6a1b9a', ready_to_ship: '#00838f', shipped: '#1565c0', delivered: '#2e7d32', completed: '#33691e', booked: '#5c6bc0', in_transit: '#1565c0', arrived: '#00838f', exception: '#c62828', submitted: '#ef8f00', reviewing: '#6a1b9a', approved: '#00838f', in_progress: '#1565c0', resolved: '#2e7d32', rejected: '#9e9e9e' };
 const pill = (entity, s) => `<span class="pill" style="background:${COLORS[s] || '#90a4ae'};color:#fff">${esc(label(entity, s))}</span>`;
@@ -277,6 +278,7 @@ export function mountOpsAdmin(app) {
   app.post('/admin/orders/:id/status', guard(async (c) => { const f = await c.req.parseBody(); S.setOrderStatus(c.req.param('id'), String(f.to)); return back(c, `/admin/orders/${c.req.param('id')}`, '状态已更新，客户中心同步可见'); }, (c) => `/admin/orders/${c.req.param('id')}`));
   app.post('/admin/orders/:id/payment', guard(async (c) => {
     const f = await c.req.parseBody();
+    if (String(f.kind) === 'refund') { const od = S.getOrder(c.req.param('id')); if (od) gate('refund', { ref: od.id, label: `订单 ${od.number} 退款`, amount: Number(f.amount) || 0, currency: od.currency, detail: `${od.currency} ${f.amount}` }); }
     const o = S.recordPayment(c.req.param('id'), { kind: String(f.kind), amount: f.amount, ref: String(f.ref || '') });
     return back(c, `/admin/orders/${o.id}`, `已登记收款，当前已收 ${money(o.currency, o.paid)}`);
   }, (c) => `/admin/orders/${c.req.param('id')}`));

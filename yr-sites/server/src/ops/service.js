@@ -6,6 +6,7 @@ import { db } from '../db.js';
 import { config } from '../config.js';
 import { DICT, canMove, label } from '../../../shared/dictionary.js';
 import { actorName } from '../auth.js';
+import { gate } from '../gate.js';
 import '../catalog/store.js'; // loads the database catalog into config.catalog before anything below uses it
 
 db.exec(`
@@ -185,6 +186,7 @@ export function setQuoteStatus(id, to, actor = 'admin') {
   if (!q) throw new Error('报价不存在');
   if (!canMove('quote', q.status, to)) throw new Error(`报价不能从「${label('quote', q.status)}」改为「${label('quote', to)}」`);
   if (to === 'sent' && !q.lines.length) throw new Error('报价没有产品明细');
+  if (to === 'sent' && q.discount > 0) gate('quote_discount', { ref: q.id, label: `报价 ${q.number}`, amount: q.discount, currency: q.currency, percent: q.subtotal ? (q.discount / q.subtotal) * 100 : 100, detail: `折扣 ${q.currency} ${q.discount}（${q.subtotal ? Math.round((q.discount / q.subtotal) * 1000) / 10 : 100}%）` });
   db.prepare('UPDATE quotes SET status = ?, sent_at = COALESCE(?, sent_at) WHERE id = ?').run(to, to === 'sent' ? now() : null, id);
   logEvent('quote', id, 'status', { from: q.status, to, actor });
   return getQuote(id);

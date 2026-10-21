@@ -7,6 +7,7 @@ import { getOrder, recordPayment, setRmaStatus, getRma, getCustomer, logEvent } 
 import { actorName } from '../auth.js';
 import { sendMail } from './mailer.js';
 import { config } from '../config.js';
+import { gate } from '../gate.js';
 import './schema.js';
 
 migrate([{
@@ -50,6 +51,7 @@ export async function refundOrder(orderId, { amount, reason = '', rmaId = null, 
   const amt = Math.round(Number(amount) * 100) / 100;
   if (!(amt > 0)) throw new Error('退款金额必须大于 0');
   if (amt > o.paid + 0.001) throw new Error(`退款金额不能超过已收金额 ${o.currency} ${o.paid}`);
+  gate('refund', { ref: o.id, label: `订单 ${o.number} 退款`, amount: amt, currency: o.currency, detail: `${o.currency} ${amt}${reason ? ` · ${String(reason).slice(0, 100)}` : ''}` });
   const intent = db.prepare("SELECT * FROM payment_intents WHERE order_id = ? AND status = 'paid' ORDER BY updated_at DESC LIMIT 1").get(o.id);
   const id = randomUUID();
   const provider = method === 'manual' || !intent ? 'manual' : intent.provider;

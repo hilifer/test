@@ -21,6 +21,7 @@ import { running as runningPromos } from './marketing/promotions.js';
 import { seesAllLeads, dueFollowups, performance, upcomingDates } from './sales/crm.js';
 import { backupOverdue, drillOverdue } from './ops/security.js';
 import { inbox, performance as performanceOf, ratingSummary } from './service/desk.js';
+import { toDecide, myApproved, involved, KINDS as APPROVAL_KINDS } from './governance/approvals.js';
 
 // storage usage walks the files: cache it for a minute
 let usageMemo = { t: 0, v: null };
@@ -34,6 +35,14 @@ const todo = (rows, text, href) => rows.map((r) => ({ text: text(r), href: href(
 
 /** Board definitions: perm → { title, kpis, todos, links }. Order = display order. */
 const BOARDS = [
+  { perm: null, show: (u) => involved(u), title: '审批', build: () => {
+    const u = currentUser();
+    const wait = toDecide(u), mine = myApproved(u);
+    return { kpis: [['待我审批', wait.length, '/admin/approvals'], ['全部待审批', n("SELECT COUNT(*) n FROM approvals WHERE status = 'pending'"), '/admin/approvals']],
+      todos: [...todo(wait, (a) => `待审批 #${a.id}：${a.label}（${a.requested_by}）`, () => '/admin/approvals'), ...todo(mine.filter((a) => a.status === 'approved'), (a) => `审批已通过 #${a.id}：${a.label}，可以操作了`, (a) => APPROVAL_KINDS[a.kind].path(a.ref)),
+        ...todo(mine.filter((a) => a.status === 'rejected'), (a) => `审批被驳回 #${a.id}：${a.label}${a.note ? `（${a.note}）` : ''}`, () => '/admin/approvals')],
+      links: [['审批', '/admin/approvals']] };
+  } },
   { perm: 'leads', title: '销售：线索', build: () => {
     const me = currentUser();
     const all = seesAllLeads(me);
@@ -164,7 +173,7 @@ const BOARDS = [
 
 export function workbench() {
   const u = currentUser();
-  const boards = BOARDS.filter((b) => can(u, [b.perm])).map((b) => { try { return { ...b, ...b.build() }; } catch (e) { return { ...b, kpis: [], todos: [{ text: `加载失败：${e.message}`, href: '#' }], links: [] }; } });
+  const boards = visible(u).map((b) => { try { return { ...b, ...b.build() }; } catch (e) { return { ...b, kpis: [], todos: [{ text: `加载失败：${e.message}`, href: '#' }], links: [] }; } });
   const todos = boards.flatMap((b) => b.todos.map((t) => ({ ...t, board: b.title })));
   return shell('工作台', `<h2>${esc(u.name || u.username)} 的工作台 <span class="mute" style="font-size:14px">${esc(roleNames(u.role))}</span></h2>
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-bottom:8px">${boards.map((b) => `<section style="background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px" data-board="${esc(b.perm)}"><h3 style="margin:0 0 8px;font-size:15px">${esc(b.title)}</h3><div class="tiles" style="margin:0;grid-template-columns:repeat(auto-fit,minmax(120px,1fr))">${b.kpis.map(([l, val, href]) => `<a class="tile" href="${esc(href)}" style="text-decoration:none;color:inherit"><span>${l}</span><strong>${esc(String(val))}</strong></a>`).join('')}</div></section>`).join('')}</div>
@@ -172,4 +181,7 @@ export function workbench() {
 <h3>常用入口</h3><p>${boards.flatMap((b) => b.links).filter((l, i, a) => a.findIndex((x) => x[1] === l[1]) === i).map(([l, h]) => `<a href="${esc(h)}" style="margin-right:14px">${esc(l)}</a>`).join('')}</p>`);
 }
 
-export const todoCount = () => { const u = currentUser(); if (!u) return 0; try { return BOARDS.filter((b) => can(u, [b.perm])).reduce((a, b) => a + b.build().todos.length, 0); } catch { return 0; } };
+const visible = (u) => BOARDS.filter((b) => (b.perm == null || can(u, [b.perm])) && (!b.show || b.show(u)));
+export const todoCount = () => { const u = currentUser(); if (!u) return 0; try { return visible(u).reduce((a, b) => a + b.build().todos.length, 0); } catch { return 0; } };
+/** Number of to-dos per board for the current user (the global board's backlog). */
+export const boardTodos = () => visible(currentUser()).map((b) => { try { return { title: b.title, count: b.build().todos.length }; } catch { return { title: b.title, count: 0 }; } });

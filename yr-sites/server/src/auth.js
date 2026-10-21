@@ -48,6 +48,7 @@ const RULES = [
   [/^\/admin\/(coupons|reviews|marketing)/, 'marketing'], [/^\/admin\/dashboard/, 'orders'],
   [/^\/admin\/assets\/(file|bulk-download)/, 'assets.download'], [/^\/admin\/assets\/trash\/purge/, 'assets.delete'], [/^\/admin\/assets/, 'assets'],
   [/^\/admin\/system/, 'system'], [/^\/admin\/audit/, 'audit'], [/^\/admin\/(users|roles)/, 'users'],
+  [/^\/admin\/approvals\/settings/, 'admin'], [/^\/admin\/approvals/, null], // approvals: everyone sees their own requests and what they may decide
   [/^\/admin\/(ops|me|logout|home|tasks)/, null], // any logged-in user
 ];
 

@@ -56,6 +56,7 @@ import { startFinanceJobs } from './finance/finance.js';
 import { mountWarehouseAdmin } from './warehouse/admin-warehouse.js';
 import { startWarehouseJobs } from './warehouse/warehouse.js';
 import { mountServiceAdmin, mountServicePublic } from './service/admin-service.js';
+import { mountGovernanceAdmin, mountGovernancePublic } from './governance/admin-governance.js';
 
 const app = new Hono();
 
@@ -121,6 +122,7 @@ app.post('/api/chat', limit, async (c) => {
 });
 
 mountServicePublic(app, { limit });
+mountGovernancePublic(app);
 // The widget polls for staff replies while a person may be handling the chat
 app.get('/api/chat/poll', (c) => {
   const id = String(c.req.query('sessionId') || '');
@@ -284,6 +286,7 @@ mountAuditAdmin(app);
 mountTasksAdmin(app);
 mountWarehouseAdmin(app);
 mountServiceAdmin(app);
+mountGovernanceAdmin(app);
 mountFinanceAdmin(app);
 mountGrowthAdmin(app);
 mountOpsCenter(app);

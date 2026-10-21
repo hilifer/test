@@ -10,6 +10,7 @@ import { config } from '../config.js';
 import { migrate, addColumn } from '../migrate.js';
 import { actorName } from '../auth.js';
 import { validateProduct, validateCategory, imageType, ID_RE } from './validate.js';
+import { gate } from '../gate.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const now = () => new Date().toISOString();
@@ -246,6 +247,7 @@ export function deleteProduct(id) {
   if (!p) throw new Error('商品不存在');
   if (p._publishedAt) throw new Error('上架过的商品不能删除（订单和搜索引擎可能引用它），请改为下架');
   if (skusFor(id, { all: true }).some((s) => skuReferenced(s.sku))) throw new Error('该商品已出现在报价或订单中，不能删除，请改为下架');
+  gate('product_delete', { ref: id, label: `删除商品 ${id}`, detail: p.name });
   db.exec('BEGIN');
   db.prepare('DELETE FROM skus WHERE product_id = ?').run(id);
   db.prepare('DELETE FROM products WHERE id = ?').run(id);
