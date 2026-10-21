@@ -10,6 +10,7 @@ import { setSetting } from '../catalog/store.js';
 import * as A from './store.js';
 import * as P from './publish.js';
 import { pull, pullLogs, REASONS } from './pull.js';
+import * as X from './process.js';
 import * as C from '../catalog/store.js';
 
 const MAX_UPLOAD_MB = Number(process.env.ASSET_UPLOAD_MAX_MB || 600);
@@ -31,7 +32,7 @@ const CSS = `<style>
 .cmp{display:grid;grid-template-columns:1fr 1fr;gap:10px}.cmp img{width:100%;background:#eef1f4;border:1px solid var(--line);border-radius:8px}
 .fl2{display:grid;gap:4px;font-size:13px}.fl2 input,.fl2 select{padding:6px 8px;border:1px solid #cfd6dc;border-radius:6px}
 </style>`;
-const sub = `<p class="acts"><a href="/admin/assets">素材仓库</a> · <a href="/admin/assets/pull">链接拉取</a> · <a href="/admin/assets/watermarks">水印</a> · <a href="/admin/assets/similar">以图搜图</a> · <a href="/admin/assets/trash">回收站</a> · <a href="/admin/assets/settings">容量与设置</a></p>`;
+const sub = `<p class="acts"><a href="/admin/assets">素材仓库</a> · <a href="/admin/assets/pull">链接拉取</a> · <a href="/admin/assets/watermarks">水印</a> · <a href="/admin/assets/similar">以图搜图</a> · <a href="/admin/assets/trash">回收站</a> · <a href="/admin/assets/settings">容量与设置</a> · <a href="/admin/tasks">任务中心</a></p>`;
 const view = (title, body) => shell(title, CSS + sub + body);
 
 function tree(active) {
@@ -71,7 +72,9 @@ ${folder ? '' : `<label>上传到产品 <input name="product" placeholder="型�
 <button name="action" value="zip" formaction="/admin/assets/bulk-download">打包下载</button><button name="action" value="trash" onclick="return confirm('移到回收站？')">删除</button>
 <span style="border-left:1px solid var(--line);padding-left:8px">上架到商品 <input name="product" list="plist" placeholder="型号" size="12" value="${esc(f.productId || folder?.product_id || '')}"><datalist id="plist">${C.listProducts({ pageSize: 1000 }).rows.map((p) => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('')}</datalist>
 <select name="position" aria-label="位置"><option value="main">主图</option><option value="gallery" selected>副图（追加）</option><option value="detail">详情图</option><option value="sku">SKU 图</option></select><input name="index" placeholder="主图第几张" size="8" aria-label="主图第几张"><input name="sku" placeholder="SKU（SKU 图）" size="12" aria-label="SKU"><label><input type="checkbox" name="publish" value="1"> 同时发布网站</label>
-<button name="action" value="publish" formaction="/admin/assets/publish">上架</button></span></form>
+<button name="action" value="publish" formaction="/admin/assets/publish">上架</button></span>
+<span style="border-left:1px solid var(--line);padding-left:8px">批量处理 <select name="op" aria-label="批量处理方式"><option value="white">白底</option><option value="resize">改尺寸（选预设）</option><option value="sizes">导出多尺寸（另存）</option><option value="extend">扩图 1:1</option><option value="colour">自动色阶</option><option value="repair">去噪锐化</option>${X.aiImageConfigured() ? '<option value="cutout">AI 抠图</option><option value="background">AI 换白底背景</option>' : ''}</select>
+<select name="preset" aria-label="尺寸预设">${presetOpts()}</select><button name="action" value="batch" formaction="/admin/assets/batch">加入任务</button></span></form>
 ${items}
 ${total > 120 ? `<p>${Array.from({ length: Math.min(40, Math.ceil(total / 120)) }, (_, i) => `<a href="?${qs({ page: i + 1 })}" style="margin-right:8px">${i + 1}</a>`).join('')}</p>` : ''}
 <details style="margin-top:16px"><summary>文件夹管理</summary><form method="post" action="/admin/assets/folders/new" class="acts"><input type="hidden" name="parent" value="${esc(f.folderId)}"><input name="name" placeholder="新文件夹名称" required><button>${folder ? '在此新建子文件夹' : '新建文件夹'}</button></form>
@@ -83,6 +86,49 @@ d.addEventListener('dragover',(e)=>{e.preventDefault();d.classList.add('over');}
 d.addEventListener('drop',async(e)=>{e.preventDefault();d.classList.remove('over');const fd=new FormData(d);fd.delete('files');for(const f of e.dataTransfer.files)fd.append('files',f,f.name);msg.textContent='上传中…';
 const r=await fetch(d.action,{method:'POST',body:fd,headers:{'x-requested-with':'fetch'}});const j=await r.json().catch(()=>({}));msg.textContent=j.message||('HTTP '+r.status);if(r.ok)setTimeout(()=>location.reload(),600);});})();</script>`);
 }
+
+const presetOpts = () => X.presets().map((p) => `<option value="${esc(p.id)}">${esc(p.name)} ${p.width}×${p.height || '自适应'}</option>`).join('');
+const imagePick = (name, label) => `<label class="fl2">${label}<select name="${name}"><option value="">（不使用）</option>${A.search({ kind: 'image', limit: 300 }).rows.map((x) => `<option value="${x.id}">${esc(x.title || x.original_name)}</option>`).join('')}</select></label>`;
+/** Form fields → processAsset params (shared by single and batch processing). */
+function processParams(f) {
+  const v = (k) => fromForm(f, k).trim();
+  const num = (k, d) => (v(k) === '' ? d : Number(v(k)));
+  const mask = v('mask');
+  return {
+    preset: v('preset') || undefined, width: num('width', undefined), height: num('height', 0), mode: v('mode') || 'contain', background: (v('op') === 'background' ? v('bgColour') : v('background')) || '#ffffff',
+    margin: num('margin', 0.06), ratio: v('ratio') || '1:1', fill: v('fill') === 'colour' ? (v('fillColour') || '#ffffff') : 'blur',
+    brightness: num('brightness', 1), saturation: num('saturation', 1), contrast: num('contrast', 1), normalise: v('normalise') === '1', referenceId: v('referenceId') || undefined,
+    denoise: num('denoise', 3), sharpen: v('sharpen') !== '0', upscale: v('upscale') === '1', backgroundId: v('backgroundId') || undefined, scale: num('scale', 0.8),
+    mask: mask.startsWith('data:image/png;base64,') ? Buffer.from(mask.slice(22), 'base64') : undefined,
+  };
+}
+function processPanel(a) {
+  const ai = X.aiImageConfigured();
+  return `<details class="fl2" style="margin-top:12px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:12px" id="proc"><summary><b>图片处理</b></summary>
+<form method="post" action="/admin/assets/${a.id}/process" class="fl2" id="procform"><input type="hidden" name="mask" id="mask">
+<label class="fl2">处理方式<select name="op" id="op">${Object.entries(X.OPS).map(([k, l]) => `<option value="${k}"${(k === 'cutout' || k === 'background') && !ai ? ' disabled' : ''}>${l}${(k === 'cutout' || k === 'background') && !ai ? '（未配置 AI 图片服务）' : ''}</option>`).join('')}</select></label>
+<fieldset data-op="resize"><legend>改尺寸</legend><select name="preset"><option value="">自定义尺寸</option>${presetOpts()}</select> <input name="width" placeholder="宽" size="5"> × <input name="height" placeholder="高（0 = 按比例）" size="12">
+<select name="mode"><option value="contain">完整显示（留白）</option><option value="cover">铺满（裁切）</option><option value="inside">按比例缩放</option></select></fieldset>
+<fieldset data-op="white"><legend>白底</legend><label>边距 <input name="margin" value="0.06" size="4"></label> <label>底色 <input type="color" name="background" value="#ffffff"></label></fieldset>
+<fieldset data-op="extend"><legend>扩图</legend><label>比例 <input name="ratio" value="1:1" size="5"></label> <select name="fill"><option value="blur">模糊延展原图</option><option value="colour">纯色填充</option></select> <input type="color" name="fillColour" value="#ffffff" aria-label="填充颜色"></fieldset>
+<fieldset data-op="colour"><legend>调色</legend><label>亮度 <input name="brightness" value="1" size="4"></label> <label>饱和度 <input name="saturation" value="1" size="4"></label> <label>对比度 <input name="contrast" value="1" size="4"></label> <label><input type="checkbox" name="normalise" value="1"> 自动色阶</label>${imagePick('referenceId', '统一色调：参考图')}</fieldset>
+<fieldset data-op="repair"><legend>修复</legend><label>去噪强度（0–9） <input name="denoise" value="3" size="3"></label> <label><input type="checkbox" name="sharpen" value="0"> 不锐化</label> <label><input type="checkbox" name="upscale" value="1"> 放大 2 倍（低清图）</label></fieldset>
+<fieldset data-op="retouch"><legend>局部修图</legend><span class="mute">在左侧图片上用鼠标涂抹要去掉的污点、划痕或杂物，再点"开始处理"。</span> <button type="button" id="clearmask">清除涂抹</button> <label>画笔 <input type="range" id="brush" min="4" max="80" value="24"></label></fieldset>
+<fieldset data-op="background"><legend>AI 换背景</legend><label>背景色 <input type="color" name="bgColour" value="#ffffff"></label> ${imagePick('backgroundId', '或场景图')} <label>商品占比 <input name="scale" value="0.8" size="4"></label></fieldset>
+<label class="fl2">提示词 / 说明（记录在版本里，便于复用）<input name="prompt" placeholder="如：白底、居中、留白 6%"></label>
+<label><input type="radio" name="saveAs" value="version" checked> 保存为新版本（可回滚）</label> <label><input type="radio" name="saveAs" value="new"> 另存为新素材</label>
+<button>开始处理</button></form>
+<form method="post" action="/admin/assets/${a.id}/sizes" class="fl2" style="margin-top:10px"><b>一键导出多尺寸</b><div>${X.presets().map((p) => `<label style="margin-right:10px"><input type="checkbox" name="presets" value="${esc(p.id)}"> ${esc(p.name)} ${p.width}×${p.height || '自适应'}</label>`).join('')}</div><button>导出为新素材</button> <a href="/admin/assets/settings#presets">管理尺寸预设</a></form></details>`;
+}
+const PROCESS_JS = `<script>(()=>{const op=document.getElementById('op');if(!op)return;const sync=()=>document.querySelectorAll('#procform fieldset[data-op]').forEach((f)=>f.hidden=f.dataset.op!==op.value);op.onchange=()=>{sync();paint(op.value==='retouch');};sync();
+const st=document.getElementById('stage'),im=document.getElementById('img');let cv,ctx,on=false;
+function paint(yes){if(!st||!im)return;if(yes&&!cv){cv=document.createElement('canvas');cv.width=im.naturalWidth;cv.height=im.naturalHeight;cv.style.cssText='position:absolute;left:50%;top:50%;transform:'+im.style.transform+';transform-origin:center;opacity:.45;cursor:crosshair';st.appendChild(cv);ctx=cv.getContext('2d');new MutationObserver(()=>cv.style.transform=im.style.transform).observe(im,{attributes:true,attributeFilter:['style']});ctx.fillStyle='#000';ctx.fillRect(0,0,cv.width,cv.height);
+const at=(e)=>{const r=cv.getBoundingClientRect();return[(e.clientX-r.left)*cv.width/r.width,(e.clientY-r.top)*cv.height/r.height];};
+cv.addEventListener('mousedown',(e)=>{e.stopPropagation();on=true;dot(e);});cv.addEventListener('mousemove',(e)=>{e.stopPropagation();if(on)dot(e);});addEventListener('mouseup',()=>on=false);
+function dot(e){const[x,y]=at(e);const b=Number(document.getElementById('brush').value)*cv.width/cv.getBoundingClientRect().width;ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(x,y,b/2,0,7);ctx.fill();}}
+if(cv)cv.hidden=!yes;}
+document.getElementById('clearmask').onclick=()=>{if(ctx){ctx.fillStyle='#000';ctx.fillRect(0,0,cv.width,cv.height);}};
+document.getElementById('procform').addEventListener('submit',()=>{if(op.value==='retouch'&&cv)document.getElementById('mask').value=cv.toDataURL('image/png');});})();</script>`;
 
 function detailPage(c) {
   const a = A.getAsset(c.req.param('id'));
@@ -105,6 +151,7 @@ function detailPage(c) {
 <div class="mute">${a.width ? `${a.width}×${a.height} px · ` : ''}${a.duration ? `${a.duration.toFixed(1)} 秒 · ` : ''}${esc(a.ext.toUpperCase())} · ${mb(a.bytes)}<br>产品：${esc(a.product_id || '—')}<br>上传：${esc(a.created_by)} ${fmt(a.created_at)}<br>原文件名：${esc(a.original_name)}</div>
 ${dl ? `<a href="/admin/assets/file/${a.id}/${a.official}">下载原图（正式版）</a>` : '<span class="mute">无下载原图权限</span>'}</form>
 <form method="post" action="/admin/assets/${a.id}/version" enctype="multipart/form-data" class="fl2" style="margin-top:12px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:12px"><b>上传新版本</b><input type="file" name="file" required><input name="note" placeholder="修改说明"><button>上传为新版本</button></form>
+${a.kind === 'image' ? processPanel(a) : ''}
 <form method="post" action="/admin/assets/bulk" style="margin-top:12px"><input type="hidden" name="ids" value="${a.id}"><button name="action" value="trash" onclick="return confirm('移到回收站？')">删除（移到回收站）</button></form></div></div>
 ${(() => { const pubs = P.publicationsOf(a.id); return pubs.length ? `<h3>上架记录</h3><ul>${pubs.map((p) => `<li>${fmt(p.ts)} · v${p.version} → <a href="/admin/products/${encodeURIComponent(p.product_id)}">${esc(p.product_id)}</a> ${esc({ main: '主图', gallery: '副图', detail: '详情图', sku: `SKU 图 ${p.sku}` }[p.position] || p.position)} · ${esc(p.actor)}</li>`).join('')}</ul>` : ''; })()}<h3>版本记录</h3><form method="get" action="/admin/assets/compare"><input type="hidden" name="id" value="${a.id}"><div class="wrap"><table><thead><tr><th>对比</th><th>版本</th><th>来源</th><th>尺寸 / 大小</th><th>说明 / 提示词</th><th>操作人</th><th></th></tr></thead><tbody>
 ${vs.map((v) => `<tr><td><input type="checkbox" name="v" value="${v.version}" aria-label="对比 v${v.version}"></td><td><b>v${v.version}</b>${v.version === a.official ? ' <span class="tag" style="background:#c8e6c9">正式版</span>' : ''}</td><td>${esc({ upload: '上传', process: '处理', rollback: '回滚', capture: '截帧', pull: '链接拉取' }[v.source] || v.source)}</td><td>${v.width ? `${v.width}×${v.height} · ` : ''}${mb(v.bytes)}</td><td>${esc(v.note || '')}${v.prompt ? `<div class="mute">提示词：${esc(v.prompt)}</div>` : ''}${v.title ? `<div class="mute">标题：${esc(v.title)}</div>` : ''}</td><td>${esc(v.created_by)}<div class="mute">${fmt(v.created_at)}</div></td>
@@ -113,7 +160,7 @@ ${vs.map((v) => `<tr><td><input type="checkbox" name="v" value="${v.version}" ar
 im.onload=()=>{s=Math.min(st.clientWidth/im.naturalWidth,st.clientHeight/im.naturalHeight,1);ap();};st.addEventListener('wheel',(e)=>{e.preventDefault();s=Math.max(.05,Math.min(8,s*(e.deltaY<0?1.15:1/1.15)));ap();},{passive:false});
 st.addEventListener('mousedown',(e)=>{drag=true;dx=e.clientX-x;dy=e.clientY-y;st.style.cursor='grabbing';});addEventListener('mouseup',()=>{drag=false;st.style.cursor='grab';});addEventListener('mousemove',(e)=>{if(drag){x=e.clientX-dx;y=e.clientY-dy;ap();}});st.addEventListener('dblclick',()=>{x=y=0;im.onload();});}
 const cap=document.getElementById('cap'),v=document.getElementById('vid');if(cap&&v)cap.onclick=async()=>{const cv=document.createElement('canvas');cv.width=v.videoWidth;cv.height=v.videoHeight;cv.getContext('2d').drawImage(v,0,0);const b=await new Promise((r)=>cv.toBlob(r,'image/png'));const fd=new FormData();fd.append('file',b,'frame-'+Math.round(v.currentTime*10)/10+'s.png');fd.append('t',String(v.currentTime));
-const r=await fetch('/admin/assets/${a.id}/capture',{method:'POST',body:fd,headers:{'x-requested-with':'fetch'}});const j=await r.json().catch(()=>({}));document.getElementById('capmsg').innerHTML=j.id?'已保存：<a href="/admin/assets/'+j.id+'">查看截图</a>':(j.message||'失败');};})();</script>`);
+const r=await fetch('/admin/assets/${a.id}/capture',{method:'POST',body:fd,headers:{'x-requested-with':'fetch'}});const j=await r.json().catch(()=>({}));document.getElementById('capmsg').innerHTML=j.id?'已保存：<a href="/admin/assets/'+j.id+'">查看截图</a>':(j.message||'失败');};})();</script>${a.kind === 'image' ? PROCESS_JS : ''}`);
 }
 
 /** Serve a file with HTTP range support (video seeking). */
@@ -267,7 +314,9 @@ ${u.pct >= 80 ? '<div class="warn">空间使用已超过 80%，请清理回收�
 <h3>按产品统计</h3><div class="wrap"><table><thead><tr><th>产品</th><th>素材数</th><th>占用（含历史版本）</th></tr></thead><tbody>${u.byProduct.map((p) => `<tr><td>${esc(p.product_id || '（未关联产品）')}</td><td>${p.n}</td><td>${mb(p.bytes)}</td></tr>`).join('') || '<tr><td colspan="3" class="mute">暂无</td></tr>'}</tbody></table></div>
 <h3>按类型统计</h3><p>${u.byKind.map((k) => `${A.KIND[k.kind] || k.kind}：${k.n} 个，${mb(k.bytes)}`).join('　') || '暂无'}</p>
 <h3>设置</h3><form method="post" action="/admin/assets/settings" class="fl2" style="max-width:420px"><label class="fl2">素材仓库容量上限（GB）<input name="quotaGb" value="${s.quotaGb}"></label><label class="fl2">回收站保留天数<input name="trashDays" value="${s.trashDays}"></label>
-<label class="fl2">上架到网站时的图片质量（50–100）<input name="quality" value="${s.quality}"></label><label class="fl2">上架到网站时的最大边长（px）<input name="maxEdge" value="${s.maxEdge}"></label><button>保存设置</button></form>`));
+<label class="fl2">上架到网站时的图片质量（50–100）<input name="quality" value="${s.quality}"></label><label class="fl2">上架到网站时的最大边长（px）<input name="maxEdge" value="${s.maxEdge}"></label><button>保存设置</button></form>
+<h3 id="presets">尺寸预设</h3><p class="mute">改尺寸和多尺寸导出时使用；高度填 0 表示按原图比例。</p><div class="wrap"><table><thead><tr><th>名称</th><th>宽 × 高</th><th></th></tr></thead><tbody>${X.presets().map((p) => `<tr><td>${esc(p.name)}</td><td>${p.width} × ${p.height || '自适应'}</td><td><form method="post" action="/admin/assets/presets/${encodeURIComponent(p.id)}/delete" style="display:inline"><button>删除</button></form></td></tr>`).join('')}</tbody></table></div>
+<form method="post" action="/admin/assets/presets" class="acts"><input name="name" placeholder="名称，如 亚马逊主图" required> <input name="width" placeholder="宽 px" size="6" required> × <input name="height" placeholder="高 px" size="6" value="0"> <button>添加尺寸</button></form>`));
   });
   app.post('/admin/assets/settings', async (c) => {
     const f = await c.req.parseBody();
@@ -278,6 +327,16 @@ ${u.pct >= 80 ? '<div class="warn">空间使用已超过 80%，请清理回收�
     if (!(Number.isInteger(s.maxEdge) && s.maxEdge >= 400 && s.maxEdge <= 8000)) return back(c, '/admin/assets/settings', 'e', '最大边长须为 400–8000');
     setSetting('asset_settings', s);
     return back(c, '/admin/assets/settings', 'm', '设置已保存');
+  });
+  app.post('/admin/assets/presets', async (c) => { const f = await c.req.parseBody(); try { X.savePreset(f); return back(c, '/admin/assets/settings', 'm', '尺寸预设已保存'); } catch (e) { return back(c, '/admin/assets/settings', 'e', e.message); } });
+  app.post('/admin/assets/presets/:id/delete', (c) => { X.deletePreset(c.req.param('id')); return back(c, '/admin/assets/settings', 'm', '已删除'); });
+  app.post('/admin/assets/batch', async (c) => {
+    const f = await c.req.parseBody({ all: true });
+    const ids = [].concat(f.ids || []).map(String);
+    if (!ids.length) return back(c, '/admin/assets', 'e', '请先勾选素材');
+    const op = fromForm(f, 'op'), preset = fromForm(f, 'preset');
+    const params = op === 'resize' ? { preset } : op === 'extend' ? { ratio: '1:1', fill: 'blur' } : op === 'colour' ? { normalise: true } : op === 'background' ? { background: '#ffffff' } : {};
+    try { const id = X.queueBatch(ids, { op, params, presetIds: [].concat(f.presets || preset || []).map(String) }); return c.redirect(`/admin/tasks/${id}?m=${encodeURIComponent('已加入任务中心，后台处理中')}`); } catch (e) { return back(c, '/admin/assets', 'e', e.message); }
   });
   app.get('/admin/assets/compare', (c) => {
     const a = A.getAsset(c.req.query('id'));
@@ -297,6 +356,20 @@ ${u.pct >= 80 ? '<div class="warn">空间使用已超过 80%，请清理回收�
   });
   app.post('/admin/assets/:id/rollback', async (c) => { try { const a = await A.rollback(c.req.param('id'), c.req.query('version')); return back(c, `/admin/assets/${a.id}`, 'm', `已回滚，生成 v${a.version}`); } catch (e) { return back(c, `/admin/assets/${c.req.param('id')}`, 'e', e.message); } });
   app.post('/admin/assets/:id/official', async (c) => { try { await A.setOfficial(c.req.param('id'), c.req.query('version')); return back(c, `/admin/assets/${c.req.param('id')}`, 'm', `已将 v${c.req.query('version')} 设为正式版`); } catch (e) { return back(c, `/admin/assets/${c.req.param('id')}`, 'e', e.message); } });
+  app.post('/admin/assets/:id/process', limit, async (c) => {
+    const id = c.req.param('id');
+    const f = await c.req.parseBody();
+    try {
+      const a = await X.processAsset(id, fromForm(f, 'op'), processParams(f), { saveAs: fromForm(f, 'saveAs') === 'new' ? 'new' : 'version', prompt: fromForm(f, 'prompt').trim() || null });
+      return a.id === id ? back(c, `/admin/assets/${id}`, 'm', `处理完成，已生成 v${a.version}（可回滚）`) : back(c, `/admin/assets/${a.id}`, 'm', '处理完成，已另存为新素材');
+    } catch (e) { return back(c, `/admin/assets/${id}`, 'e', e.message); }
+  });
+  app.post('/admin/assets/:id/sizes', async (c) => {
+    const id = c.req.param('id');
+    const ids = [].concat((await c.req.parseBody({ all: true })).presets || []).map(String);
+    if (!ids.length) return back(c, `/admin/assets/${id}`, 'e', '请选择至少一个尺寸');
+    try { const out = await X.exportSizes(id, ids); return back(c, `/admin/assets/${id}`, 'm', `已导出 ${out.length} 个尺寸，保存在同一文件夹`); } catch (e) { return back(c, `/admin/assets/${id}`, 'e', e.message); }
+  });
   app.post('/admin/assets/:id/capture', limit, async (c) => {
     const src = A.getAsset(c.req.param('id'));
     const f = await c.req.parseBody();

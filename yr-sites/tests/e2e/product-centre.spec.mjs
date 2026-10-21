@@ -142,3 +142,50 @@ test('E2E-P04 designer flow: upload to the asset library → preview → list as
   const img = await page.request.get(SITE + src);
   expect(img.headers()['content-type']).toBe('image/jpeg');
 });
+
+test('E2E-P05 designer retouches a blemish by painting on the image, then batch-processes in the task center', async ({ page }) => {
+  test.setTimeout(120_000);
+  const { default: sharp } = await import('sharp');
+  const photo = await sharp({ create: { width: 900, height: 900, channels: 3, background: '#f4f4f4' } })
+    .composite([{ input: Buffer.from('<svg width="900" height="900"><rect x="300" y="300" width="300" height="300" fill="#1565c0"/><circle cx="450" cy="150" r="14" fill="#000"/></svg>') }]).jpeg({ quality: 95 }).toBuffer();
+  await page.goto(SITE + '/admin/login');
+  await page.locator('input[name="username"]').fill('admin');
+  await page.locator('input[name="password"]').fill('e2e-pass');
+  await page.getByRole('button', { name: '登录' }).click();
+  await page.waitForURL(/\/admin\/home/);
+  await page.goto(SITE + '/admin/assets');
+  await page.locator('#drop input[type="file"]').first().setInputFiles({ name: 'e2e-retouch.jpg', mimeType: 'image/jpeg', buffer: photo });
+  await page.locator('#drop').getByRole('button', { name: '上传' }).click();
+  await expect(page.locator('main')).toContainText('已上传 1 个');
+  await page.goto(SITE + '/admin/assets?q=e2e-retouch');
+  await page.locator('.card', { hasText: 'e2e-retouch.jpg' }).locator('a.th').click();
+  await expect(page.locator('#stage img')).toBeVisible();
+  await page.locator('#proc summary').click();
+  await page.locator('#op').selectOption('retouch');
+  await expect(page.locator('fieldset[data-op="retouch"]')).toBeVisible();
+  await expect(page.locator('fieldset[data-op="resize"]')).toBeHidden();
+  // paint over the black dot (image point 450,150) on the overlay canvas
+  const box = await page.locator('#stage canvas').boundingBox();
+  const at = (x, y) => [box.x + (x / 900) * box.width, box.y + (y / 900) * box.height];
+  await page.mouse.move(...at(430, 150));
+  await page.mouse.down();
+  await page.mouse.move(...at(470, 150), { steps: 6 });
+  await page.mouse.move(...at(450, 165), { steps: 4 });
+  await page.mouse.up();
+  await page.locator('#procform').getByRole('button', { name: '开始处理' }).click();
+  await expect(page.locator('main')).toContainText('处理完成，已生成 v2');
+  const id = page.url().split('/').pop().split('?')[0];
+  const v2 = await page.request.get(`${SITE}/admin/assets/file/${id}/2`);
+  const { data, info } = await sharp(Buffer.from(await v2.body())).raw().toBuffer({ resolveWithObject: true });
+  expect(data[(150 * info.width + 450) * info.channels]).toBeGreaterThan(150); // dot gone
+  expect(data[(450 * info.width + 450) * info.channels + 2]).toBeGreaterThan(150); // product still blue
+  // batch: white background via the task center
+  await page.goto(SITE + '/admin/assets?q=e2e-retouch');
+  await page.locator('.card', { hasText: 'e2e-retouch.jpg' }).locator('input[name="ids"]').check();
+  await page.locator('#bulk select[name="op"]').selectOption('resize');
+  await page.locator('#bulk select[name="preset"]').selectOption('main');
+  await page.locator('#bulk').getByRole('button', { name: '加入任务' }).click();
+  await expect(page).toHaveURL(/\/admin\/tasks\//);
+  await expect(page.locator('main h2')).toContainText('已完成', { timeout: 30_000 }); // the page refreshes itself while running
+  await expect(page.locator('main table').first()).toContainText('已生成 v3');
+});

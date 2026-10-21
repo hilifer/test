@@ -9,6 +9,7 @@ import { listArticles } from './content/store.js';
 import { backupRuns } from './ops/backup.js';
 import { isDirty } from './catalog/store.js';
 import { usage } from './assets/store.js';
+import { listTasks } from './tasks.js';
 
 // storage usage walks the files: cache it for a minute
 let usageMemo = { t: 0, v: null };
@@ -63,10 +64,11 @@ const BOARDS = [
     const noImage = db.prepare("SELECT id, data FROM products WHERE status = 'published'").all().filter((r) => !(JSON.parse(r.data).images || []).length).map((r) => r.id);
     const lowRes = db.prepare("SELECT id, original_name, product_id FROM assets WHERE status = 'active' AND product_id IS NOT NULL AND auto_tags LIKE '%低分辨率%' ORDER BY created_at DESC LIMIT 4").all();
     const u = usageCached();
+    const failedTasks = listTasks({ user: currentUser()?.username, status: 'failed', limit: 3 });
     return {
       kpis: [['本周上传', n("SELECT COUNT(*) n FROM assets WHERE created_at >= ?", since(24 * 7)), '/admin/assets?sort=new'], ['空间使用', `${u.pct}%`, '/admin/assets/settings'], ['缺主图的在售商品', noImage.length, '/admin/products?status=published'], ['回收站', u.trashed, '/admin/assets/trash']],
-      todos: [...noImage.slice(0, 5).map((id) => ({ text: `${id} 还没有主图`, href: `/admin/assets?product=${encodeURIComponent(id)}` })), ...lowRes.map((a) => ({ text: `${a.product_id} 的 ${a.original_name} 分辨率不足 800 px`, href: `/admin/assets/${a.id}` })), ...(u.pct >= 80 ? [{ text: `素材空间已用 ${u.pct}%`, href: '/admin/assets/settings' }] : [])],
-      links: [['素材仓库', '/admin/assets'], ['链接拉取', '/admin/assets/pull'], ['水印', '/admin/assets/watermarks']] };
+      todos: [...noImage.slice(0, 5).map((id) => ({ text: `${id} 还没有主图`, href: `/admin/assets?product=${encodeURIComponent(id)}` })), ...lowRes.map((a) => ({ text: `${a.product_id} 的 ${a.original_name} 分辨率不足 800 px`, href: `/admin/assets/${a.id}` })), ...(u.pct >= 80 ? [{ text: `素材空间已用 ${u.pct}%`, href: '/admin/assets/settings' }] : []), ...failedTasks.map((t) => ({ text: `任务"${t.title}"有失败项，可重试`, href: `/admin/tasks/${t.id}` }))],
+      links: [['素材仓库', '/admin/assets'], ['链接拉取', '/admin/assets/pull'], ['水印', '/admin/assets/watermarks'], ['任务中心', '/admin/tasks']] };
   } },
   { perm: 'marketing', title: '运营：营销', build: () => ({
     kpis: [['待审核评价', n("SELECT COUNT(*) n FROM reviews WHERE status = 'pending'"), '/admin/reviews'], ['今日网店订单', n("SELECT COUNT(*) n FROM orders WHERE channel = 'shop' AND created_at >= ?", since(24)), '/admin/orders']],

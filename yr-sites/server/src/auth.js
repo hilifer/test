@@ -47,7 +47,7 @@ const RULES = [
   [/^\/admin\/(coupons|reviews|marketing)/, 'marketing'], [/^\/admin\/dashboard/, 'orders'],
   [/^\/admin\/assets\/(file|bulk-download)/, 'assets.download'], [/^\/admin\/assets\/trash\/purge/, 'assets.delete'], [/^\/admin\/assets/, 'assets'],
   [/^\/admin\/system/, 'system'], [/^\/admin\/audit/, 'audit'], [/^\/admin\/(users|roles)/, 'users'],
-  [/^\/admin\/(ops|me|logout|home)/, null], // any logged-in user
+  [/^\/admin\/(ops|me|logout|home|tasks)/, null], // any logged-in user
 ];
 
 export function permissionFor(path, method = 'GET') {
