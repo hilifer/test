@@ -50,6 +50,7 @@ import { mountCrmAdmin } from './sales/admin-crm.js';
 import { startCrmJobs, getLead, canSeeLead, listLeadsFor } from './sales/crm.js';
 import { mountTracking, campaignOf, trackRequest } from './marketing/analytics.js';
 import { mountGrowthAdmin } from './marketing/admin-growth.js';
+import { mountEmailPublic } from './marketing/email.js';
 
 const app = new Hono();
 
@@ -105,6 +106,7 @@ process.on('unhandledRejection', (e) => { console.error('[unhandledRejection]', 
 onJobFailure((job, detail) => recordError(new Error(detail || 'failed'), { source: 'job', path: job.id }));
 
 mountTracking(app);
+mountEmailPublic(app);
 app.post('/api/chat', limit, async (c) => {
   const b = await c.req.json().catch(() => ({}));
   if (!b.message || typeof b.message !== 'string') return c.json({ error: 'message_required' }, 400);

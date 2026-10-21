@@ -14,6 +14,7 @@ const catIllus = { 'high-bay': 'ufo', area: 'shoebox', flood: 'flood', 'wall-can
 const count = (id: string) => catalog.products.filter((p) => p.category === id).length;
 // "recommended" products, set in the admin (商品 → 设为推荐), in sort order
 const featured = catalog.products.filter((p: any) => p.featured);
+const fresh = catalog.products.filter((p: any) => p.newRank != null).sort((a: any, b: any) => a.newRank - b.newRank);
 ---
 <Base title="Commercial LED lighting, quoted in minutes | YAORONG" description={site.about} current="/">
   <section class="hero">
@@ -69,6 +70,15 @@ const featured = catalog.products.filter((p: any) => p.featured);
   </section>
 
   <section class="section section--white promo-zone" hidden><div class="wrap" data-promo-zone data-lang="en"></div></section>
+
+  {fresh.length > 0 && (
+    <section class="section" data-new-arrivals>
+      <div class="wrap">
+        <div class="section-head"><h2>New arrivals</h2><a href="/products/">All products</a></div>
+        <div class="featured-grid">{fresh.map((p: any, i: number) => <ProductCard p={p} order={i} />)}</div>
+      </div>
+    </section>
+  )}
 
   {featured.length > 0 && (
     <section class="section section--white" data-featured>

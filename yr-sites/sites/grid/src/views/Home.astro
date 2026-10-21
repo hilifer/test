@@ -25,6 +25,7 @@ const systems = zh
 const news = (await getCollection('news', (e) => e.data.status === 'published' && e.data.lang === lang)).sort((a, b) => +b.data.date - +a.data.date).slice(0, 3);
 const count = (id: string) => catalog.products.filter((p) => p.category === id).length;
 const featured = catalog.products.filter((p: any) => p.featured);
+const fresh = catalog.products.filter((p: any) => p.newRank != null).sort((a: any, b: any) => a.newRank - b.newRank);
 ---
 <Base lang={lang} title={zh ? 'YR GRID 光伏 · 储能 · 充电桩' : 'YR GRID: solar, storage and EV charging'} description={pick(lang, site.summary, site.summaryZh)} current="/">
   <section class="hero">
@@ -50,6 +51,15 @@ const featured = catalog.products.filter((p: any) => p.featured);
   </section>
 
   <section class="section section--white promo-zone" hidden><div class="wrap" data-promo-zone data-lang={lang}></div></section>
+
+  {fresh.length > 0 && (
+    <section class="section" data-new-arrivals>
+      <div class="wrap">
+        <div class="section-head"><h2>{zh ? '新品上市' : 'New arrivals'}</h2><a href={lp(lang, '/products/')}>{s.allprods}</a></div>
+        <div class="featured-grid">{fresh.map((p: any) => <ProductCard p={p} lang={lang} />)}</div>
+      </div>
+    </section>
+  )}
 
   {featured.length > 0 && (
     <section class="section section--white" data-featured>

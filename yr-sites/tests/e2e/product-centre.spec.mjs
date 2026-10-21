@@ -286,3 +286,27 @@ test.describe('E2E-P08 operations', () => {
     }
   });
 });
+
+test('E2E-P09 home page "New arrivals": hand-pick two products → publish → the website shows them in that order', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.goto(SITE + '/admin/login');
+  await page.locator('input[name="username"]').fill('admin');
+  await page.locator('input[name="password"]').fill('e2e-pass');
+  await page.getByRole('button', { name: '登录' }).click();
+  await page.waitForURL(/\/admin\/home/);
+  await page.goto(SITE + '/admin/marketing/zones');
+  await page.locator('input[name="mode"][value="manual"]').check();
+  await page.locator('input[name="count"]').fill('2');
+  await page.locator('textarea[name="ids"]').fill('YR-AR-S3, YR-HB-U2');
+  await page.getByRole('button', { name: '保存' }).click();
+  await expect(page.locator('main')).toContainText('新品区已保存');
+  await page.goto(SITE + '/admin/products');
+  await page.locator('.pub').getByRole('button', { name: '发布到网站' }).click();
+  await expect.poll(async () => {
+    const html = await (await page.request.get(SITE + '/')).text();
+    const sec = html.split('data-new-arrivals')[1]?.split('</section>')[0] || '';
+    return sec.indexOf('Area Light S3') >= 0 && sec.indexOf('Area Light S3') < sec.indexOf('UFO High Bay U2');
+  }, { timeout: 60_000 }).toBe(true);
+  await page.goto(SITE + '/');
+  await expect(page.locator('[data-new-arrivals] h2')).toHaveText('New arrivals');
+});

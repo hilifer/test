@@ -303,6 +303,26 @@ export function bulkStatus(ids, status) {
   return { done, failed };
 }
 
+// ---------------------------------------------------------------- new arrivals zone (home page)
+export const newArrivalsSettings = () => ({ mode: 'auto', count: 4, ids: [], ...(getSetting('new_arrivals') || {}) });
+export function saveNewArrivals({ mode, count, ids }) {
+  if (!['auto', 'manual', 'off'].includes(mode)) throw new Error('新品区方式无效');
+  const n = Number(count);
+  if (!(Number.isInteger(n) && n >= 1 && n <= 12)) throw new Error('新品数量须为 1–12');
+  const list = [...new Set(String(ids || '').split(/[,，\s]+/).map((x) => x.trim()).filter(Boolean))];
+  const unknown = list.filter((id) => !getProduct(id));
+  if (unknown.length) throw new Error(`商品不存在：${unknown.join('、')}`);
+  setSetting('new_arrivals', { mode, count: n, ids: list });
+  markDirty();
+}
+/** Products in the new arrivals zone, in order: the latest published (auto) or a hand-picked list (manual). */
+export function newArrivalIds() {
+  const s = newArrivalsSettings();
+  if (s.mode === 'off') return [];
+  const published = new Set(db.prepare("SELECT id FROM products WHERE status = 'published'").all().map((r) => r.id));
+  if (s.mode === 'manual') return s.ids.filter((id) => published.has(id)).slice(0, s.count);
+  return db.prepare("SELECT id FROM products WHERE status = 'published' ORDER BY COALESCE(published_at, created_at) DESC, id LIMIT ?").all(s.count).map((r) => r.id);
+}
 export const featuredMax = () => Number(getSetting('featured_max', 8));
 export function setFeaturedMax(n) {
   const v = Number(n);
@@ -350,6 +370,7 @@ export function buildCatalog() {
     const variants = skusFor(r.id).map((s) => ({ sku: s.sku, options: s.options, label: s.variant, price: s.price, compareAt: s.compare_at, tiers: s.tier_prices, minQty: s.min_qty, weightKg: s.weight_kg, image: s.image }));
     return { ...p, salesMode: r.sales_mode, variants, ...(r.featured ? { featured: true } : {}) };
   });
+  newArrivalIds().forEach((id, i) => { const p = products.find((x) => x.id === id); if (p) p.newRank = i; }); // home page "new arrivals"
   return { ...meta, categories, products };
 }
 

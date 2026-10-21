@@ -5,10 +5,14 @@ import { config } from '../config.js';
 import { currentUser } from '../auth.js';
 import * as A from './analytics.js';
 import * as P from './promotions.js';
+import * as E from './email.js';
+import * as SEO from './seo.js';
+import * as C from '../catalog/store.js';
+import { TIERS, customerTags } from '../sales/crm.js';
 
 const flash = (c) => `${c.req.query('m') ? `<div class="warn" style="background:#e8f5e9;border-color:#a5d6a7">${esc(c.req.query('m'))}</div>` : ''}${c.req.query('e') ? `<div class="warn" style="background:#fdecea;border-color:#f5b7b1">${esc(c.req.query('e'))}</div>` : ''}`;
 const back = (c, path, k, v) => c.redirect(`${path}${path.includes('?') ? '&' : '?'}${k}=${encodeURIComponent(v)}`);
-const SUB = '<p class="acts"><a href="/admin/marketing">经营数据</a> · <a href="/admin/marketing/products">商品数据</a> · <a href="/admin/marketing/campaigns">推广活动</a> · <a href="/admin/marketing/promotions">限时折扣 / 满减</a> · <a href="/admin/coupons">优惠券</a> · <a href="/admin/reviews">评价</a></p>';
+const SUB = '<p class="acts"><a href="/admin/marketing">经营数据</a> · <a href="/admin/marketing/products">商品数据</a> · <a href="/admin/marketing/campaigns">推广活动</a> · <a href="/admin/marketing/promotions">限时折扣 / 满减</a> · <a href="/admin/marketing/zones">首页专区</a> · <a href="/admin/marketing/emails">邮件营销</a> · <a href="/admin/marketing/seo">关键词与 AI 提及</a> · <a href="/admin/coupons">优惠券</a> · <a href="/admin/reviews">评价</a></p>';
 const view = (title, body) => shell(title, SUB + body);
 const money = (x) => `${config.catalog.currency || 'USD'} ${(Math.round((Number(x) || 0) * 100) / 100).toLocaleString('en-US')}`;
 const pct = (x) => (x == null ? '—' : `${(x * 100).toFixed(1)}%`);
@@ -98,6 +102,69 @@ ${inp('products', '指定商品（型号，逗号分隔，可留空）', edit?.p
 ${inp('starts_at', '开始时间 *', local(edit?.starts_at), 'type="datetime-local" required')}${inp('ends_at', '结束时间 *', local(edit?.ends_at), 'type="datetime-local" required')}<div><button>${edit ? '保存' : '创建'}</button></div></form>`);
 }
 
+/** Line chart of 0–1 rates (or positions when `invert`), with labels. points: [{ x, y }] */
+function lineChart(points, { invert = false, max = 1, label = (v) => `${Math.round(v * 100)}%` } = {}) {
+  if (!points.length) return '<p class="mute">还没有数据</p>';
+  const W = 520, H = 140, n = points.length, step = n > 1 ? (W - 40) / (n - 1) : 0;
+  const y = (v) => (invert ? 10 + ((v - 1) / Math.max(1, max - 1)) * (H - 40) : H - 30 - (v / max) * (H - 40));
+  const pts = points.filter((p) => p.y != null).map((p) => `${20 + points.indexOf(p) * step},${y(p.y)}`).join(' ');
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;background:#fff;border:1px solid var(--line);border-radius:8px" role="img" aria-label="趋势图"><polyline points="${pts}" fill="none" stroke="#1565c0" stroke-width="2"/>
+${points.map((p, i) => (p.y == null ? '' : `<circle cx="${20 + i * step}" cy="${y(p.y)}" r="3" fill="#1565c0"><title>${esc(p.x)}：${label(p.y)}</title></circle>`)).join('')}${points.map((p, i) => (i % Math.ceil(n / 6) === 0 ? `<text x="${20 + i * step - 14}" y="${H - 8}" font-size="10" fill="#66717d">${esc(String(p.x).slice(5))}</text>` : '')).join('')}</svg>`;
+}
+
+function zonesPage(c) {
+  const na = C.newArrivalsSettings();
+  const ids = C.newArrivalIds();
+  const name = (id) => C.getProduct(id)?.name || id;
+  const promos = P.running();
+  return view('首页专区', `${flash(c)}<h2>首页专区</h2><p class="mute">网站首页依次显示：正在促销（自动）、新品上市、推荐产品。修改新品区和推荐区后点商品页的"发布到网站"生效。</p>
+<h3>正在促销</h3><p>${promos.length ? promos.map((p) => `<span class="pill" style="background:#fdecea">${esc(p.name)}</span>`).join(' ') : '<span class="mute">现在没有进行中的促销，首页不显示这个专区</span>'} · <a href="/admin/marketing/promotions">管理促销</a></p>
+<h3>新品上市</h3><form method="post" action="/admin/marketing/zones" class="msg" style="max-width:none;display:grid;gap:8px">
+<label><input type="radio" name="mode" value="auto"${na.mode === 'auto' ? ' checked' : ''}> 自动：最近上架的商品</label><label><input type="radio" name="mode" value="manual"${na.mode === 'manual' ? ' checked' : ''}> 手动指定（按填写顺序）</label><label><input type="radio" name="mode" value="off"${na.mode === 'off' ? ' checked' : ''}> 不显示</label>
+<label>显示数量 <input name="count" value="${na.count}" size="3"></label><label>手动指定的型号（逗号或换行分隔）<textarea name="ids" rows="2">${esc(na.ids.join(', '))}</textarea></label><div><button>保存</button></div></form>
+<p>当前新品区：${ids.length ? ids.map((id) => `<a href="/admin/products/${encodeURIComponent(id)}">${esc(name(id))}</a>`).join('、') : '<span class="mute">无</span>'}</p>
+<h3>推荐产品</h3><p>${C.featuredIds().map((id) => `<a href="/admin/products/${encodeURIComponent(id)}">${esc(name(id))}</a>`).join('、') || '<span class="mute">无</span>'} · <a href="/admin/products?featured=1">在商品列表里设置推荐和顺序</a></p>`);
+}
+
+function emailsPage(c) {
+  const list = E.listEmailCampaigns();
+  const edit = c.req.query('edit') ? E.getEmailCampaign(c.req.query('edit')) : null;
+  const a = edit?.audience || {};
+  const count = E.audienceOf(a).length;
+  return view('邮件营销', `${flash(c)}<h2>邮件营销</h2><p class="mute">只发给同意接收营销邮件的客户（注册时勾选），每封邮件都带一键退订链接；退订后不会再收到。发送在任务中心逐封进行，可以查看进度和失败原因。${process.env.SMTP_URL ? '' : ' <b>未配置 SMTP_URL：邮件只会记录，不会真正发出。</b>'}</p>
+<div class="wrap"><table><thead><tr><th>邮件</th><th>收件范围</th><th>状态</th><th class="n">收件人</th><th class="n">已发送</th><th class="n">打开</th><th class="n">打开率</th><th class="n">退订</th><th></th></tr></thead><tbody>
+${list.map((m) => { const st = E.emailStats(m.id); const au = [m.audience.tags?.length ? `标签 ${m.audience.tags.join('、')}` : '', m.audience.tier ? TIERS[m.audience.tier] : '', m.audience.vip ? 'VIP' : '', m.audience.lang ? (m.audience.lang === 'zh' ? '中文客户' : '英文客户') : ''].filter(Boolean).join(' · ') || '全部同意接收的客户';
+    return `<tr><td><b translate="no">${esc(m.subject)}</b><div class="mute">${esc(m.created_by)} ${fmt(m.created_at)}</div></td><td>${esc(au)}</td><td>${m.status === 'draft' ? '草稿' : `已发送 ${fmt(m.sent_at)}${m.task_id ? ` · <a href="/admin/tasks/${m.task_id}">发送进度</a>` : ''}`}</td><td class="n">${m.status === 'draft' ? E.audienceOf(m.audience).length : `<a href="/admin/marketing/emails/${m.id}">${st.total}</a>`}</td><td class="n">${st.sent}</td><td class="n">${st.opened}</td><td class="n">${pct(st.openRate)}</td><td class="n">${st.unsubscribed}</td>
+<td>${m.status === 'draft' ? `<a href="?edit=${m.id}#form">编辑</a> <form method="post" action="/admin/marketing/emails/${m.id}/send" style="display:inline" onsubmit="return confirm('确定发送？发送后不能撤回。')"><button>发送</button></form> <form method="post" action="/admin/marketing/emails/${m.id}/delete" style="display:inline"><button>删除</button></form>` : ''}</td></tr>`; }).join('') || '<tr><td colspan="9" class="mute">还没有邮件</td></tr>'}</tbody></table></div>
+<form method="post" action="/admin/marketing/emails" id="form" class="msg" style="max-width:none;display:grid;gap:8px"><h3 style="margin:0">${edit ? '编辑邮件' : '写一封营销邮件'}</h3>${edit ? `<input type="hidden" name="id" value="${edit.id}">` : ''}
+<label>标题 <input name="subject" value="${esc(edit?.subject || '')}" required style="width:100%"></label><label>内容（纯文本，空行分段，网址自动变成链接，{{name}} 替换为客户称呼）<textarea name="body" rows="8">${esc(edit?.body || '')}</textarea></label>
+<div style="display:flex;gap:10px;flex-wrap:wrap"><label>标签 <input name="tags" value="${esc((a.tags || []).join(', '))}" list="etags"><datalist id="etags">${customerTags().map((t) => `<option value="${esc(t)}">`).join('')}</datalist></label>
+<label>客户类型 <select name="tier"><option value="">全部</option>${Object.entries(TIERS).map(([k, l]) => `<option value="${k}"${a.tier === k ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
+<label>语言 <select name="lang"><option value="">全部</option><option value="en"${a.lang === 'en' ? ' selected' : ''}>English</option><option value="zh"${a.lang === 'zh' ? ' selected' : ''}>中文</option></select></label><label><input type="checkbox" name="vip" value="1"${a.vip ? ' checked' : ''}> 只发 VIP</label></div>
+${edit ? `<p class="mute">按当前条件，有 <b>${count}</b> 位同意接收的客户。</p>` : ''}<div><button>保存草稿</button></div></form>
+${edit ? `<form method="post" action="/admin/marketing/emails/${edit.id}/test" class="acts"><input name="to" type="email" placeholder="测试邮箱" required> <button>发一封测试邮件</button></form>` : ''}`);
+}
+
+function seoPage(c) {
+  const engine = SEO.ENGINES[c.req.query('engine')] ? c.req.query('engine') : 'google';
+  const rows = SEO.keywordTable(engine);
+  const trend = SEO.aiMentionTrend(12);
+  const today = new Date().toISOString().slice(0, 10);
+  const spark = (hist) => lineChart(hist.map((h) => ({ x: h.day, y: h.position })), { invert: true, max: 100, label: (v) => `#${v}` });
+  return view('关键词与 AI 提及', `${flash(c)}<h2>关键词与 AI 提及</h2>
+<h3>AI 搜索提及率（每周）</h3><p class="mute">来自 GEO 监测：大模型回答客户常见问题时提到我们的比例。<a href="/admin/geo">查看每个问题的回答</a></p>${lineChart(trend.map((w) => ({ x: w.week, y: w.rate })))}
+${trend.length ? `<p class="mute">${trend.map((w) => `${w.week.slice(5)}：${w.mentioned}/${w.checks}`).join(' · ')}</p>` : ''}
+<h3>关键词排名 <span class="mute" style="font-size:13px">${Object.entries(SEO.ENGINES).map(([k, l]) => `<a href="?engine=${k}"${k === engine ? ' style="font-weight:700;color:var(--ink)"' : ''}>${l}</a>`).join(' · ')}</span></h3>
+<form method="post" action="/admin/marketing/seo/ranks" id="ranks"><input type="hidden" name="engine" value="${engine}"><input type="hidden" name="day" value="${today}">
+<div class="wrap"><table><thead><tr><th>关键词</th><th>目标页面</th><th class="n">最新排名</th><th class="n">变化</th><th>记录日期</th><th>今天的排名</th><th></th></tr></thead><tbody>
+${rows.map((k) => `<tr><td><b translate="no">${esc(k.keyword)}</b> <span class="mute">${k.lang === 'zh' ? '中文' : 'EN'}</span></td><td class="mute" translate="no">${esc(k.target_url || '')}</td><td class="n">${k.last ? (k.last.position ?? '100+') : '—'}</td>
+<td class="n">${k.change == null ? '' : k.change > 0 ? `<b style="color:#2e7d32">↑${k.change}</b>` : k.change < 0 ? `<b style="color:#c62828">↓${-k.change}</b>` : '—'}</td><td>${k.last ? esc(k.last.day) : ''}</td><td><input name="pos_${k.id}" size="4" placeholder="1–100" aria-label="今天的排名"></td>
+<td><details><summary>趋势</summary>${spark(k.hist)}</details></td></tr>`).join('') || '<tr><td colspan="7" class="mute">还没有关键词</td></tr>'}</tbody></table></div>
+${rows.length ? '<p><button>保存今天的排名</button> <span class="mute">没进前 100 的留空</span></p>' : ''}</form>
+<form method="post" action="/admin/marketing/seo/keywords" class="acts"><input name="keyword" placeholder="关键词，如 ufo high bay light" required size="30"> <select name="lang" aria-label="语言"><option value="en">English</option><option value="zh">中文</option></select> <input name="target_url" placeholder="目标页面（可选）" size="24"> <button>添加关键词</button></form>
+<form method="post" action="/admin/marketing/seo/import" class="msg" style="max-width:none;display:grid;gap:6px"><b>从排名工具导入</b><span class="mute">每行：关键词, 排名, 网址, 搜索引擎（google / bing / baidu）, 日期——从 Ahrefs、Semrush、站长工具等导出后粘贴即可。</span><textarea name="csv" rows="4" placeholder="ufo high bay light, 8, https://…, google, ${today}"></textarea><div><button>导入</button></div></form>`);
+}
+
 export function mountGrowthAdmin(app) {
   app.get('/admin/marketing', (c) => c.html(overviewPage(c)));
   app.get('/admin/marketing/products', (c) => c.html(productsPage(c)));
@@ -120,6 +187,34 @@ export function mountGrowthAdmin(app) {
     const f = Object.fromEntries(Object.entries(await c.req.parseBody()).map(([k, v]) => [k, String(v)]));
     try { P.savePromotion(f); return back(c, '/admin/marketing/promotions', 'm', '促销活动已保存，到时间自动生效'); } catch (e) { return back(c, `/admin/marketing/promotions${f.id ? `?edit=${f.id}` : ''}`, 'e', e.message); }
   });
+  app.get('/admin/marketing/zones', (c) => c.html(zonesPage(c)));
+  app.post('/admin/marketing/zones', async (c) => { const f = await c.req.parseBody(); try { C.saveNewArrivals({ mode: String(f.mode || 'auto'), count: f.count, ids: String(f.ids || '') }); return back(c, '/admin/marketing/zones', 'm', '新品区已保存，发布网站后生效'); } catch (e) { return back(c, '/admin/marketing/zones', 'e', e.message); } });
+  app.get('/admin/marketing/emails', (c) => c.html(emailsPage(c)));
+  app.post('/admin/marketing/emails', async (c) => {
+    const f = Object.fromEntries(Object.entries(await c.req.parseBody()).map(([k, v]) => [k, String(v)]));
+    try { const id = E.saveEmailCampaign({ id: f.id, subject: f.subject, body: f.body, audience: { tags: f.tags, tier: f.tier, vip: f.vip, lang: f.lang } }); return back(c, `/admin/marketing/emails?edit=${id}`, 'm', '草稿已保存'); } catch (e) { return back(c, `/admin/marketing/emails${f.id ? `?edit=${f.id}` : ''}`, 'e', e.message); }
+  });
+  app.get('/admin/marketing/emails/:id', (c) => {
+    const m = E.getEmailCampaign(c.req.param('id'));
+    if (!m) return c.html(view('邮件营销', '<p>邮件不存在</p>'), 404);
+    const ST = { queued: '等待', sent: '已发送', failed: '失败', skipped: '已退订，跳过' };
+    return c.html(view('收件人', `<p><a href="/admin/marketing/emails">← 邮件营销</a></p><h2 translate="no">${esc(m.subject)}</h2><div class="wrap"><table><thead><tr><th>邮箱</th><th>状态</th><th>发送时间</th><th>首次打开</th><th class="n">打开次数</th><th>退订</th></tr></thead><tbody>
+${E.recipientsOf(m.id).map((r) => `<tr><td>${esc(r.email)}</td><td>${ST[r.status] || esc(r.status)}${r.error ? ` <span class="mute">${esc(r.error)}</span>` : ''}</td><td>${fmt(r.sent_at)}</td><td>${fmt(r.opened_at)}</td><td class="n">${r.opens}</td><td>${fmt(r.unsubscribed_at)}</td></tr>`).join('') || '<tr><td colspan="6" class="mute">还没有发送</td></tr>'}</tbody></table></div>`));
+  });
+  app.post('/admin/marketing/emails/:id/test', async (c) => { try { const r = await E.sendTest(c.req.param('id'), String((await c.req.parseBody()).to || '')); return back(c, `/admin/marketing/emails?edit=${c.req.param('id')}`, r.status === 'failed' ? 'e' : 'm', r.status === 'failed' ? '测试邮件发送失败' : r.status === 'logged' ? '测试邮件已记录（未配置 SMTP，未真正发出）' : '测试邮件已发送'); } catch (e) { return back(c, `/admin/marketing/emails?edit=${c.req.param('id')}`, 'e', e.message); } });
+  app.post('/admin/marketing/emails/:id/send', (c) => { try { const r = E.sendEmailCampaign(c.req.param('id')); return c.redirect(`/admin/tasks/${r.taskId}?m=${encodeURIComponent(`开始发送给 ${r.recipients} 位客户`)}`); } catch (e) { return back(c, '/admin/marketing/emails', 'e', e.message); } });
+  app.post('/admin/marketing/emails/:id/delete', (c) => { try { E.deleteEmailCampaign(c.req.param('id')); return back(c, '/admin/marketing/emails', 'm', '已删除'); } catch (e) { return back(c, '/admin/marketing/emails', 'e', e.message); } });
+  app.get('/admin/marketing/seo', (c) => c.html(seoPage(c)));
+  app.post('/admin/marketing/seo/keywords', async (c) => { const f = await c.req.parseBody(); try { SEO.addKeyword({ keyword: f.keyword, lang: String(f.lang || 'en'), target_url: String(f.target_url || '') }); return back(c, '/admin/marketing/seo', 'm', '已添加'); } catch (e) { return back(c, '/admin/marketing/seo', 'e', e.message); } });
+  app.post('/admin/marketing/seo/ranks', async (c) => {
+    const f = await c.req.parseBody();
+    try {
+      let n = 0;
+      for (const [k, v] of Object.entries(f)) { const m = k.match(/^pos_(\d+)$/); if (m && String(v).trim() !== '') { SEO.recordRank(m[1], { day: String(f.day), engine: String(f.engine), position: String(v).trim() }); n++; } }
+      return back(c, `/admin/marketing/seo?engine=${f.engine}`, 'm', `已保存 ${n} 个排名`);
+    } catch (e) { return back(c, '/admin/marketing/seo', 'e', e.message); }
+  });
+  app.post('/admin/marketing/seo/import', async (c) => { const r = SEO.importRanks((await c.req.parseBody()).csv); return back(c, '/admin/marketing/seo', r.errors.length ? 'e' : 'm', `导入 ${r.recorded} 条排名，新增 ${r.added} 个关键词${r.errors.length ? `；${r.errors.slice(0, 3).join('；')}` : ''}`); });
   app.post('/admin/marketing/promotions/:id/stop', (c) => { P.setPromotionActive(c.req.param('id'), false); return back(c, '/admin/marketing/promotions', 'm', '已停用'); });
   app.post('/admin/marketing/promotions/:id/start', (c) => { P.setPromotionActive(c.req.param('id'), true); return back(c, '/admin/marketing/promotions', 'm', '已启用'); });
 }

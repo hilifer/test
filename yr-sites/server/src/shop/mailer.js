@@ -9,12 +9,13 @@ let transport = null;
 const smtp = () => process.env.SMTP_URL || '';
 const from = () => process.env.MAIL_FROM || `${config.profile.brand} <no-reply@${new URL(config.publicBaseUrl).hostname}>`;
 
-export async function sendMail(to, subject, text) {
+/** opts.html: an HTML version; opts.headers: extra headers (e.g. List-Unsubscribe). */
+export async function sendMail(to, subject, text, opts = {}) {
   const id = db.prepare('INSERT INTO mail_outbox (to_addr, subject, body, status, created_at) VALUES (?,?,?,?,?)').run(to, subject, text, smtp() ? 'pending' : 'logged', new Date().toISOString()).lastInsertRowid;
   if (!smtp()) return { id, status: 'logged' };
   try {
     transport ||= nodemailer.createTransport(smtp());
-    await transport.sendMail({ from: from(), to, subject, text });
+    await transport.sendMail({ from: from(), to, subject, text, ...(opts.html ? { html: opts.html } : {}), ...(opts.headers ? { headers: opts.headers } : {}) });
     db.prepare("UPDATE mail_outbox SET status = 'sent', sent_at = ? WHERE id = ?").run(new Date().toISOString(), id);
     return { id, status: 'sent' };
   } catch (e) {

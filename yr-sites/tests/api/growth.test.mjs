@@ -115,3 +115,53 @@ test('GA-05 roles and the marketing workbench', async () => {
   const home = await page('/admin/home');
   for (const k of ['今日访客', '商品浏览', '加购', '下单转化率', '在线成交额', '待审核评价', '待发布文章']) assert.ok(home.includes(k), k);
 });
+
+test('GA-06 e-mail marketing: only opted-in customers, test send, sending via the task center, open pixel and one-click unsubscribe', async () => {
+  await visitor().form('/shop/account/register', { email: 'news@buyer.test', password: 'Str0ngPassw0rd!', name: 'News Fan', marketing: '1' });
+  await visitor().form('/shop/account/register', { email: 'quiet@buyer.test', password: 'Str0ngPassw0rd!', name: 'Quiet' });
+  const saved = await form(auth('mkt'), '/admin/marketing/emails', { subject: 'New UFO high bay', body: 'Hello {{name}},\n\nOur new UFO is out.', tags: '', tier: '', lang: '' });
+  assert.match(flash(saved).ok, /草稿已保存/);
+  const id = flash(saved).location.match(/edit=(\d+)/)[1];
+  assert.match(await page(`/admin/marketing/emails?edit=${id}`), /有 <b>1<\/b> 位同意接收的客户/);
+  assert.match(flash(await form(auth('mkt'), `/admin/marketing/emails/${id}/test`, { to: 'me@company.test' })).ok, /测试邮件已记录/);
+  const sent = await form(auth('mkt'), `/admin/marketing/emails/${id}/send`, {});
+  assert.match(flash(sent).path, /^\/admin\/tasks\//);
+  assert.match(flash(sent).ok, /开始发送给 1 位客户/);
+  await new Promise((r) => setTimeout(r, 400));
+  const list = await page('/admin/marketing/emails');
+  assert.match(list, /New UFO high bay[\s\S]*?已发送[\s\S]*?<td class="n"><a href="\/admin\/marketing\/emails\/\d+">1<\/a><\/td><td class="n">1<\/td><td class="n">0<\/td>/);
+  const rec = await page(`/admin/marketing/emails/${id}`);
+  assert.match(rec, /<td>news@buyer\.test<\/td><td>已发送<\/td>/);
+  assert.doesNotMatch(rec, /quiet@buyer\.test/, 'did not opt in');
+  const pixel = await fetch(`${api.url}/m/o/unknown.gif`);
+  assert.equal(pixel.headers.get('content-type'), 'image/gif');
+  const un = await fetch(`${api.url}/m/u/unknown`);
+  assert.equal(un.status, 404);
+  assert.match(flash(await form(auth('mkt'), `/admin/marketing/emails/${id}/send`, {})).err, /已经发送/);
+});
+
+test('GA-07 keywords & AI mentions: add, record today\'s positions, import from a rank tracker, trend', async () => {
+  assert.match(flash(await form(auth('mkt'), '/admin/marketing/seo/keywords', { keyword: 'UFO High Bay', lang: 'en', target_url: '/products/ufo-high-bay-u2/' })).ok, /已添加/);
+  assert.match(flash(await form(auth('mkt'), '/admin/marketing/seo/keywords', { keyword: 'ufo high bay', lang: 'en' })).err, /已存在/);
+  let html = await page('/admin/marketing/seo');
+  const kid = html.match(/name="pos_(\d+)"/)[1];
+  assert.match(flash(await form(auth('mkt'), '/admin/marketing/seo/ranks', { engine: 'google', day: '2026-10-01', [`pos_${kid}`]: '15' })).ok, /已保存 1 个排名/);
+  const today = new Date().toISOString().slice(0, 10);
+  const imp = await form(auth('mkt'), '/admin/marketing/seo/import', { csv: `ufo high bay, 6, , google, ${today}\nled flood light, , , google, ${today}` });
+  assert.match(flash(imp).ok, /导入 2 条排名，新增 1 个关键词/);
+  html = await page('/admin/marketing/seo');
+  assert.match(html, /<b translate="no">ufo high bay<\/b>[\s\S]*?<td class="n">6<\/td>[\s\S]*?↑9/);
+  assert.match(html, /<b translate="no">led flood light<\/b>[\s\S]*?<td class="n">100\+<\/td>/);
+  assert.match(html, /AI 搜索提及率/);
+  assert.match(flash(await form(auth('mkt'), '/admin/marketing/seo/ranks', { engine: 'google', day: today, [`pos_${kid}`]: '500' })).err, /1–100/);
+});
+
+test('GA-08 home page zones: new arrivals automatic / hand-picked, needs publishing; running promotions listed', async () => {
+  let html = await page('/admin/marketing/zones');
+  assert.match(html, /当前新品区：<a href="\/admin\/products\//);
+  assert.match(flash(await form(auth('mkt'), '/admin/marketing/zones', { mode: 'manual', count: '2', ids: 'YR-AR-S3, YR-HB-U2' })).ok, /发布网站后生效/);
+  html = await page('/admin/marketing/zones');
+  assert.match(html, /当前新品区：<a href="\/admin\/products\/YR-AR-S3">[^<]+<\/a>、<a href="\/admin\/products\/YR-HB-U2">/);
+  assert.match(flash(await form(auth('mkt'), '/admin/marketing/zones', { mode: 'manual', count: '2', ids: 'NOPE' })).err, /商品不存在/);
+  assert.match(await page('/admin/products'), /有未发布的修改/);
+});
