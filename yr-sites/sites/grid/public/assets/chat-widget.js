@@ -6,8 +6,8 @@
 const cfg = Object.assign({ api: '/api/chat', leadsApi: '/api/leads', catalogUrl: '/products.json', lang: 'en', brand: 'Sales', suggestions: [] }, window.YR_CHAT || {});
 const zh = cfg.lang === 'zh';
 const T = zh
-  ? { title: `${cfg.brand} 销售助手`, sub: 'AI 助手 · 7×24 在线', placeholder: '输入您的需求，例如功率、数量、目的地…', send: '发送', close: '关闭', disclose: '您正在与 AI 助手对话。价格均为参考区间，以正式 PI 为准。', human: '转人工', moq: '起订', view: '查看产品', ref: '参考价', total: '合计约', lead: '留下联系方式，业务工程师会发送正式报价', name: '姓名', company: '公司', email: '邮箱', wa: 'WhatsApp / 电话', country: '国家/地区', consent: '我同意贵司通过邮箱或电话与我联系', submit: '提交', thanks: '已收到，业务工程师会尽快联系您。', err: '网络不稳定，请稍后再试。', preview: '预览模式：使用内置规则答复', need: '请填写邮箱或 WhatsApp，并勾选同意。', typing: '正在输入', qty: '数量', unitp: '单价', term: '贸易条款', lt: '交期', days: '天', staff: '人工客服', staffOn: '人工客服在线' }
-  : { title: `${cfg.brand} Sales Assistant`, sub: 'AI assistant · replies 24/7', placeholder: 'Describe what you need — wattage, quantity, destination…', send: 'Send', close: 'Close', disclose: "You're chatting with an AI assistant. Prices are reference ranges, subject to a formal PI.", human: 'Talk to a person', moq: 'MOQ', view: 'View product', ref: 'Reference price', total: 'Total approx.', lead: 'Leave your details and a sales engineer will send a formal quotation', name: 'Name', company: 'Company', email: 'Email', wa: 'WhatsApp / phone', country: 'Country', consent: 'I agree to be contacted by email or phone', submit: 'Send my details', thanks: 'Thanks — a sales engineer will be in touch shortly.', err: 'Connection problem. Please try again.', preview: 'Preview mode: answering with built-in rules', need: 'Add an email or WhatsApp number and tick the consent box.', typing: 'Typing', qty: 'Qty', unitp: 'Unit price', term: 'Term', lt: 'Lead time', days: 'days', staff: 'sales team (human)', staffOn: 'a person is replying' };
+  ? { title: `${cfg.brand} 销售助手`, sub: 'AI 助手 · 7×24 在线', placeholder: '输入您的需求，例如功率、数量、目的地…', send: '发送', close: '关闭', disclose: '您正在与 AI 助手对话。价格均为参考区间，以正式 PI 为准。', human: '转人工', moq: '起订', view: '查看产品', ref: '参考价', total: '合计约', lead: '留下联系方式，业务工程师会发送正式报价', name: '姓名', company: '公司', email: '邮箱', wa: 'WhatsApp / 电话', country: '国家/地区', consent: '我同意贵司通过邮箱或电话与我联系', submit: '提交', thanks: '已收到，业务工程师会尽快联系您。', err: '网络不稳定，请稍后再试。', preview: '预览模式：使用内置规则答复', need: '请填写邮箱或 WhatsApp，并勾选同意。', typing: '正在输入', qty: '数量', unitp: '单价', term: '贸易条款', lt: '交期', days: '天', staff: '人工客服', staffOn: '人工客服在线', rateQ: '这次沟通解决您的问题了吗？', yes: '解决了', no: '没解决', stars: '请打分', comment: '还有什么想告诉我们的？（选填）', rateSend: '提交评价', rated: '谢谢您的评价！', pick: '请先选择星级' }
+  : { title: `${cfg.brand} Sales Assistant`, sub: 'AI assistant · replies 24/7', placeholder: 'Describe what you need — wattage, quantity, destination…', send: 'Send', close: 'Close', disclose: "You're chatting with an AI assistant. Prices are reference ranges, subject to a formal PI.", human: 'Talk to a person', moq: 'MOQ', view: 'View product', ref: 'Reference price', total: 'Total approx.', lead: 'Leave your details and a sales engineer will send a formal quotation', name: 'Name', company: 'Company', email: 'Email', wa: 'WhatsApp / phone', country: 'Country', consent: 'I agree to be contacted by email or phone', submit: 'Send my details', thanks: 'Thanks — a sales engineer will be in touch shortly.', err: 'Connection problem. Please try again.', preview: 'Preview mode: answering with built-in rules', need: 'Add an email or WhatsApp number and tick the consent box.', typing: 'Typing', qty: 'Qty', unitp: 'Unit price', term: 'Term', lt: 'Lead time', days: 'days', staff: 'sales team (human)', staffOn: 'a person is replying', rateQ: 'Did we solve your question?', yes: 'Yes', no: 'No', stars: 'Rate this chat', comment: 'Anything else you want to tell us? (optional)', rateSend: 'Send rating', rated: 'Thank you for your feedback!', pick: 'Please choose a star rating' };
 
 const store = {
   get(k) { try { return JSON.parse(localStorage.getItem('yrchat:' + k)); } catch { return null; } },
@@ -50,6 +50,10 @@ const css = `
 .yrc-lead label.c{display:flex;gap:8px;font-size:13px;align-items:flex-start}
 .yrc-lead .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .yrc-btn{padding:9px 14px;border:0;border-radius:8px;background:var(--chat-accent,#123);color:var(--chat-on-accent,#fff);font:600 14px/1.2 var(--chat-font,system-ui);cursor:pointer}
+.yrc-rate{background:var(--chat-bg,#fff);border:1px solid var(--chat-line,#dde3e8);border-radius:10px;padding:12px;display:grid;gap:8px;align-self:stretch;font-size:14px}
+.yrc-rate p{margin:0;font-weight:600}.yrc-rate .row{display:flex;gap:6px;flex-wrap:wrap}.yrc-rate .on{background:var(--chat-accent,#123);color:var(--chat-on-accent,#fff)}
+.yrc-star{border:0;background:transparent;font-size:24px;line-height:1;cursor:pointer;color:#c5ccd3;padding:0 2px}.yrc-star.on{color:#ef8f00;background:transparent}
+.yrc-rate textarea{border:1px solid var(--chat-line,#cfd6dc);border-radius:8px;padding:7px 10px;font:inherit;font-size:14px;resize:vertical;background:var(--chat-bg,#fff);color:inherit}
 .yrc-chips{display:flex;flex-wrap:wrap;gap:6px;padding:4px 14px 8px;background:var(--chat-log,#f6f8fa)}
 .yrc-chip{border:1px solid var(--chat-line,#cfd6dc);background:var(--chat-bg,#fff);color:inherit;border-radius:999px;padding:5px 11px;font:13px/1.3 var(--chat-font,system-ui);cursor:pointer;text-align:left}
 .yrc-foot{display:flex;gap:8px;padding:10px;border-top:1px solid var(--chat-line,#dde3e8);background:var(--chat-bg,#fff)}
@@ -196,13 +200,34 @@ function addStaff(m, save = true) {
   if (save) { transcript.push({ role: m.role, content: m.content, name: m.name }); persist(); }
   ui.log.scrollTop = ui.log.scrollHeight;
 }
+// After a person hands the chat back: ask once for a rating (solved? stars, comment)
+function rateCard() {
+  const f = el('form', { class: 'yrc-rate', 'data-rate': '' });
+  let rating = 0, resolved = null;
+  const msg = el('span', { class: 'yrc-note', style: 'text-align:left' });
+  const choice = (label, v) => el('button', { type: 'button', class: 'yrc-chip', 'aria-pressed': 'false', 'data-solved': v ? 'yes' : 'no', onclick: (e) => { resolved = v; f.querySelectorAll('[data-solved]').forEach((b) => { b.classList.toggle('on', b === e.currentTarget); b.setAttribute('aria-pressed', String(b === e.currentTarget)); }); } }, label);
+  const stars = [1, 2, 3, 4, 5].map((n) => el('button', { type: 'button', class: 'yrc-star', 'aria-label': `${n}/5`, 'data-star': String(n), onclick: () => { rating = n; stars.forEach((b, i) => b.classList.toggle('on', i < n)); } }, '★'));
+  const comment = el('textarea', { name: 'comment', rows: '2', placeholder: T.comment, 'aria-label': T.comment, maxlength: '500' });
+  f.append(el('p', {}, T.rateQ), el('div', { class: 'row' }, choice(T.yes, true), choice(T.no, false)), el('p', {}, T.stars), el('div', { class: 'row' }, ...stars), comment, el('button', { class: 'yrc-btn', type: 'submit' }, T.rateSend), msg);
+  f.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!rating) { msg.textContent = T.pick; return; }
+    try {
+      const r = await fetch(`${cfg.api}/rate`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ sessionId, rating, resolved, comment: comment.value }) });
+      if (!r.ok) throw new Error();
+    } catch { msg.textContent = T.err; return; }
+    store.set('rated', sessionId);
+    f.replaceWith(el('div', { class: 'yrc-note' }, T.rated));
+  });
+  return f;
+}
 async function pollOnce() {
   if (!sessionId || offline) return;
   try {
     const r = await fetch(`${cfg.api}/poll?sessionId=${encodeURIComponent(sessionId)}&after=${lastSeen}`);
     if (!r.ok) return;
     const j = await r.json();
-    for (const m of j.messages) if (m.id > lastSeen) addStaff(m);
+    for (const m of j.messages) if (m.id > lastSeen) { addStaff(m); if (m.rate && store.get('rated') !== sessionId && !ui.log.querySelector('[data-rate]')) { ui.log.append(rateCard()); ui.log.scrollTop = ui.log.scrollHeight; } }
     if (j.messages.length) { lastSeen = j.messages.at(-1).id; store.set('last', lastSeen); }
     if (j.human) store.set('liveUntil', Date.now() + 30 * 60e3);
     ui.sub.textContent = j.human ? `${j.agent} · ${T.staffOn}` : T.sub;

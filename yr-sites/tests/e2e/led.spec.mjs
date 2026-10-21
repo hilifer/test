@@ -236,3 +236,43 @@ test('E2E-L13 admin language: switch to English without a page reload, remembere
   await expect(page.locator('main')).toContainText('经营看板');
   await ctx.close();
 });
+
+test('E2E-L14 customer service: quick reply inserted in the chat reply box → staff end the chat asking for a rating → the visitor rates it in the widget', async ({ browser, page }) => {
+  const { ctx, page: admin } = await adminPage(browser);
+  await admin.goto(`${SITE}/admin/service/quick-replies`);
+  await admin.locator('input[name="title"]').fill('Greeting');
+  await admin.locator('textarea[name="body"]').fill('Thanks for reaching out!');
+  await admin.getByRole('button', { name: '保存' }).click();
+  await expect(admin.locator('main')).toContainText('已保存');
+
+  await page.goto(SITE + '/');
+  await page.locator('.yrc-launch').click();
+  const box = page.locator('.yrc.open');
+  await box.locator('textarea').fill('Can I talk to a person please?');
+  await box.locator('textarea').press('Enter');
+  await expect(box.locator('.yrc-m.bot').nth(1)).toBeVisible();
+  const sid = await page.evaluate(() => JSON.parse(localStorage.getItem('yrchat:sid')));
+
+  await admin.goto(`${SITE}/admin/conv/${sid}`);
+  await admin.locator('select[data-quick]').selectOption({ label: 'Greeting（英文）' });
+  await expect(admin.locator('textarea[name="text"]')).toHaveValue('Thanks for reaching out!');
+  await admin.locator('textarea[name="text"]').press('End');
+  await admin.locator('textarea[name="text"]').pressSequentially(' What quantity?');
+  await admin.getByRole('button', { name: '发送' }).click();
+  await expect(box.locator('.yrc-m.agent')).toContainText('Thanks for reaching out! What quantity?', { timeout: 15_000 });
+  await admin.getByRole('button', { name: '结束并请客户评价' }).click();
+
+  const rate = box.locator('[data-rate]');
+  await expect(rate).toBeVisible({ timeout: 15_000 });
+  await rate.getByRole('button', { name: 'Send rating' }).click();
+  await expect(rate).toContainText('Please choose a star rating');
+  await rate.getByRole('button', { name: 'Yes' }).click();
+  await rate.getByRole('button', { name: '5/5' }).click();
+  await rate.locator('textarea').fill('Very helpful');
+  await rate.getByRole('button', { name: 'Send rating' }).click();
+  await expect(box).toContainText('Thank you for your feedback!');
+
+  await admin.goto(`${SITE}/admin/service/performance`);
+  await expect(admin.locator('main')).toContainText('Very helpful');
+  await ctx.close();
+});

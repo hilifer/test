@@ -23,11 +23,11 @@ test('WB-01 every built-in role gets its own workbench after login; menus trimme
   const r = await fetch(`${api.url}/admin/login`, { method: 'POST', redirect: 'manual', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ username: 'sam', password: PW }) });
   assert.equal(r.headers.get('location'), '/admin/home');
   const boards = {
-    sam: [['销售：线索', '客服：在线对话', '销售：报价与合同'], ['财务：收款', '运维：系统']],
+    sam: [['销售：线索', '客服：收件箱与对话', '销售：报价与合同'], ['财务：收款', '运维：系统']],
     fay: [['财务：议价审批', '财务：收款'], ['销售：线索', '商品']],
     wes: [['仓库：发货与物流', '售后', '库存'], ['财务：收款']],
     cat: [['商品', '运营：营销', '运营：内容与 GEO'], ['销售：线索']],
-    sue: [['客服：在线对话', '售后'], ['财务：收款', '商品']],
+    sue: [['客服：收件箱与对话', '售后'], ['财务：收款', '商品']],
     dee: [['商品'], ['销售：线索', '运营：营销']],
     ozz: [['运维：系统', '操作日志'], ['销售：线索']],
   };

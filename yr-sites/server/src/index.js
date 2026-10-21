@@ -55,6 +55,7 @@ import { mountFinanceAdmin } from './finance/admin-finance.js';
 import { startFinanceJobs } from './finance/finance.js';
 import { mountWarehouseAdmin } from './warehouse/admin-warehouse.js';
 import { startWarehouseJobs } from './warehouse/warehouse.js';
+import { mountServiceAdmin, mountServicePublic } from './service/admin-service.js';
 
 const app = new Hono();
 
@@ -119,6 +120,7 @@ app.post('/api/chat', limit, async (c) => {
   return c.json({ sessionId: convId, ...res });
 });
 
+mountServicePublic(app, { limit });
 // The widget polls for staff replies while a person may be handling the chat
 app.get('/api/chat/poll', (c) => {
   const id = String(c.req.query('sessionId') || '');
@@ -267,7 +269,7 @@ app.get('/admin/conv/:id/messages', (c) => { const ms = Live.messagesAfter(c.req
 const convBack = (c, e) => c.redirect(`/admin/conv/${encodeURIComponent(c.req.param('id'))}${e ? `?e=${encodeURIComponent(e)}` : ''}`);
 app.post('/admin/conv/:id/reply', async (c) => { const f = await c.req.parseBody(); try { Live.agentReply(c.req.param('id'), currentUser(), f.text); return convBack(c); } catch (e) { return convBack(c, e.message); } });
 app.post('/admin/conv/:id/takeover', (c) => { try { Live.takeOver(c.req.param('id'), currentUser()); return convBack(c); } catch (e) { return convBack(c, e.message); } });
-app.post('/admin/conv/:id/release', (c) => { Live.release(c.req.param('id')); return convBack(c); });
+app.post('/admin/conv/:id/release', async (c) => { const f = await c.req.parseBody(); Live.release(c.req.param('id'), f.rate ? 'rate' : 'manual'); return convBack(c); });
 app.get('/admin/leads.csv', (c) => { c.header('content-type', 'text/csv; charset=utf-8'); c.header('content-disposition', `attachment; filename="leads-${config.site}.csv"`); return c.body(leadsCsv(listLeadsFor(c.get('user'), { scope: 'all', limit: 10000 }))); });
 mountContentAdmin(app);
 mountCrmAdmin(app); // before the ops routes: /admin/quotes/templates must win over /admin/quotes/:id
@@ -281,6 +283,7 @@ mountSystemAdmin(app);
 mountAuditAdmin(app);
 mountTasksAdmin(app);
 mountWarehouseAdmin(app);
+mountServiceAdmin(app);
 mountFinanceAdmin(app);
 mountGrowthAdmin(app);
 mountOpsCenter(app);

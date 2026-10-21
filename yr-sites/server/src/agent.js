@@ -6,6 +6,7 @@ import { addMessage, history, markHandoff } from './db.js';
 import { verifyOrder, orderStatusView, createRma } from './ops/service.js';
 import { alertOps } from './alerts.js';
 import { humanActive, customerWrote } from './livechat.js';
+import { kbContext, kbAnswer } from './service/desk.js';
 
 function systemPrompt() {
   const p = config.profile;
@@ -105,6 +106,9 @@ export async function chat({ convId, message, page }) {
   if (!aiEnabled()) {
     const svc = serviceReply(past, text, lang, convId);
     if (svc) { addMessage(convId, 'assistant', svc.reply, { mode: 'rules-service' }); return { ...svc, products: [], quote: null, askLead: false, handoff: false, mode: 'rules' }; }
+    // the team's knowledge base answers first when it clearly matches the question
+    const kb = kbAnswer(text);
+    if (kb) { addMessage(convId, 'assistant', kb, { mode: 'rules-kb' }); return { reply: kb, products: [], quote: null, askLead: false, handoff: false, mode: 'rules' }; }
     const r = demoReply(config.catalog, { ...config.profile, site: config.site }, past, text);
     if (r.handoff) markHandoff(convId, 'demo: requested');
     const out = { reply: r.reply, products: (r.products || []).map(card), quote: r.quote || null, askLead: !!r.askLead, handoff: !!r.handoff, link: r.link || null, mode: 'rules' };
@@ -115,7 +119,7 @@ export async function chat({ convId, message, page }) {
   let reply = '';
   try {
     reply = await runAgentLoop({
-      system: systemPrompt(),
+      system: systemPrompt() + kbContext(text),
       messages: [...past, { role: 'user', content: text }],
       tools: toolDefs(),
       onTool: async (name, input) => {

@@ -36,7 +36,7 @@ export const ROLES = {
 
 // Path prefix → permission. First match wins; anything else under /admin needs "admin".
 const RULES = [
-  [/^\/admin\/?$/, 'leads'], [/^\/admin\/leads\.csv/, 'leads.export'], [/^\/admin\/sales\/(settings|targets)/, 'leads.all'], [/^\/admin\/sales/, 'leads'], [/^\/admin\/lead/, 'leads'], [/^\/admin\/(conversations|conv)/, 'chat'],
+  [/^\/admin\/?$/, 'leads'], [/^\/admin\/leads\.csv/, 'leads.export'], [/^\/admin\/sales\/(settings|targets)/, 'leads.all'], [/^\/admin\/sales/, 'leads'], [/^\/admin\/lead/, 'leads'], [/^\/admin\/(conversations|conv|service)/, 'chat'],
   [/^\/admin\/finance/, 'payments'], [/^\/admin\/deals\/(policy|floors)/, 'payments'], [/^\/admin\/deals/, 'deals'],
   [/^\/admin\/contracts\/template/, 'admin'], [/^\/admin\/contracts/, 'contracts'], [/^\/admin\/quotes\/[^/]+\/contract/, 'contracts'],
   [/^\/admin\/quotes/, 'quotes'], [/^\/admin\/customers/, 'customers'],

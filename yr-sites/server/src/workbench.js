@@ -20,6 +20,7 @@ import { funnel, productStats } from './marketing/analytics.js';
 import { running as runningPromos } from './marketing/promotions.js';
 import { seesAllLeads, dueFollowups, performance, upcomingDates } from './sales/crm.js';
 import { backupOverdue, drillOverdue } from './ops/security.js';
+import { inbox, performance as performanceOf, ratingSummary } from './service/desk.js';
 
 // storage usage walks the files: cache it for a minute
 let usageMemo = { t: 0, v: null };
@@ -56,10 +57,17 @@ const BOARDS = [
         ...dates.map((d) => { const when = d.in ? `${d.in} 天后` : '今天'; return d.kind === 'birthday' ? { text: `客户生日（${when}）：${d.customer.company || d.customer.contact || d.customer.email}`, href: `/admin/customers/${d.customer.id}` } : { text: `${d.name}（${when}）：给 VIP 客户发祝福 · ${d.vipCount}`, href: '/admin/customers?vip=1' }; })],
       links: [['线索', '/admin'], ['公海', '/admin?scope=pool'], ['销售业绩', '/admin/sales/performance'], ['报价', '/admin/quotes'], ['报价模板', '/admin/quotes/templates'], ['客户', '/admin/customers']] };
   } },
-  { perm: 'chat', title: '客服：在线对话', build: () => ({
-    kpis: [['等待人工回复', n('SELECT COUNT(*) n FROM conversations WHERE waiting = 1 AND agent IS NOT NULL'), '/admin/conversations'], ['待接待（转人工）', n('SELECT COUNT(*) n FROM conversations WHERE handoff = 1 AND agent IS NULL AND updated_at >= ?', since(72)), '/admin/conversations'], ['今日对话', n('SELECT COUNT(*) n FROM conversations WHERE started_at >= ?', since(24)), '/admin/conversations']],
-    todos: todo(db.prepare('SELECT id, handoff_reason, agent, waiting FROM conversations WHERE (waiting = 1 AND agent IS NOT NULL) OR (handoff = 1 AND agent IS NULL AND updated_at >= ?) ORDER BY updated_at DESC LIMIT 6').all(since(72)), (r) => (r.waiting ? '客户等待回复' : `转人工：${r.handoff_reason || ''}`), (r) => `/admin/conv/${r.id}`),
-    links: [['对话', '/admin/conversations']] }) },
+  { perm: 'chat', title: '客服：收件箱与对话', build: () => {
+    const box = inbox();
+    const mine = (performanceOf(1).find((p) => p.username === currentUser()?.username) || {});
+    const r = ratingSummary(7);
+    return {
+      kpis: [['等待人工回复', n('SELECT COUNT(*) n FROM conversations WHERE waiting = 1 AND agent IS NOT NULL'), '/admin/service?channel=chat'], ['待接待（转人工）', n('SELECT COUNT(*) n FROM conversations WHERE handoff = 1 AND agent IS NULL AND updated_at >= ?', since(72)), '/admin/service?channel=chat'], ['今日对话', n('SELECT COUNT(*) n FROM conversations WHERE started_at >= ?', since(24)), '/admin/conversations'],
+        ['未关闭邮件', box.filter((i) => i.channel === 'email').length, '/admin/service?channel=email'], ['售后待审核', box.filter((i) => i.channel === 'rma').length, '/admin/service?channel=rma'], ['待审核评价', n("SELECT COUNT(*) n FROM reviews WHERE status = 'pending'"), '/admin/reviews'],
+        ['我今天的平均首次响应', mine.avgFirstResponseMin == null ? '—' : `${mine.avgFirstResponseMin} 分钟`, '/admin/service/performance'], ['近 7 天客户评分', r.avg ?? '—', '/admin/service/performance']],
+      todos: todo(box.slice(0, 8), (i) => `${{ chat: '对话', email: '邮件', form: '表单', rma: '售后' }[i.channel]}：${i.title}`, (i) => i.href),
+      links: [['收件箱', '/admin/service'], ['对话', '/admin/conversations'], ['快捷回复', '/admin/service/quick-replies'], ['知识库', '/admin/service/kb'], ['客服绩效', '/admin/service/performance']] };
+  } },
   { perm: 'quotes', title: '销售：报价与合同', build: () => ({
     kpis: [['草稿报价待发送', n("SELECT COUNT(*) n FROM quotes WHERE status = 'draft'"), '/admin/quotes'], ['待客户签署合同', n("SELECT COUNT(*) n FROM contracts WHERE status = 'sent'"), '/admin/contracts'], ['本月成交额', money(v("SELECT SUM(total) v FROM orders WHERE status != 'cancelled' AND created_at >= ?", new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString())), '/admin/orders']],
     todos: todo(db.prepare("SELECT id, number FROM quotes WHERE status = 'draft' ORDER BY created_at DESC LIMIT 5").all(), (r) => `报价 ${r.number} 待发送`, (r) => `/admin/quotes/${r.id}`),

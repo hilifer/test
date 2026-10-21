@@ -36,7 +36,8 @@ export function release(convId, why = 'manual') {
   const c = conv(convId);
   if (!c?.agent) return;
   db.prepare('UPDATE conversations SET agent = NULL, agent_name = NULL, agent_at = NULL, waiting = 0 WHERE id = ?').run(convId);
-  addMessage(convId, 'note', why === 'timeout' ? 'The AI assistant is back. A sales engineer will follow up by e-mail.' : 'The AI assistant is back. Ask anything.', { by: c.agent, why });
+  const text = { timeout: 'The AI assistant is back. A sales engineer will follow up by e-mail.', rate: 'Thanks for chatting with us. The AI assistant is back — how did we do?' }[why] || 'The AI assistant is back. Ask anything.';
+  addMessage(convId, 'note', text, { by: c.agent, why });
 }
 
 export function agentReply(convId, user, text) {
@@ -68,7 +69,8 @@ export function poll(convId, after = 0) {
   const lastId = db.prepare('SELECT COALESCE(MAX(id), 0) n FROM messages WHERE conv_id = ?').get(convId).n;
   return {
     human: Boolean(h), agent: h ? firstName(h.name) : null, lastId,
-    messages: rows.map((m) => ({ id: m.id, role: m.role, content: m.content, ts: m.ts, name: m.role === 'agent' ? JSON.parse(m.meta || '{}').name || 'Sales' : undefined })),
+    // a note that ends a person's turn asks the customer to rate the chat (the widget asks once)
+    messages: rows.map((m) => { const meta = JSON.parse(m.meta || '{}'); return { id: m.id, role: m.role, content: m.content, ts: m.ts, name: m.role === 'agent' ? meta.name || 'Sales' : undefined, rate: m.role === 'note' && Boolean(meta.why) ? true : undefined }; }),
   };
 }
 

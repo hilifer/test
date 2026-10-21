@@ -4,9 +4,10 @@ import { listLeads, listConversations, conversationMessages } from './db.js';
 import { currentUser, can, permissionFor, roleNames, defaultAdminLang } from './auth.js';
 import { humanActive, waitingCount } from './livechat.js';
 import { todoCount } from './workbench.js';
+import { quickReplyPicker } from './service/admin-service.js';
 
 // Main navigation; each entry is only shown to staff whose role may open it.
-export const NAV = [['/admin/home', '工作台'], ['/admin/dashboard', '看板'], ['/admin', '线索'], ['/admin/conversations', '对话'], ['/admin/ops', '业务闭环'], ['/admin/deals', 'AI 议价'], ['/admin/shop', '网店'], ['/admin/finance', '财务'], ['/admin/warehouse', '仓库'], ['/admin/marketing', '运营'], ['/admin/coupons', '优惠券'], ['/admin/reviews', '评价'], ['/admin/products', '商品'], ['/admin/copy', '标题与提示词'], ['/admin/assets', '素材仓库'], ['/admin/tasks', '任务中心'], ['/admin/categories', '品类'], ['/admin/settings', '站点设置'], ['/admin/content', '内容'], ['/admin/geo', 'GEO 监测'], ['/admin/leads.csv', '导出 CSV'], ['/admin/users', '账号权限'], ['/admin/audit', '操作日志'], ['/admin/system', '系统']];
+export const NAV = [['/admin/home', '工作台'], ['/admin/dashboard', '看板'], ['/admin', '线索'], ['/admin/conversations', '对话'], ['/admin/service', '客服'], ['/admin/ops', '业务闭环'], ['/admin/deals', 'AI 议价'], ['/admin/shop', '网店'], ['/admin/finance', '财务'], ['/admin/warehouse', '仓库'], ['/admin/marketing', '运营'], ['/admin/coupons', '优惠券'], ['/admin/reviews', '评价'], ['/admin/products', '商品'], ['/admin/copy', '标题与提示词'], ['/admin/assets', '素材仓库'], ['/admin/tasks', '任务中心'], ['/admin/categories', '品类'], ['/admin/settings', '站点设置'], ['/admin/content', '内容'], ['/admin/geo', 'GEO 监测'], ['/admin/leads.csv', '导出 CSV'], ['/admin/users', '账号权限'], ['/admin/audit', '操作日志'], ['/admin/system', '系统']];
 const navHtml = () => { const u = currentUser(); return NAV.filter(([h]) => !u || can(u, permissionFor(h))).map(([h, l]) => `<a href="${h}">${l}</a>`).join(''); };
 const langToggle = () => { const u = currentUser(); const en = (u?.lang || defaultAdminLang()) === 'en'; /* u.lang = effective language: own choice, cookie or system default */ return `<form method="post" action="/admin/lang" style="display:inline" data-lang-form><input type="hidden" name="lang" value="${en ? 'zh' : 'en'}"><button title="${en ? '切换到中文' : 'Switch to English'}">${en ? '&#20013;&#25991;' : 'EN'}</button></form>`; };
 // to-do count in the header, cached per user for 30 s (the workbench queries are not free)
@@ -55,11 +56,11 @@ export function conversationPage(id, flash = {}) {
   const me = currentUser();
   const lastId = list.at(-1)?.id || 0;
   const bar = h
-    ? `<div class="warn" style="background:#e8f5e9;border-color:#a5d6a7"><b>${esc(h.name || h.username)}</b> 正在人工接待，AI 暂停回复（30 分钟无人回复后自动交还 AI）。 <form method="post" action="/admin/conv/${esc(id)}/release" style="display:inline"><button>交还 AI</button></form></div>`
+    ? `<div class="warn" style="background:#e8f5e9;border-color:#a5d6a7"><b>${esc(h.name || h.username)}</b> 正在人工接待，AI 暂停回复（30 分钟无人回复后自动交还 AI）。 <form method="post" action="/admin/conv/${esc(id)}/release" style="display:inline"><button>交还 AI</button> <button name="rate" value="1">结束并请客户评价</button></form></div>`
     : `<div class="warn">当前由 AI 接待。<form method="post" action="/admin/conv/${esc(id)}/takeover" style="display:inline"><button>人工接管</button></form> 或直接在下面回复（回复即接管）。</div>`;
   return shell('对话详情', `<p><a href="/admin/conversations">← 返回对话列表</a></p>${flash.e ? `<div class="warn" style="background:#fdecea">${esc(flash.e)}</div>` : ''}${bar}
 <div id="log">${list.map(messageHtml).join('') || '<p class="mute">没有消息</p>'}</div>
-<form method="post" action="/admin/conv/${esc(id)}/reply" style="max-width:760px;display:grid;gap:8px;margin-top:12px"><textarea name="text" rows="3" required placeholder="以 ${esc(me?.name || me?.username || '')} 的身份回复客户（客户在网站聊天框中实时看到）"></textarea><div><button>发送</button></div></form>
+<form method="post" action="/admin/conv/${esc(id)}/reply" style="max-width:760px;display:grid;gap:8px;margin-top:12px"><div>${quickReplyPicker()}</div><textarea name="text" rows="3" required placeholder="以 ${esc(me?.name || me?.username || '')} 的身份回复客户（客户在网站聊天框中实时看到）"></textarea><div><button>发送</button></div></form>
 <script>(()=>{let last=${lastId};const log=document.getElementById('log');setInterval(async()=>{try{const r=await fetch('/admin/conv/${esc(id)}/messages?after='+last);if(!r.ok)return;const j=await r.json();if(j.html){log.insertAdjacentHTML('beforeend',j.html);last=j.lastId;}}catch{}},4000);})();</script>`);
 }
 
