@@ -10,6 +10,11 @@ import { backupRuns } from './ops/backup.js';
 import { isDirty } from './catalog/store.js';
 import { usage } from './assets/store.js';
 import { listTasks } from './tasks.js';
+import { systemStatus } from './ops/backup.js';
+import { errorStats } from './ops/errors.js';
+import { failingServices, peerSites, lastChecks } from './ops/services.js';
+import { listJobs } from './jobs.js';
+import { backupOverdue, drillOverdue } from './ops/security.js';
 
 // storage usage walks the files: cache it for a minute
 let usageMemo = { t: 0, v: null };
@@ -78,10 +83,23 @@ const BOARDS = [
     kpis: [['待审核文章', drafts.length, '/admin/content']],
     todos: drafts.slice(0, 5).map((a) => ({ text: `文章待审核：${a.data.title}`, href: `/admin/content/${encodeURIComponent(a.id)}` })),
     links: [['内容', '/admin/content'], ['GEO 监测', '/admin/geo']] }; } },
-  { perm: 'system', title: '运维：系统', build: () => { const last = backupRuns(1)[0]; const fails = n("SELECT COUNT(*) n FROM content_runs WHERE status = 'error' AND ts >= ?", since(24)) + n('SELECT COUNT(*) n FROM erp_log WHERE ok = 0 AND ts >= ?', since(24)); return {
-    kpis: [['最近备份', last ? `${last.ok ? '成功' : '失败'} ${fmt(last.ts)}` : '还没有备份', '/admin/system'], ['24 小时内任务失败', fails, '/admin/system']],
-    todos: [...(!last || !last.ok || Date.now() - new Date(last.ts).getTime() > 36 * 3600e3 ? [{ text: '最近 36 小时没有成功的数据库备份', href: '/admin/system' }] : []), ...(fails ? [{ text: `${fails} 个后台任务失败`, href: '/admin/system' }] : [])],
-    links: [['系统', '/admin/system'], ['操作日志', '/admin/audit']] }; } },
+  { perm: 'system', title: '运维：系统', build: () => {
+    const last = backupRuns(1)[0];
+    const st = systemStatus();
+    const errs = errorStats(24);
+    const bad = failingServices();
+    const jobFails = listJobs().filter((j) => j.enabled && j.last && !j.last.ok);
+    const paused = listJobs().filter((j) => j.paused);
+    const peers = peerSites().map((p) => ({ ...p, check: lastChecks(`peer:${p.name}`).last }));
+    return {
+      kpis: [['站点在线', `${1 + peers.filter((p) => p.check?.ok).length} / ${1 + peers.length}`, '/admin/system/sites'], ['最近备份', last ? `${last.ok ? '成功' : '失败'} ${fmt(last.ts)}` : '还没有备份', '/admin/system'],
+        ['磁盘剩余', st.disk ? `${(st.disk.free / 1073741824).toFixed(1)} GB` : '—', '/admin/system'], ['内存', `${st.rssMb} MB`, '/admin/system'], ['24 小时错误', errs.distinct, '/admin/system/errors'], ['外部服务异常', bad.length, '/admin/system/services']],
+      todos: [...(backupOverdue() ? [{ text: '最近 36 小时没有成功的数据库备份', href: '/admin/system' }] : []), ...(drillOverdue() ? [{ text: '超过 90 天没有做恢复演练', href: '/admin/system' }] : []),
+        ...bad.map((s) => ({ text: `外部服务${s.last.level === 'warn' ? '需处理' : '异常'}：${s.name}（${s.last.detail}）`, href: '/admin/system/services' })),
+        ...(errs.open ? [{ text: `${errs.open} 个未解决的服务器错误`, href: '/admin/system/errors' }] : []), ...jobFails.map((j) => ({ text: `定时任务失败：${j.name}`, href: `/admin/system/jobs?job=${encodeURIComponent(j.id)}` })),
+        ...paused.map((j) => ({ text: `定时任务已暂停：${j.name}`, href: '/admin/system/jobs' })), ...peers.filter((p) => p.check && !p.check.ok).map((p) => ({ text: `站点 ${p.name} 无法访问`, href: '/admin/system/sites' }))],
+      links: [['系统状态', '/admin/system'], ['服务连通性', '/admin/system/services'], ['错误日志', '/admin/system/errors'], ['定时任务', '/admin/system/jobs'], ['登录与会话', '/admin/system/security'], ['操作日志', '/admin/audit']] };
+  } },
   { perm: 'audit', title: '操作日志', build: () => ({
     kpis: [['今日操作', n('SELECT COUNT(*) n FROM audit_log WHERE ts >= ?', since(24)), '/admin/audit'], ['今日登录失败 / 越权', n('SELECT COUNT(*) n FROM audit_log WHERE ts >= ? AND ok = 0', since(24)), '/admin/audit?ok=0']],
     todos: [], links: [['操作日志', '/admin/audit']] }) },

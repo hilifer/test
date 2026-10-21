@@ -10,6 +10,7 @@ import { sendMail } from './mailer.js';
 import { viewCart } from './cart.js';
 import { alertOps } from '../alerts.js';
 import './schema.js';
+import { registerJob, every } from '../jobs.js';
 
 migrate([{
   id: '2026-10-23-marketing',
@@ -204,5 +205,5 @@ export function dashboardStats({ days = 30, lowStock = 20 } = {}) {
 }
 
 export function startMarketingJobs() {
-  setInterval(() => remindAbandonedCarts().catch((e) => console.error('[marketing]', e.message)), 3600e3).unref();
+  registerJob({ id: 'cart-reminders', name: '弃购提醒邮件', schedule: every(3600e3, { initialDelay: 3600e3 }), quiet: true, run: async () => { const r = await remindAbandonedCarts(); return r == null ? null : String(typeof r === 'object' ? (r.sent ?? JSON.stringify(r)) : r); } });
 }

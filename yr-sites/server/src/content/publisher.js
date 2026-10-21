@@ -2,7 +2,7 @@
 // Production layout (RELEASES_DIR=/srv/site):  /srv/site/releases/<timestamp>/  +  /srv/site/current → symlink
 // Caddy serves /srv/site/current, so a new build goes live atomically and a failed build changes nothing.
 import { spawn } from 'node:child_process';
-import { writeFileSync, symlinkSync, renameSync, readdirSync, rmSync } from 'node:fs';
+import { writeFileSync, symlinkSync, renameSync, readdirSync, rmSync, readlinkSync, statSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { config } from '../config.js';
 import { logRun } from './store.js';
@@ -70,3 +70,27 @@ export async function indexNow(paths) {
 }
 
 export const buildRunning = () => Boolean(running);
+
+/** Website versions kept on disk (newest first; the last 3 builds are kept), with the one that is live. */
+export function listReleases() {
+  const dir = config.content.releasesDir;
+  if (!dir || !existsSync(join(dir, 'releases'))) return [];
+  let cur = '';
+  try { cur = readlinkSync(join(dir, 'current')).split('/').pop(); } catch { /* no current link yet */ }
+  return readdirSync(join(dir, 'releases')).filter((r) => !r.startsWith('.')).sort().reverse()
+    .map((name) => ({ name, ts: name.replace(/^(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})-(\d{3})Z$/, '$1T$2:$3:$4.$5Z'), current: name === cur, mtime: statSync(join(dir, 'releases', name)).mtime.toISOString() }));
+}
+/** Switch the live website to an earlier build (same atomic symlink swap as a deploy). */
+export function rollbackRelease(name) {
+  const dir = config.content.releasesDir;
+  if (!dir) throw new Error('未启用网站版本目录（RELEASES_DIR）');
+  const rel = listReleases().find((r) => r.name === name);
+  if (!rel) throw new Error('这个网站版本不存在');
+  if (rel.current) throw new Error('这个版本已经在线上');
+  if (running) throw new Error('网站正在构建，请稍后再切换');
+  const tmp = join(dir, `.current-rollback-${Date.now()}`);
+  symlinkSync(join('releases', name), tmp);
+  renameSync(tmp, join(dir, 'current'));
+  logRun('build', 'ok', { rollback: name });
+  return rel;
+}

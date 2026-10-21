@@ -40,6 +40,12 @@ import { mediaDir } from './catalog/store.js';
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { startErpSync } from './ops/erp/index.js';
+import { startJobs } from './jobs.js';
+import { mountOpsCenter, healthDetail } from './ops/admin-opscenter.js';
+import { recordError } from './ops/errors.js';
+import { onLoginAttempt, startOpsWatch } from './ops/security.js';
+import { startServiceChecks } from './ops/services.js';
+import { onJobFailure } from './jobs.js';
 
 const app = new Hono();
 
@@ -77,7 +83,22 @@ const limit = async (c, next) => {
 };
 setInterval(() => { const t = Date.now(); for (const [k, v] of hits) if (!v.some((x) => t - x < 60000)) hits.delete(k); }, 120000).unref();
 
-app.get('/api/health', (c) => c.json({ ok: true, site: config.site, mode: aiEnabled() ? 'ai' : 'rules' }));
+app.get('/api/health', (c) => {
+  const base = { ok: true, site: config.site, mode: aiEnabled() ? 'ai' : 'rules' };
+  // details for the other site's "two sites" page — only with the shared OPS_TOKEN
+  const token = process.env.OPS_TOKEN;
+  if (c.req.query('detail') && token && c.req.header('x-ops-token') === token) return c.json({ ...base, ...healthDetail() });
+  return c.json(base);
+});
+if (process.env.ERROR_TEST_ROUTE === 'true') app.get('/api/__error', (c) => { throw new Error(`test error ${c.req.query('n') || ''}`.trim()); }); // tests only
+app.onError((err, c) => {
+  if (err?.getResponse) return err.getResponse(); // HTTPException (e.g. body too large) is not a server error
+  console.error('[error]', c.req.method, c.req.path, err);
+  try { recordError(err, { method: c.req.method, path: c.req.path }); } catch { /* never fail the error page */ }
+  return c.text('Internal Server Error', 500);
+});
+process.on('unhandledRejection', (e) => { console.error('[unhandledRejection]', e); try { recordError(e, { source: 'process' }); } catch { /* ignore */ } });
+onJobFailure((job, detail) => recordError(new Error(detail || 'failed'), { source: 'job', path: job.id }));
 
 app.post('/api/chat', limit, async (c) => {
   const b = await c.req.json().catch(() => ({}));
@@ -188,6 +209,7 @@ app.post('/admin/login', async (c) => {
   const f = await c.req.parseBody();
   const next = /^\/admin(\/|$)/.test(String(f.next || '')) ? String(f.next) : '/admin/home';
   const r = verifyLogin(String(f.username || ''), String(f.password || ''), ipOf(c));
+  if (!r.lockedMs) onLoginAttempt(String(f.username || ''), ipOf(c), !r.error);
   Audit.record({ username: String(f.username || '').slice(0, 40), roles: r.user?.role || '', path: '/admin/login', action: r.error ? 'login_failed' : 'login', status: r.error ? (r.lockedMs ? 429 : 401) : 302, message: r.error || '', ip: ipOf(c) });
   if (r.error) return c.html(loginPage({ next, error: r.error, username: String(f.username || '') }), r.lockedMs ? 429 : 401);
   setCookie(c, SESSION_COOKIE, createSession(r.user, ipOf(c)), { httpOnly: true, sameSite: 'Lax', secure: config.publicBaseUrl.startsWith('https://'), path: '/admin' });
@@ -244,6 +266,7 @@ mountDeals(app, { ipOf });
 mountSystemAdmin(app);
 mountAuditAdmin(app);
 mountTasksAdmin(app);
+mountOpsCenter(app);
 mountCopyAdmin(app);
 mountAssetsAdmin(app);
 app.get('/admin/home', (c) => c.html(workbench()));
@@ -264,6 +287,9 @@ startAutolistJobs();
 startBackupJob();
 startAssetJobs();
 startTasks();
+startServiceChecks();
+startOpsWatch();
+startJobs();
 serve({ fetch: app.fetch, port: config.port }, () => {
   console.log(`[${config.site}] sales server on :${config.port} — mode: ${aiEnabled() ? `AI (${config.llm.provider}/${config.llm.model})` : 'rules (no LLM key)'}`);
 });

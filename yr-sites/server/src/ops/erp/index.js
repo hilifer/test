@@ -3,6 +3,7 @@ import { config } from '../../config.js';
 import { db } from '../../db.js';
 import { kingdee } from './kingdee.js';
 import { listSkus, getSku, getCustomer, getOrder, getQuote, setOrderErp, replaceInventory, logEvent } from '../service.js';
+import { registerJob, every } from '../../jobs.js';
 
 db.exec('CREATE TABLE IF NOT EXISTS erp_log (id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT, action TEXT, ok INTEGER, detail TEXT)');
 const log = (action, ok, detail) => db.prepare('INSERT INTO erp_log (ts, action, ok, detail) VALUES (?,?,?,?)').run(new Date().toISOString(), action, ok ? 1 : 0, String(detail).slice(0, 2000));
@@ -95,8 +96,6 @@ export async function pullMaterials() {
 }
 
 export function startErpSync() {
-  if (!adapter()) return;
-  syncInventory();
-  setInterval(syncInventory, Math.max(5, config.erp.syncMinutes) * 60e3).unref();
-  console.log(`[erp] ${erpLabel()} — inventory sync every ${config.erp.syncMinutes} min`);
+  registerJob({ id: 'erp-sync', name: '金蝶库存同步', schedule: every(Math.max(5, config.erp.syncMinutes) * 60e3), enabled: () => Boolean(adapter()), note: 'ERP_MODE / KD_*',
+    run: async () => { const r = await syncInventory(); if (r?.error) throw new Error(r.error); return `${r?.rows ?? 0} 行`; } });
 }

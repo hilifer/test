@@ -16,6 +16,7 @@ import { complete, parseJson } from '../llm.js';
 import { alertOps } from '../alerts.js';
 import * as C from './store.js';
 import { ID_RE, slugify, parseSpecs } from './validate.js';
+import { registerJob, every } from '../jobs.js';
 
 migrate([{
   id: '2026-10-24-autolist',
@@ -333,9 +334,6 @@ export async function promoteProducts(ids) {
 export const listPromotions = (n = 50) => db.prepare('SELECT * FROM product_promotions ORDER BY id DESC LIMIT ?').all(n).map((r) => ({ ...r, actions: J(r.actions, []) }));
 
 export function startAutolistJobs() {
-  setInterval(async () => {
-    const s = autolistSettings();
-    if (!s.erpAuto) return;
-    try { await queueFromErp(); await runQueue(); } catch (e) { console.error('[autolist]', e.message); }
-  }, 6 * 3600e3).unref();
+  registerJob({ id: 'autolist', name: 'AI 自动上架（从金蝶取新品）', schedule: every(6 * 3600e3, { initialDelay: 6 * 3600e3 }), enabled: () => autolistSettings().erpAuto, note: '自动上架设置',
+    run: async () => { const q = await queueFromErp(); const r = await runQueue(); return JSON.stringify({ queued: q, drafted: r }).slice(0, 300); } });
 }

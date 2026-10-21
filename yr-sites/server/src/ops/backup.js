@@ -12,6 +12,7 @@ import { db } from '../db.js';
 import { config } from '../config.js';
 import { migrate } from '../migrate.js';
 import { alertOps } from '../alerts.js';
+import { registerJob, dailyAt } from '../jobs.js';
 
 migrate([{ id: '2026-10-27-backups', up: () => db.exec('CREATE TABLE backup_runs (id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT, file TEXT, bytes INTEGER, ok INTEGER, detail TEXT, seconds REAL)') }]);
 
@@ -98,13 +99,8 @@ export function backupNow() {
 
 export function startBackupJob() {
   const c = backupConfig();
-  if (!c.enabled) return;
-  let lastDay = '';
-  setInterval(() => {
-    const d = new Date();
-    const day = d.toISOString().slice(0, 10);
-    if (d.getHours() === c.hour && day !== lastDay) { lastDay = day; backupNow(); }
-  }, 60e3).unref();
+  registerJob({ id: 'backup', name: '数据库备份', schedule: dailyAt(c.hour), enabled: () => c.enabled, note: 'BACKUP_ENABLED',
+    run: async () => { const r = await backupNow(); if (!r.ok) throw new Error(r.error || r.offsite?.out || '备份失败'); return `${r.file}（${(r.bytes / 1048576).toFixed(1)} MB）`; } });
 }
 
 /** Numbers for the system page. */

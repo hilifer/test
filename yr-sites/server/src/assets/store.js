@@ -16,6 +16,7 @@ import { migrate } from '../migrate.js';
 import { actorName } from '../auth.js';
 import { alertOps } from '../alerts.js';
 import { getSetting } from '../catalog/store.js';
+import { registerJob, every } from '../jobs.js';
 
 const run = promisify(execFile);
 migrate([{
@@ -392,5 +393,5 @@ export async function aiTag(id) {
 }
 
 export function startAssetJobs() {
-  setInterval(() => { try { const n = purgeExpired(); if (n) console.log(`[assets] purged ${n} from the recycle bin`); } catch (e) { console.error('[assets]', e.message); } }, 6 * 3600e3).unref();
+  registerJob({ id: 'assets-purge', name: '素材回收站到期清理', schedule: every(6 * 3600e3, { initialDelay: 6 * 3600e3 }), quiet: true, run: () => String(purgeExpired() || 0) });
 }

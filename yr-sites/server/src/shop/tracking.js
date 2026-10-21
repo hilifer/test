@@ -7,6 +7,7 @@ import { migrate, addColumn } from '../migrate.js';
 import { getShipment, addShipmentEvent } from '../ops/service.js';
 import { canMove } from '../../../shared/dictionary.js';
 import './schema.js';
+import { registerJob, every } from '../jobs.js';
 
 migrate([{ id: '2026-10-22-tracking', up: () => { for (const [c, t] of [['track_registered', 'INTEGER DEFAULT 0'], ['track_status', 'TEXT'], ['track_checked_at', 'TEXT'], ['track_error', 'TEXT']]) addColumn('shipments', c, t); } }]);
 
@@ -70,8 +71,6 @@ export async function syncTracking({ ids = null } = {}) {
 }
 
 export function startTrackingJob() {
-  if (!trackingEnabled()) return;
-  const run = () => syncTracking().catch((e) => console.error('[tracking]', e.message));
-  setTimeout(run, 30e3).unref();
-  setInterval(run, 2 * 3600e3).unref();
+  registerJob({ id: 'tracking', name: '17TRACK 物流轨迹同步', schedule: every(2 * 3600e3, { initialDelay: 30e3 }), enabled: trackingEnabled, note: 'TRACK17_KEY',
+    run: async () => { const r = await syncTracking(); return `查询 ${r.checked}，更新 ${r.changed}`; } });
 }

@@ -5,13 +5,8 @@ import { generateArticle } from './writer.js';
 import { rebuild, indexNow } from './publisher.js';
 import { runGeoCheck } from './geo.js';
 import { articleUrl, logRun } from './store.js';
+import { registerJob, dailyAt } from '../jobs.js';
 
-const done = new Set();
-function nowIn(tz) {
-  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'short', hour: 'numeric', hour12: false, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date()).map((p) => [p.type, p.value]));
-  const dow = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(parts.weekday);
-  return { dow, hour: Number(parts.hour) % 24, date: `${parts.year}-${parts.month}-${parts.day}` };
-}
 
 export async function contentJob() {
   const out = [];
@@ -32,13 +27,7 @@ export async function contentJob() {
 
 export function startScheduler() {
   const { content, geo } = config;
-  if (!content.enabled && !geo.enabled) return;
-  console.log(`[scheduler] content ${content.enabled ? `on: days ${content.days} @ ${content.hour}:00 ${content.tz}, auto-publish ${content.autoPublish}` : 'off'}; geo ${geo.enabled ? 'on' : 'off'}`);
-  setInterval(async () => {
-    const n = nowIn(content.tz);
-    const slotC = `c:${n.date}:${n.hour}`;
-    if (content.enabled && content.days.includes(n.dow) && n.hour === content.hour && !done.has(slotC)) { done.add(slotC); contentJob(); }
-    const slotG = `g:${n.date}`;
-    if (geo.enabled && n.dow === geo.day && n.hour === geo.hour && !done.has(slotG)) { done.add(slotG); runGeoCheck().catch(() => {}); }
-  }, 60000).unref();
+  registerJob({ id: 'content', name: '内容智能体写稿', schedule: dailyAt(content.hour, { days: content.days, tz: content.tz }), enabled: () => content.enabled, note: 'CONTENT_ENABLED',
+    run: async () => { const out = await contentJob(); return `写了 ${out.filter((r) => !r.error).length} 篇，失败 ${out.filter((r) => r.error).length} 篇`; } });
+  registerJob({ id: 'geo', name: 'GEO 监测', schedule: dailyAt(geo.hour, { days: [geo.day], tz: content.tz }), enabled: () => geo.enabled, note: 'GEO_ENABLED', run: async () => { await runGeoCheck(); return 'ok'; } });
 }

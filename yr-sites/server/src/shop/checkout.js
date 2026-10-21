@@ -10,6 +10,7 @@ import { validateAddress } from './accounts.js';
 import { alertOps } from '../alerts.js';
 import { applyCoupon } from './marketing.js';
 import './schema.js';
+import { registerJob, every } from '../jobs.js';
 
 migrate([{ id: '2026-10-21-order-access', up: () => addColumn('orders', 'access_token', 'TEXT') }]);
 
@@ -75,5 +76,5 @@ export function expireUnpaid() {
   return due.length;
 }
 export function startShopJobs() {
-  setInterval(() => { try { expireUnpaid(); } catch (e) { console.error('[shop] expire', e.message); } }, 60e3).unref();
+  registerJob({ id: 'shop-expire', name: '超时未付款订单自动取消', schedule: every(60e3, { initialDelay: 60e3 }), quiet: true, run: () => String(expireUnpaid() || 0) });
 }
