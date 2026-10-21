@@ -1,7 +1,8 @@
 # One image for both sites; SITE=led|grid picks the brand, catalog and profile.
 FROM node:22-slim
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH NODE_ENV=production NODE_NO_WARNINGS=1
-RUN corepack enable && corepack prepare pnpm@10.28.0 --activate
+RUN corepack enable && corepack prepare pnpm@10.28.0 --activate \
+ && apt-get update && apt-get install -y --no-install-recommends ffmpeg fonts-dejavu-core fonts-wqy-microhei && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY server/package.json server/

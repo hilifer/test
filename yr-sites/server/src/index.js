@@ -14,6 +14,8 @@ import { ensureBootstrapAdmin, verifyLogin, createSession, sessionUser, endSessi
 import { toEnglish } from './i18n/index.js';
 import * as Audit from './audit.js';
 import { mountAuditAdmin } from './admin-audit.js';
+import { mountAssetsAdmin } from './assets/admin-assets.js';
+import { startAssetJobs } from './assets/store.js';
 import { workbench } from './workbench.js';
 import { loginPage, forbiddenPage, mountStaffAdmin } from './admin-staff.js';
 import { mountContentAdmin } from './content/admin-content.js';
@@ -238,6 +240,7 @@ mountMarketingAdmin(app);
 mountDeals(app, { ipOf });
 mountSystemAdmin(app);
 mountAuditAdmin(app);
+mountAssetsAdmin(app);
 app.get('/admin/home', (c) => c.html(workbench()));
 app.post('/admin/lead/:id/status', async (c) => {
   const f = await c.req.parseBody();
@@ -254,6 +257,7 @@ startTrackingJob();
 startMarketingJobs();
 startAutolistJobs();
 startBackupJob();
+startAssetJobs();
 serve({ fetch: app.fetch, port: config.port }, () => {
   console.log(`[${config.site}] sales server on :${config.port} — mode: ${aiEnabled() ? `AI (${config.llm.provider}/${config.llm.model})` : 'rules (no LLM key)'}`);
 });

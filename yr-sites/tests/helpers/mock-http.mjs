@@ -15,7 +15,7 @@ export async function mockServer(handler) {
       const headers = { ...(out.headers || {}) };
       if (out.json !== undefined) headers['content-type'] = 'application/json';
       res.writeHead(out.status || 200, headers);
-      res.end(out.json !== undefined ? JSON.stringify(out.json) : out.text ?? '');
+      res.end(out.json !== undefined ? JSON.stringify(out.json) : out.body ?? out.text ?? ''); // body: Buffer for binary files
     } catch (e) {
       res.writeHead(500); res.end(String(e.stack || e));
     }

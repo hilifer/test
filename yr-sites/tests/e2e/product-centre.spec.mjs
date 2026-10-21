@@ -107,3 +107,38 @@ test('E2E-P03 recommend products in bulk → publish → homepage "Recommended p
   await page.goto(SITE + '/products/ufo-high-bay-u2/');
   await expect(page.locator('[data-buy-box] .buybox')).toHaveCSS('border-radius', '12px'); // shop widget styles are global, not scoped
 });
+
+test('E2E-P04 designer flow: upload to the asset library → preview → list as main image → publish → live on the product page', async ({ page }) => {
+  test.setTimeout(150_000);
+  const { default: sharp } = await import('sharp');
+  const photo = await sharp({ create: { width: 1200, height: 1200, channels: 3, background: '#ffffff' } })
+    .composite([{ input: Buffer.from('<svg width="1200" height="1200"><circle cx="600" cy="600" r="300" fill="#ef8f00"/></svg>') }]).jpeg().toBuffer();
+  await page.goto(SITE + '/admin/login');
+  await page.locator('input[name="username"]').fill('admin');
+  await page.locator('input[name="password"]').fill('e2e-pass');
+  await page.getByRole('button', { name: '登录' }).click();
+  await page.waitForURL(/\/admin\/home/);
+  await page.goto(SITE + '/admin/assets');
+  await page.locator('#drop input[name="product"]').fill('YR-HB-L4');
+  await page.locator('#drop input[type="file"]').first().setInputFiles({ name: 'e2e-main.jpg', mimeType: 'image/jpeg', buffer: photo });
+  await page.locator('#drop').getByRole('button', { name: '上传' }).click();
+  await expect(page.locator('main')).toContainText('已上传 1 个');
+  await page.goto(SITE + '/admin/assets?product=YR-HB-L4');
+  const card = page.locator('.card', { hasText: 'e2e-main.jpg' });
+  await expect(card).toContainText('白底图');
+  await card.locator('a.th').click();
+  await expect(page.locator('#stage img')).toBeVisible();
+  await page.goBack();
+  await card.locator('input[name="ids"]').check();
+  await page.locator('#bulk select[name="position"]').selectOption('main');
+  await page.locator('#bulk input[name="index"]').fill('1');
+  await page.locator('#bulk').getByRole('button', { name: '上架', exact: true }).click();
+  await expect(page).toHaveURL(/\/admin\/products\/YR-HB-L4/);
+  await expect(page.locator('.flash').first()).toContainText('已上架 1 张到主图');
+  const src = await page.locator('.imgs figure img').first().getAttribute('src');
+  expect(src).toMatch(/^\/media\/[a-f0-9]{24}\.jpg$/);
+  await page.locator('.pub').getByRole('button', { name: '发布到网站' }).click();
+  await expect.poll(async () => (await (await page.request.get(SITE + '/products/linear-high-bay-l4/')).text()).includes(src), { timeout: 60_000 }).toBe(true);
+  const img = await page.request.get(SITE + src);
+  expect(img.headers()['content-type']).toBe('image/jpeg');
+});

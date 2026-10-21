@@ -249,6 +249,28 @@ export function deleteProduct(id) {
   markDirty();
 }
 
+/** SKU image (from the asset library or the product form); recorded as a product revision. */
+export function setSkuImage(sku, url) {
+  const s = db.prepare('SELECT product_id FROM skus WHERE sku = ?').get(sku);
+  if (!s) throw new Error('SKU 不存在');
+  if (url && !/^\/media\/[a-f0-9]{24}\.(jpg|png|webp)$/.test(url)) throw new Error(`图片地址无效：${url}`);
+  db.prepare('UPDATE skus SET image = ?, updated_at = ? WHERE sku = ?').run(url || null, now(), sku);
+  const p = getProduct(s.product_id);
+  db.prepare('UPDATE products SET version = version + 1, updated_at = ?, updated_by = ? WHERE id = ?').run(now(), actorName('system'), p.id);
+  db.prepare('INSERT INTO product_revisions (product_id, version, ts, actor, summary, data) VALUES (?,?,?,?,?,?)').run(p.id, p._version + 1, now(), actorName('system'), `SKU 图 ${sku}`, null);
+  markDirty();
+}
+
+/** Revisions that contain a full snapshot (image changes can be restored from them). */
+export const imageRevisions = (id) => db.prepare("SELECT id, version, ts, actor, summary, data FROM product_revisions WHERE product_id = ? AND data IS NOT NULL ORDER BY id DESC LIMIT 20").all(id)
+  .map((r) => { const d = J(r.data, {}); return { id: r.id, version: r.version, ts: r.ts, actor: r.actor, summary: r.summary, images: d.product?.images || [], detailImages: d.product?.detailImages || [] }; });
+/** One-click rollback of the product images (main / gallery / detail) to an earlier revision. */
+export function restoreImages(productId, revisionId) {
+  const r = imageRevisions(productId).find((x) => x.id === Number(revisionId));
+  if (!r) throw new Error('版本不存在');
+  return saveProduct({ id: productId, images: r.images, detailImages: r.detailImages }, {});
+}
+
 export const revisionsFor = (id, n = 30) => db.prepare('SELECT id, version, ts, actor, summary FROM product_revisions WHERE product_id = ? ORDER BY id DESC LIMIT ?').all(id, n);
 
 export function reorderProducts(ids) {

@@ -18,17 +18,18 @@ export const PERMISSIONS = {
   shipments: ['发货与物流', '仓库'], 'shop.fulfil': ['网店发货', '仓库'], rma: ['售后', '仓库'], inventory: ['SKU 与库存', '仓库'],
   catalog: ['商品：编辑、上下架', '商品与内容'], 'catalog.view': ['商品：只看', '商品与内容'], 'catalog.export': ['商品：导出', '商品与内容'], 'catalog.delete': ['商品：删除', '商品与内容'],
   content: ['内容与 GEO', '商品与内容'], marketing: ['优惠券与评价', '商品与内容'], settings: ['站点设置', '商品与内容'], shop: ['网店设置（运费、支付）', '商品与内容'], 'shop.view': ['网店：只看', '商品与内容'],
+  assets: ['素材：上传、编辑、移动、删除到回收站', '素材'], 'assets.view': ['素材：只看', '素材'], 'assets.download': ['素材：下载原图', '素材'], 'assets.delete': ['素材：彻底删除（清空回收站）', '素材'],
   system: ['系统状态与备份', '系统'], audit: ['操作日志', '系统'], users: ['账号与岗位', '系统'],
 };
 // Built-in roles (kept in code so they stay current). Admins add their own roles in 账号权限 → 岗位.
 export const ROLES = {
   admin: { zh: '管理员', perms: ['*'] },
-  sales: { zh: '销售', perms: ['leads', 'leads.export', 'chat', 'quotes', 'orders', 'customers', 'catalog.view', 'shop.view', 'deals.view', 'contracts'] },
+  sales: { zh: '销售', perms: ['leads', 'leads.export', 'chat', 'quotes', 'orders', 'customers', 'catalog.view', 'shop.view', 'deals.view', 'contracts', 'assets.view', 'assets.download'] },
   finance: { zh: '财务', perms: ['orders', 'payments', 'customers', 'shop.view', 'shop.refund', 'deals', 'contracts.view'] },
   warehouse: { zh: '仓库/物流', perms: ['orders.view', 'shipments', 'rma', 'inventory', 'catalog.view', 'shop.view', 'shop.fulfil'] },
-  content: { zh: '内容运营', perms: ['content', 'catalog', 'catalog.export', 'catalog.delete', 'marketing', 'settings'] },
+  content: { zh: '内容运营', perms: ['content', 'catalog', 'catalog.export', 'catalog.delete', 'marketing', 'settings', 'assets', 'assets.download'] },
   service: { zh: '客服', perms: ['chat', 'leads.view', 'orders.view', 'customers.view', 'rma', 'shop.view'] },
-  designer: { zh: '美工', perms: ['catalog', 'catalog.view'] },
+  designer: { zh: '美工', perms: ['catalog', 'catalog.view', 'assets', 'assets.download', 'assets.delete'] },
   ops: { zh: '运维', perms: ['system', 'audit', 'orders.view', 'catalog.view'] },
 };
 
@@ -44,6 +45,7 @@ const RULES = [
   [/^\/admin\/products\/(export|template)\.csv/, 'catalog.export'], [/^\/admin\/products\/[^/]+\/delete/, 'catalog.delete'], [/^\/admin\/(products|categories|media)/, 'catalog'],
   [/^\/admin\/shop\/[^/]+\/refund/, 'shop.refund'], [/^\/admin\/shop\/[^/]+\/(fulfil|ship)/, 'shop.fulfil'], [/^\/admin\/shop/, 'shop'],
   [/^\/admin\/(coupons|reviews|marketing)/, 'marketing'], [/^\/admin\/dashboard/, 'orders'],
+  [/^\/admin\/assets\/(file|bulk-download)/, 'assets.download'], [/^\/admin\/assets\/trash\/purge/, 'assets.delete'], [/^\/admin\/assets/, 'assets'],
   [/^\/admin\/system/, 'system'], [/^\/admin\/audit/, 'audit'], [/^\/admin\/(users|roles)/, 'users'],
   [/^\/admin\/(ops|me|logout|home)/, null], // any logged-in user
 ];

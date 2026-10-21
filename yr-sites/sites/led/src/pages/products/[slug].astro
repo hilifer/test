@@ -75,6 +75,12 @@ const watts = p.wattMin === p.wattMax ? `${p.wattMin} W` : `${p.wattMin}–${p.w
     </aside>
   </section>
 
+  {(p as any).detailImages?.length > 0 && (
+    <section class="wrap detail-imgs" data-detail-images>
+      <h2>Product details</h2>
+      {(p as any).detailImages.map((u: string, i: number) => <img src={u} alt={`${p.name} — detail ${i + 1}`} loading="lazy" decoding="async" />)}
+    </section>
+  )}
   <section class="section section--white" id="quote">
     <div class="wrap quote">
       <div>

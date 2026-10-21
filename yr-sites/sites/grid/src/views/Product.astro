@@ -68,6 +68,12 @@ const hl = pick(lang, p.highlights, p.highlightsZh) as string[];
       <dl class="faq">{faq.map((f) => <><dt>{f.q}</dt><dd>{f.a}</dd></>)}</dl>
     </aside>
   </section>
+  {(p as any).detailImages?.length > 0 && (
+    <section class="wrap detail-imgs" data-detail-images>
+      <h2>{lang === 'zh' ? '产品详情' : 'Product details'}</h2>
+      {(p as any).detailImages.map((u: string, i: number) => <img src={u} alt={`${p.name} — ${i + 1}`} loading="lazy" decoding="async" />)}
+    </section>
+  )}
   <section class="section section--white" id="quote">
     <div class="wrap quote"><div><h2>{s.q_title}</h2><p>{s.q_lede}</p></div><QuoteForm lang={lang} productId={p.id} /></div>
   </section>

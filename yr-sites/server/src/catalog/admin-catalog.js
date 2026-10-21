@@ -103,16 +103,26 @@ ${area('一句话简介 *', 'summary', p.summary, 'required maxlength="300" styl
 <div class="grid2">${inp('质保 *', 'warranty', p.warranty, 'placeholder="5 years"')}${inp('单位 *', 'unit', p.unit || 'pcs')}${inp('起订量 MOQ *', 'moq', p.moq, 'inputmode="numeric"')}${inp('生产交期 最短天数 *', 'lead_min', p.leadTimeDays?.[0])}${inp('生产交期 最长天数 *', 'lead_max', p.leadTimeDays?.[1])}${inp('样品 最短天数 *', 'sample_min', p.sampleDays?.[0])}${inp('样品 最长天数 *', 'sample_max', p.sampleDays?.[1])}${inp('最小功率 W（用于筛选）', 'wattMin', p.wattMin)}${inp('最大功率 W', 'wattMax', p.wattMax)}</div>
 ${inp('批量参考价档位（询价/AI 报价用，如 50-499:39-52 | 500-1999:35-46 | 2000+:32-42）', 'priceBands', bandsText(p.priceBands))}</div>
 <div class="card"><h3>规格 / SKU（每行一个可售规格；留空的行会忽略）</h3><div class="wrap"><table class="vt"><thead><tr><th>SKU 编码</th><th>规格（名=值; 名=值）</th><th>售价</th><th>划线价</th><th>阶梯价（数量:单价）</th><th>起订</th><th>重量 kg</th><th>库存</th><th>每箱数量</th><th>箱体积 m³</th><th>箱毛重 kg</th><th>金蝶物料编码</th></tr></thead><tbody>${rows}</tbody></table></div><p class="mute">需要更多规格：先保存，页面会再给出空行。售价用于网站在线购买；阶梯价按购买数量自动生效。</p></div>
-<div class="card"><h3>图片（JPG / PNG / WebP，每张 ≤5 MB，第一张为主图）</h3><div class="imgs">${imgs || '<span class="mute">还没有图片</span>'}</div><p><input type="file" name="upload" accept="image/jpeg,image/png,image/webp" multiple></p></div>
+<div class="card"><h3>图片（JPG / PNG / WebP，每张 ≤5 MB，第一张为主图）</h3><div class="imgs">${imgs || '<span class="mute">还没有图片</span>'}</div><p><input type="file" name="upload" accept="image/jpeg,image/png,image/webp" multiple>${isNew ? '' : ` <a href="/admin/assets?product=${encodeURIComponent(p.id)}">从素材仓库选图上架</a>`}</p>
+<h3>详情图</h3><div class="imgs">${(p.detailImages || []).map((u, i) => `<figure><img src="${esc(u)}" alt=""><label><input type="checkbox" name="detail_remove" value="${esc(u)}"> 删除</label><input type="hidden" name="detail_url_${i}" value="${esc(u)}"></figure>`).join('') || '<span class="mute">还没有详情图（在素材仓库选图，位置选"详情图"）</span>'}</div></div>
 <div class="acts"><button class="btn" name="action" value="save">保存</button><button class="btn g" name="action" value="save_publish">保存并上架</button></div></form>
 ${isNew ? '' : `<div class="acts">${p._status !== 'published' ? `<form method="post" action="/admin/products/${encodeURIComponent(p.id)}/status"><input type="hidden" name="to" value="published"><button class="btn g">上架</button></form>` : `<form method="post" action="/admin/products/${encodeURIComponent(p.id)}/status"><input type="hidden" name="to" value="archived"><button class="btn r">下架</button></form>`}
-${!p._publishedAt ? `<form method="post" action="/admin/products/${encodeURIComponent(p.id)}/delete" onsubmit="return confirm('确定删除？')"><button class="btn r">删除</button></form>` : ''}<a class="btn l" href="${esc(config.publicBaseUrl)}/products/${esc(p.slug)}/" target="_blank">在网站上查看</a></div>`}${revs}`, c);
+${!p._publishedAt ? `<form method="post" action="/admin/products/${encodeURIComponent(p.id)}/delete" onsubmit="return confirm('确定删除？')"><button class="btn r">删除</button></form>` : ''}<a class="btn l" href="${esc(config.publicBaseUrl)}/products/${esc(p.slug)}/" target="_blank">在网站上查看</a></div>`}${isNew ? '' : imageHistory(p.id)}${revs}`, c);
 }
 
 /** Sort number and "recommended" flag from the edit form (validated; the product itself is already saved). */
 function applyExtras(id, sort, featured) {
   if (sort != null && String(sort).trim() !== '' && Number(sort) !== C.getProduct(id)._sort) C.setSortNumbers({ [id]: String(sort).trim() });
   if (featured !== C.getProduct(id)._featured) C.setFeatured([id], featured);
+}
+
+/** Earlier image sets of the product (from revisions) with one-click restore. */
+function imageHistory(id) {
+  const revs = C.imageRevisions(id);
+  const sig = (r) => JSON.stringify([r.images, r.detailImages]);
+  const distinct = revs.filter((r, i) => i === 0 || sig(r) !== sig(revs[i - 1])).slice(1, 8); // skip the current one
+  if (!distinct.length) return '';
+  return `<div class="card"><h3>图片历史</h3><p class="mute">每次修改商品图片都会保存一个版本，可一键恢复（恢复后点"发布到网站"生效）。</p>${distinct.map((r) => `<div style="display:flex;gap:8px;align-items:center;margin:6px 0;flex-wrap:wrap"><span class="mute" style="min-width:150px">${fmt(r.ts)} · ${esc(r.actor)}</span>${r.images.slice(0, 6).map((u) => `<img class="thumb" src="${esc(u)}" alt="">`).join('')}${r.detailImages.length ? `<span class="mute">+ 详情图 ${r.detailImages.length}</span>` : ''}<form method="post" action="/admin/products/${encodeURIComponent(id)}/images/restore?rev=${r.id}" style="margin-left:auto"><button class="btn l">恢复这组图片</button></form></div>`).join('')}</div>`;
 }
 
 async function readForm(c) {
@@ -137,6 +147,7 @@ async function readForm(c) {
     certifications: lines('certifications'), keywords: lines('keywords'), specs: String(one('specs') || ''), warranty: one('warranty'), unit: one('unit'), moq: one('moq'),
     leadTimeDays: [one('lead_min'), one('lead_max')], sampleDays: [one('sample_min'), one('sample_max')], wattMin: one('wattMin'), wattMax: one('wattMax'), priceBands: String(one('priceBands') || ''),
     images: kept.map((x) => x.u),
+    detailImages: (() => { const rm = new Set([].concat(f.detail_remove || []).map(String)); const out = []; for (let i = 0; i < 100 && one(`detail_url_${i}`) != null; i++) if (!rm.has(String(one(`detail_url_${i}`)))) out.push(String(one(`detail_url_${i}`))); return out; })(),
   };
   if (C.getSetting('catalog_meta', {}).features) input.features = [].concat(f.features || []).map(String);
   if (input.highlightsZh === undefined) delete input.highlightsZh;
@@ -390,6 +401,9 @@ export function mountCatalogAdmin(app) {
     } catch (e) {
       return c.html(editPage(c, { ...cur, ...input, _status: status, _salesMode: salesMode, _version: cur._version }, { errors: e.errors || [e.message], warnings: e.warnings || [], variants }), e.conflict ? 409 : 400);
     }
+  });
+  app.post('/admin/products/:id/images/restore', (c) => {
+    try { C.restoreImages(c.req.param('id'), c.req.query('rev')); return back(c, `/admin/products/${encodeURIComponent(c.req.param('id'))}`, { m: '已恢复这组图片（点"发布到网站"后生效）' }); } catch (e) { return back(c, `/admin/products/${encodeURIComponent(c.req.param('id'))}`, { e: e.message }); }
   });
   app.post('/admin/products/:id/status', async (c) => {
     const f = await c.req.parseBody();

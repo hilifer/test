@@ -30,6 +30,23 @@ export async function complete({ system, user, maxTokens = 4000, temperature = 0
   return res.choices?.[0]?.message?.content || '';
 }
 
+/** Single-shot completion with one image (vision). image: { data: Buffer, mime } */
+export async function completeWithImage({ system, user, image, maxTokens = 800, llm = {} }) {
+  const c = { ...config.llm, ...Object.fromEntries(Object.entries(llm).filter(([, v]) => v)) };
+  const b64 = image.data.toString('base64');
+  if (c.provider === 'anthropic') {
+    const res = await call(`${c.baseUrl || 'https://api.anthropic.com'}/v1/messages`, { 'x-api-key': c.apiKey, 'anthropic-version': '2023-06-01' }, {
+      model: c.model, max_tokens: maxTokens, system,
+      messages: [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: image.mime, data: b64 } }, { type: 'text', text: user }] }],
+    });
+    return res.content.filter((b) => b.type === 'text').map((b) => b.text).join('\n');
+  }
+  const res = await call(`${(c.baseUrl || 'https://api.openai.com/v1').replace(/\/$/, '')}/chat/completions`, { authorization: `Bearer ${c.apiKey}` }, {
+    model: c.model, max_tokens: maxTokens, messages: [{ role: 'system', content: system }, { role: 'user', content: [{ type: 'image_url', image_url: { url: `data:${image.mime};base64,${b64}` } }, { type: 'text', text: user }] }],
+  });
+  return res.choices?.[0]?.message?.content || '';
+}
+
 /** Pull the first JSON object out of a model reply. */
 export function parseJson(text) {
   const t = String(text).replace(/^```(?:json)?\s*|\s*```$/g, '');

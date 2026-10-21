@@ -51,7 +51,7 @@ export function validateProduct(input, ctx) {
   p.category = String(p.category || '').trim();
   p.unit = String(p.unit || 'pcs').trim();
   p.warranty = String(p.warranty || '').trim();
-  for (const k of ['highlights', 'highlightsZh', 'applications', 'certifications', 'keywords', 'images', 'features']) if (p[k] != null) p[k] = list(p[k]);
+  for (const k of ['highlights', 'highlightsZh', 'applications', 'certifications', 'keywords', 'images', 'detailImages', 'features']) if (p[k] != null) p[k] = list(p[k]);
   p.highlights ||= []; p.applications ||= []; p.certifications ||= []; p.images ||= [];
   p.specs = parseSpecs(p.specs);
   p.priceBands = parseBands(p.priceBands);
@@ -100,7 +100,8 @@ export function validateProduct(input, ctx) {
     if (p.moq >= 1 && bands[0].minQty !== p.moq) warnings.push(`第一档起始数量（${bands[0].minQty}）与起订量（${p.moq}）不一致`);
   }
   if (!bands.length) warnings.push('未设置价格档位：网站和 AI 将显示"按项目报价"并转人工');
-  for (const u of p.images) if (!/^\/media\/[a-f0-9]{24}\.(jpg|png|webp)$/.test(u) && !/^https:\/\/\S+$/.test(u)) errors.push(`图片地址无效：${u}`);
+  for (const u of [...p.images, ...(p.detailImages || [])]) if (!/^\/media\/[a-f0-9]{24}\.(jpg|png|webp)$/.test(u) && !/^https:\/\/\S+$/.test(u)) errors.push(`图片地址无效：${u}`);
+  if (p.detailImages && !p.detailImages.length) delete p.detailImages;
   p.image = p.images[0] || undefined;
   if (!p.image) delete p.image;
   if (!p.highlights.length) warnings.push('建议填写 2–3 条卖点');

@@ -16,7 +16,8 @@
   },
   "type": "module",
   "devDependencies": {
-    "@playwright/test": "1.56.1"
+    "@playwright/test": "1.56.1",
+    "sharp": "0.33.5"
   },
   "engines": {
     "node": ">=22.13"
