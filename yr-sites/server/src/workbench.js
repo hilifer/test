@@ -14,6 +14,8 @@ import { systemStatus } from './ops/backup.js';
 import { errorStats } from './ops/errors.js';
 import { failingServices, peerSites, lastChecks } from './ops/services.js';
 import { listJobs } from './jobs.js';
+import { funnel, productStats } from './marketing/analytics.js';
+import { running as runningPromos } from './marketing/promotions.js';
 import { seesAllLeads, dueFollowups, performance, upcomingDates } from './sales/crm.js';
 import { backupOverdue, drillOverdue } from './ops/security.js';
 
@@ -95,10 +97,18 @@ const BOARDS = [
       todos: [...noImage.slice(0, 5).map((id) => ({ text: `${id} 还没有主图`, href: `/admin/assets?product=${encodeURIComponent(id)}` })), ...lowRes.map((a) => ({ text: `${a.product_id} 的 ${a.original_name} 分辨率不足 800 px`, href: `/admin/assets/${a.id}` })), ...(u.pct >= 80 ? [{ text: `素材空间已用 ${u.pct}%`, href: '/admin/assets/settings' }] : []), ...failedTasks.map((t) => ({ text: `任务"${t.title}"有失败项，可重试`, href: `/admin/tasks/${t.id}` }))],
       links: [['素材仓库', '/admin/assets'], ['链接拉取', '/admin/assets/pull'], ['水印', '/admin/assets/watermarks'], ['任务中心', '/admin/tasks']] };
   } },
-  { perm: 'marketing', title: '运营：营销', build: () => ({
-    kpis: [['待审核评价', n("SELECT COUNT(*) n FROM reviews WHERE status = 'pending'"), '/admin/reviews'], ['今日网店订单', n("SELECT COUNT(*) n FROM orders WHERE channel = 'shop' AND created_at >= ?", since(24)), '/admin/orders']],
-    todos: todo(db.prepare("SELECT id, product_id, rating FROM reviews WHERE status = 'pending' ORDER BY created_at LIMIT 5").all(), (r) => `${r.product_id} 的 ${r.rating} 星评价待审核`, () => '/admin/reviews'),
-    links: [['优惠券', '/admin/coupons'], ['评价', '/admin/reviews']] }) },
+  { perm: 'marketing', title: '运营：营销', build: () => {
+    const f = funnel(1);
+    const ending = runningPromos().filter((p) => Date.parse(p.ends_at) - Date.now() < 48 * 3600e3);
+    const stats = productStats(30);
+    const weak = [...stats.entries()].filter(([, s]) => s.views >= 30 && !s.carts).slice(0, 3);
+    return {
+      kpis: [['今日访客', f.visitors, '/admin/marketing'], ['商品浏览', f.productViews, '/admin/marketing'], ['加购', f.carts, '/admin/marketing'], ['下单转化率', f.conversion == null ? '—' : `${(f.conversion * 100).toFixed(1)}%`, '/admin/marketing'],
+        ['在线成交额', money(f.revenue), '/admin/marketing'], ['待审核评价', n("SELECT COUNT(*) n FROM reviews WHERE status = 'pending'"), '/admin/reviews'], ['待发布文章', listArticles().filter((x) => x.data.status === 'draft').length, '/admin/content']],
+      todos: [...todo(db.prepare("SELECT id, product_id, rating FROM reviews WHERE status = 'pending' ORDER BY created_at LIMIT 5").all(), (r) => `${r.product_id} 的 ${r.rating} 星评价待审核`, () => '/admin/reviews'),
+        ...ending.map((p) => ({ text: `促销"${p.name}"将在 48 小时内结束`, href: '/admin/marketing/promotions' })), ...weak.map(([id]) => ({ text: `${id} 浏览多但没人加购，检查价格和主图`, href: `/admin/products/${encodeURIComponent(id)}` }))],
+      links: [['经营数据', '/admin/marketing'], ['商品数据', '/admin/marketing/products'], ['推广活动', '/admin/marketing/campaigns'], ['限时折扣 / 满减', '/admin/marketing/promotions'], ['优惠券', '/admin/coupons'], ['评价', '/admin/reviews']] };
+  } },
   { perm: 'content', title: '运营：内容与 GEO', build: () => { const drafts = listArticles().filter((a) => a.data.status === 'draft'); return {
     kpis: [['待审核文章', drafts.length, '/admin/content']],
     todos: drafts.slice(0, 5).map((a) => ({ text: `文章待审核：${a.data.title}`, href: `/admin/content/${encodeURIComponent(a.id)}` })),

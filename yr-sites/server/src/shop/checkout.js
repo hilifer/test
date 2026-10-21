@@ -11,6 +11,7 @@ import { alertOps } from '../alerts.js';
 import { applyCoupon } from './marketing.js';
 import './schema.js';
 import { registerJob, every } from '../jobs.js';
+import { bestPromotion } from '../marketing/promotions.js';
 
 migrate([{ id: '2026-10-21-order-access', up: () => addColumn('orders', 'access_token', 'TEXT') }]);
 
@@ -42,7 +43,9 @@ export function placeOrder({ cartId, customer = null, email, address, zoneId, pa
     const cust = customer || findOrCreateCustomer({ email: mail, contact: addr.name, company: addr.company, country: addr.country, phone: addr.phone, lang });
     const lines = cart.items.map((i) => ({ sku: i.sku, name: i.name, variant: i.label || '', unit: i.unit, qty: i.qty, unit_price: i.unitPrice, amount: i.lineTotal }));
     const promo = String(coupon || '').trim() ? applyCoupon(coupon, cart, { customerId: cust.id, lang }) : { code: null, discount: 0 };
-    const total = r2(cart.subtotal - promo.discount + option.fee);
+    const auto = bestPromotion(cart, { lang }) || { discount: 0, name: null }; // automatic flash sale / spend-and-save, on top of a coupon
+    const discount = r2(Math.min(cart.subtotal, promo.discount + auto.discount));
+    const total = r2(cart.subtotal - discount + option.fee);
     const id = randomUUID();
     const number = nextNumber('order');
     const token = randomBytes(18).toString('base64url');
@@ -51,7 +54,8 @@ export function placeOrder({ cartId, customer = null, email, address, zoneId, pa
       channel, shipping_address, shipping_fee, shipping_method, subtotal, discount, coupon, payment_method, expires_at, customer_note, access_token)
       VALUES (?,?,?,?,?,?,?,?,0,?,?,?,?,?,?,'shop',?,?,?,?,?,?,?,?,?,?)`).run(
       id, number, null, cust.id, 'pending_payment', cart.currency, JSON.stringify(lines), total, total, 'DAP', addr.city, 'tt100', now(), now(),
-      JSON.stringify(addr), option.fee, `${option.name} (${option.days[0]}–${option.days[1]} days)`, cart.subtotal, promo.discount, promo.code, payment, expires, String(note).slice(0, 1000), token);
+      JSON.stringify(addr), option.fee, `${option.name} (${option.days[0]}–${option.days[1]} days)`, cart.subtotal, discount, promo.code, payment, expires, String(note).slice(0, 1000), token);
+    if (auto.name) db.prepare('UPDATE orders SET promotion = ? WHERE id = ?').run(auto.name, id);
     db.prepare('UPDATE carts SET converted_order_id = ? WHERE id = ?').run(id, cartId);
     db.exec('COMMIT');
     logEvent('order', id, 'created', { to: 'pending_payment', actor: 'customer', note: `${number} · ${payment}` });

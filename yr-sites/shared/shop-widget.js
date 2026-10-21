@@ -2,8 +2,8 @@
 // "add to cart" come from the sales server; if it is unreachable (static preview) the box stays hidden.
 //   <div data-buy-box data-product="YR-HB-U2" data-lang="en"></div>     <a data-cart-link><span data-cart-count hidden></span></a>
 const L = {
-  en: { reviews: 'Customer reviews', noReviews: 'No reviews yet — reviews come from verified buyers.', save: '♡ Save', saved: '♥ Saved', login: 'Log in to save products', related: 'You may also like', verified: 'Verified buyer', reply: 'Reply', over: 'Only {n} available — reduce the quantity or request a quote.', buy: 'Buy online', variant: 'Option', qty: 'Quantity', add: 'Add to cart', added: 'Added to cart', view: 'View cart', inStock: 'In stock', low: 'Only {n} left', oos: 'Out of stock — request a quote instead', each: 'each', from: 'from', moq: 'Min. order {n}', tiers: 'Volume price', ship: 'Shipping calculated at checkout', err: 'Could not add to cart. Please try again.' },
-  zh: { reviews: '买家评价', noReviews: '暂无评价——评价仅来自已收货的买家。', save: '♡ 收藏', saved: '♥ 已收藏', login: '登录后可收藏', related: '同类推荐', verified: '已购买', reply: '回复', over: '库存仅 {n}，请减少数量或询价。', buy: '在线购买', variant: '规格', qty: '数量', add: '加入购物车', added: '已加入购物车', view: '查看购物车', inStock: '有现货', low: '仅剩 {n}', oos: '暂时缺货，请询价', each: '/件', from: '起', moq: '起订 {n}', tiers: '批量价', ship: '运费在结算时计算', err: '加入失败，请重试。' },
+  en: { sale: 'Sale', ends: 'ends', zone: 'On sale now', reviews: 'Customer reviews', noReviews: 'No reviews yet — reviews come from verified buyers.', save: '♡ Save', saved: '♥ Saved', login: 'Log in to save products', related: 'You may also like', verified: 'Verified buyer', reply: 'Reply', over: 'Only {n} available — reduce the quantity or request a quote.', buy: 'Buy online', variant: 'Option', qty: 'Quantity', add: 'Add to cart', added: 'Added to cart', view: 'View cart', inStock: 'In stock', low: 'Only {n} left', oos: 'Out of stock — request a quote instead', each: 'each', from: 'from', moq: 'Min. order {n}', tiers: 'Volume price', ship: 'Shipping calculated at checkout', err: 'Could not add to cart. Please try again.' },
+  zh: { sale: '促销', ends: '截止', zone: '正在促销', reviews: '买家评价', noReviews: '暂无评价——评价仅来自已收货的买家。', save: '♡ 收藏', saved: '♥ 已收藏', login: '登录后可收藏', related: '同类推荐', verified: '已购买', reply: '回复', over: '库存仅 {n}，请减少数量或询价。', buy: '在线购买', variant: '规格', qty: '数量', add: '加入购物车', added: '已加入购物车', view: '查看购物车', inStock: '有现货', low: '仅剩 {n}', oos: '暂时缺货，请询价', each: '/件', from: '起', moq: '起订 {n}', tiers: '批量价', ship: '运费在结算时计算', err: '加入失败，请重试。' },
 };
 const money = (cur, n) => `${cur === 'USD' ? 'US$' : cur + ' '}${Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -21,7 +21,7 @@ async function mount(box) {
   const v0 = data.variants[0];
   box.innerHTML = `<div class="buybox"><p class="buybox__h">${t.buy}</p>
 ${data.variants.length > 1 ? `<label class="buybox__f">${t.variant}<select data-v>${data.variants.map((v, i) => `<option value="${i}">${esc(v.label || v.sku)}</option>`).join('')}</select></label>` : ''}
-<p class="buybox__price"><b data-price></b> <span data-each>${t.each}</span> <s data-cmp></s></p><p class="buybox__meta" data-meta></p><div data-tiers class="buybox__tiers"></div>
+${data.promo ? `<p class="buybox__promo" data-promo>${t.sale} · ${esc(data.promo.label)} · ${t.ends} ${new Date(data.promo.ends_at).toLocaleDateString()}</p>` : ''}<p class="buybox__price"><b data-price></b> <span data-each>${t.each}</span> <s data-cmp></s></p><p class="buybox__meta" data-meta></p><div data-tiers class="buybox__tiers"></div>
 <div class="buybox__row"><label class="buybox__f">${t.qty}<input data-q type="number" inputmode="numeric" min="1" step="1"></label><button type="button" class="btn btn--signal buybox__add" data-add>${t.add}</button></div>
 <p class="buybox__meta">${t.ship}</p><p class="buybox__msg" role="status" data-msg></p></div>`;
   const $ = (s) => box.querySelector(s);
@@ -76,7 +76,27 @@ ${rel.length ? `<h2>${t.related}</h2><ul class="extras__rel">${rel.map((p) => `<
   box.hidden = false;
 }
 
+/** Home page: running promotions with their products (filled live, so a sale starts and ends on time). */
+async function promoZone(el) {
+  const lang = el.dataset.lang === 'zh' ? 'zh' : 'en';
+  const t = L[lang];
+  let zones = [];
+  try { const r = await fetch(`/api/shop/promotions?lang=${lang}`); if (!r.ok) return; zones = await r.json(); } catch { return; }
+  if (!zones.length) return;
+  const base = lang === 'zh' && location.pathname.startsWith('/zh') ? '/zh' : '';
+  el.innerHTML = `<h2>${t.zone}</h2>${zones.map((z) => `<div class="promo-zone__item"><p class="promo-zone__label"><b>${esc(z.label)}</b> · ${t.ends} ${new Date(z.ends_at).toLocaleDateString()}</p><div class="featured-grid">${z.products.map((p) => `<a class="card" href="${base}/products/${esc(p.slug)}/">${p.image ? `<img src="${esc(p.image)}" alt="" loading="lazy">` : ''}<b>${esc(p.name)}</b></a>`).join('')}</div></div>`).join('')}`;
+  el.closest('.promo-zone')?.removeAttribute('hidden');
+}
+
+/** One page-view beacon for the site's own analytics (no cookies unless the visitor came from a campaign link). */
+function beacon() {
+  const product = document.querySelector('[data-buy-box][data-product], [data-shop-extras][data-product]')?.dataset.product || '';
+  try { fetch('/api/t', { method: 'POST', keepalive: true, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ p: location.pathname, q: location.search, r: document.referrer, product }) }).catch(() => {}); } catch { /* old browser */ }
+}
+
 async function init() {
+  beacon();
+  document.querySelectorAll('[data-promo-zone]').forEach(promoZone);
   document.querySelectorAll('[data-buy-box]').forEach(mount);
   document.querySelectorAll('[data-shop-extras]').forEach(extras);
   if (document.querySelector('[data-cart-count]')) {

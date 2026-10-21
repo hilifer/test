@@ -14,6 +14,7 @@ import * as AL from './autolist.js';
 import './copywriting.js'; // banned-word check on every product save
 import { erpLabel } from '../ops/erp/index.js';
 import { aiEnabled } from '../config.js';
+import { productStats } from '../marketing/analytics.js';
 
 const ILLUS = { led: ['ufo', 'linear-hb', 'shoebox', 'street', 'solar', 'flood', 'sports', 'wallpack', 'canopy', 'panel', 'triproof'], grid: ['cabinet', 'cabinet-small', 'home-battery', 'inverter', 'module', 'wallbox', 'dc-charger'] };
 const MODES = { both: '在线购买 + 询价', shop: '仅在线购买', inquiry: '仅询价（不在线销售）' };
@@ -48,7 +49,11 @@ function publishBar() {
 function listPage(c) {
   const q = c.req.query('q') || '', category = c.req.query('category') || '', status = c.req.query('status') || '', featured = c.req.query('featured') || '';
   const page = Math.max(1, Number(c.req.query('page')) || 1);
-  const { total, rows } = C.listProducts({ q, category, status, featured, page, pageSize: 50 });
+  const dsort = ['views', 'carts', 'orders', 'conversion', 'revenue'].includes(c.req.query('dsort')) ? c.req.query('dsort') : '';
+  const stats = productStats(30);
+  const st = (id) => stats.get(id) || { views: 0, carts: 0, orders: 0, revenue: 0, conversion: null };
+  let { total, rows } = C.listProducts({ q, category, status, featured, page: dsort ? 1 : page, pageSize: dsort ? 5000 : 50 });
+  if (dsort) rows = rows.sort((a, b) => (st(b.id)[dsort] ?? -1) - (st(a.id)[dsort] ?? -1)).slice((page - 1) * 50, page * 50); // by data across all pages
   const fmax = C.featuredMax(), fcount = C.featuredIds().length;
   const cats = C.listCategories();
   const stock = new Map(stockView().map((s) => [s.sku, s]));
@@ -58,22 +63,22 @@ function listPage(c) {
     const avail = vs.reduce((a, v) => a + (stock.get(v.sku)?.available || 0), 0);
     return `<tr draggable="true" data-id="${esc(p.id)}"><td><input type="checkbox" name="ids" value="${esc(p.id)}" aria-label="选择 ${esc(p.id)}"></td><td class="drag" title="拖动调整顺序" style="cursor:grab;color:#90a4ae">⋮⋮</td><td><input name="sort_${esc(p.id)}" value="${p._sort}" inputmode="numeric" style="width:64px" aria-label="排序号"></td><td>${p.image ? `<img class="thumb" src="${esc(p.image)}" alt="">` : '<span class="thumb"></span>'}</td><td><a href="/admin/products/${encodeURIComponent(p.id)}"><b>${esc(p.name)}</b></a>${p._featured ? ' <span class="pill" style="background:#ffb000;color:#1d2733">推荐</span>' : ''}<div class="mute">${esc(p.id)}${p.nameZh ? ' · ' + esc(p.nameZh) : ''}</div></td>
 <td>${esc(cats.find((x) => x.id === p.category)?.name || p.category)}</td><td><span class="pill">${esc(STATUSES[p._status])}</span><div class="mute">${esc(MODES[p._salesMode])}</div></td>
-<td class="n">${prices.length ? `${money(Math.min(...prices))}${prices.length > 1 && Math.max(...prices) !== Math.min(...prices) ? ' 起' : ''}` : '—'}</td><td class="n">${vs.length}</td><td class="n">${avail}</td><td class="mute">${fmt(p._updatedAt)}<br>${esc(p._updatedBy || '')}</td></tr>`;
+<td class="n">${prices.length ? `${money(Math.min(...prices))}${prices.length > 1 && Math.max(...prices) !== Math.min(...prices) ? ' 起' : ''}` : '—'}</td><td class="n">${vs.length}</td><td class="n">${avail}</td><td class="n" style="white-space:nowrap">${(() => { const s = st(p.id); return `${s.views} / ${s.carts} / ${s.orders}<div class="mute">${s.conversion == null ? '—' : `${(s.conversion * 100).toFixed(1)}%`}</div>`; })()}</td><td class="mute">${fmt(p._updatedAt)}<br>${esc(p._updatedBy || '')}</td></tr>`;
   }).join('');
   const pages = Math.max(1, Math.ceil(total / 50));
   return view('商品', `<h2>商品（${total}）</h2><form class="acts" method="get"><input name="q" value="${esc(q)}" placeholder="型号 / 名称"><select name="category"><option value="">全部品类</option>${cats.map((x) => `<option value="${esc(x.id)}"${x.id === category ? ' selected' : ''}>${esc(x.name)}</option>`).join('')}</select>
-<select name="status"><option value="">全部状态</option>${Object.entries(STATUSES).map(([k, v]) => `<option value="${k}"${k === status ? ' selected' : ''}>${v}</option>`).join('')}</select><label><input type="checkbox" name="featured" value="1"${featured ? ' checked' : ''}> 只看推荐</label><button class="btn l">筛选</button><a class="btn" href="/admin/products/new">＋ 新增商品</a></form>
+<select name="status"><option value="">全部状态</option>${Object.entries(STATUSES).map(([k, v]) => `<option value="${k}"${k === status ? ' selected' : ''}>${v}</option>`).join('')}</select><label><input type="checkbox" name="featured" value="1"${featured ? ' checked' : ''}> 只看推荐</label><select name="dsort" aria-label="按数据排序"><option value="">按排序号</option>${[['views', '浏览最多'], ['carts', '加购最多'], ['orders', '下单最多'], ['conversion', '转化率最高'], ['revenue', '销售额最高']].map(([k, l]) => `<option value="${k}"${k === dsort ? ' selected' : ''}>${l}</option>`).join('')}</select><button class="btn l">筛选</button> <a href="/admin/marketing/products">商品数据</a><a class="btn" href="/admin/products/new">＋ 新增商品</a></form>
 <form method="post" action="/admin/products/bulk" id="bulk">
 <div class="acts" style="position:sticky;top:0;background:var(--bg);padding:6px 0;z-index:2"><label><input type="checkbox" id="all"> 全选</label>
 <button class="btn g" name="action" value="publish">批量上架</button><button class="btn r" name="action" value="archive">批量下架</button><button class="btn l" name="action" value="feature">设为推荐</button><button class="btn l" name="action" value="unfeature">取消推荐</button><button class="btn" name="action" value="sort">保存排序号</button>
 <span class="mute">推荐 ${fcount}${fmax ? ` / 上限 ${fmax}` : '（不限数量）'} · 排序号越小越靠前，可拖动行调整后点"保存排序号"</span></div>
-<div class="wrap"><table><thead><tr><th></th><th></th><th>排序</th><th></th><th>商品</th><th>品类</th><th>状态</th><th class="n">售价</th><th class="n">规格数</th><th class="n">可售库存</th><th>最近修改</th></tr></thead><tbody id="rows">${tr || '<tr><td colspan="11" class="mute">没有符合条件的商品</td></tr>'}</tbody></table></div></form>
+<div class="wrap"><table><thead><tr><th></th><th></th><th>排序</th><th></th><th>商品</th><th>品类</th><th>状态</th><th class="n">售价</th><th class="n">规格数</th><th class="n">可售库存</th><th class="n" title="近 30 天：浏览 / 加购 / 下单，下面是转化率">数据（30 天）</th><th>最近修改</th></tr></thead><tbody id="rows">${tr || '<tr><td colspan="12" class="mute">没有符合条件的商品</td></tr>'}</tbody></table></div></form>
 <form method="post" action="/admin/products/featured-max" class="acts"><label>推荐商品数量上限 <input name="max" value="${fmax}" style="width:60px" inputmode="numeric"></label><button class="btn l">保存</button><span class="mute">0 = 不限。推荐商品显示在网站首页"推荐产品"区，按排序号排列。</span></form>
 <script>(()=>{const all=document.getElementById('all');all&&all.addEventListener('change',()=>document.querySelectorAll('#rows input[name=ids]').forEach((x)=>x.checked=all.checked));
 const tb=document.getElementById('rows');let drag=null;tb.addEventListener('dragstart',(e)=>{drag=e.target.closest('tr');e.dataTransfer.effectAllowed='move';});
 tb.addEventListener('dragover',(e)=>{e.preventDefault();const t=e.target.closest('tr');if(!drag||!t||t===drag)return;const r=t.getBoundingClientRect();tb.insertBefore(drag,e.clientY>r.top+r.height/2?t.nextSibling:t);});
 tb.addEventListener('drop',(e)=>{e.preventDefault();const base=${(page - 1) * 50};[...tb.querySelectorAll('tr[data-id]')].forEach((tr,i)=>{tr.querySelector('input[name^=sort_]').value=(base+i+1)*10;});drag=null;});})();</script>
-${pages > 1 ? `<p class="acts">${Array.from({ length: pages }, (_, i) => `<a class="btn ${i + 1 === page ? '' : 'l'}" href="?${new URLSearchParams({ q, category, status, featured, page: i + 1 })}">${i + 1}</a>`).join('')}</p>` : ''}`, c);
+${pages > 1 ? `<p class="acts">${Array.from({ length: pages }, (_, i) => `<a class="btn ${i + 1 === page ? '' : 'l'}" href="?${new URLSearchParams({ q, category, status, featured, dsort, page: i + 1 })}">${i + 1}</a>`).join('')}</p>` : ''}`, c);
 }
 
 // ---------------------------------------------------------------- edit

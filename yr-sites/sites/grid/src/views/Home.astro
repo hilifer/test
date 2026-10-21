@@ -49,6 +49,8 @@ const featured = catalog.products.filter((p: any) => p.featured);
     </div>
   </section>
 
+  <section class="section section--white promo-zone" hidden><div class="wrap" data-promo-zone data-lang={lang}></div></section>
+
   {featured.length > 0 && (
     <section class="section section--white" data-featured>
       <div class="wrap">

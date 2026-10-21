@@ -248,3 +248,41 @@ test('E2E-P07 sales: a new lead waits in the pool → claim it → log a call wi
   await expect(page.locator('main')).toContainText('负责人 admin');
   await expect(page.locator('main')).toContainText('客户打开记录');
 });
+
+test.describe('E2E-P08 operations', () => {
+  test.use({ userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36' }); // a normal browser, so the page-view beacon counts
+  test('E2E-P08 a flash sale created in the admin appears on the home page and the product page, the visit is counted, then it is stopped', async ({ page }) => {
+    await page.goto(SITE + '/admin/login');
+    await page.locator('input[name="username"]').fill('admin');
+    await page.locator('input[name="password"]').fill('e2e-pass');
+    await page.getByRole('button', { name: '登录' }).click();
+    await page.waitForURL(/\/admin\/home/);
+    await page.goto(SITE + '/admin/marketing/promotions');
+    const local = (h) => { const d = new Date(Date.now() + h * 3600e3); return new Date(d.getTime() - d.getTimezoneOffset() * 60e3).toISOString().slice(0, 16); };
+    await page.locator('input[name="name"]').fill('E2E 工矿灯特价');
+    await page.locator('input[name="name_en"]').fill('E2E High bay sale');
+    await page.locator('input[name="value"]').fill('20');
+    await page.locator('input[name="products"]').fill('YR-HB-U2');
+    await page.locator('input[name="starts_at"]').fill(local(-1));
+    await page.locator('input[name="ends_at"]').fill(local(24));
+    await page.getByRole('button', { name: '创建' }).click();
+    await expect(page.locator('main')).toContainText('促销活动已保存');
+    try {
+      await page.goto(SITE + '/?utm_source=e2e&utm_campaign=e2e-home');
+      const zone = page.locator('.promo-zone');
+      await expect(zone).toBeVisible();
+      await expect(zone).toContainText('E2E High bay sale: 20% off');
+      await expect(zone).toContainText('UFO High Bay U2');
+      await zone.getByRole('link', { name: /UFO High Bay U2/ }).click();
+      await expect(page).toHaveURL(/\/products\/ufo-high-bay-u2\//);
+      await expect(page.locator('[data-promo]')).toContainText('E2E High bay sale: 20% off');
+      await expect.poll(async () => (await (await page.request.get(SITE + '/admin/marketing')).text()).match(/<span>访客<\/span><strong>(\d+)<\/strong>/)?.[1] * 1 || 0).toBeGreaterThan(0);
+      await page.goto(SITE + '/admin/marketing/campaigns');
+      await expect(page.locator('main')).toContainText('e2e-home'); // seen in links but not registered yet
+    } finally {
+      await page.goto(SITE + '/admin/marketing/promotions');
+      await page.locator('tr', { hasText: 'E2E 工矿灯特价' }).getByRole('button', { name: '停用' }).click();
+      await expect(page.locator('main')).toContainText('已停用');
+    }
+  });
+});

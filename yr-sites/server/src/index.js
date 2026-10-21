@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
 import { config, aiEnabled } from './config.js';
-import { ensureConversation, insertLead, setLeadStatus } from './db.js';
+import { db, ensureConversation, insertLead, setLeadStatus } from './db.js';
 import { chat } from './agent.js';
 import { handleMcp } from './mcp.js';
 import { scoreLead } from '../../shared/sales-engine.js';
@@ -48,6 +48,8 @@ import { startServiceChecks } from './ops/services.js';
 import { onJobFailure } from './jobs.js';
 import { mountCrmAdmin } from './sales/admin-crm.js';
 import { startCrmJobs, getLead, canSeeLead, listLeadsFor } from './sales/crm.js';
+import { mountTracking, campaignOf, trackRequest } from './marketing/analytics.js';
+import { mountGrowthAdmin } from './marketing/admin-growth.js';
 
 const app = new Hono();
 
@@ -102,6 +104,7 @@ app.onError((err, c) => {
 process.on('unhandledRejection', (e) => { console.error('[unhandledRejection]', e); try { recordError(e, { source: 'process' }); } catch { /* ignore */ } });
 onJobFailure((job, detail) => recordError(new Error(detail || 'failed'), { source: 'job', path: job.id }));
 
+mountTracking(app);
 app.post('/api/chat', limit, async (c) => {
   const b = await c.req.json().catch(() => ({}));
   if (!b.message || typeof b.message !== 'string') return c.json({ error: 'message_required' }, 400);
@@ -127,7 +130,10 @@ app.post('/api/leads', limit, async (c) => {
   const clean = Object.fromEntries(['name', 'company', 'email', 'phone', 'whatsapp', 'country', 'buyer_type', 'needs', 'product_id', 'quantity', 'timeline', 'source'].map((k) => [k, String(b[k] ?? '').slice(0, 2000)]));
   const s = scoreLead({ ...clean, lines: Array.isArray(b.extra?.lines) ? b.extra.lines.length : 0 });
   const lead = { ...clean, ...s, consent: true, conv_id: b.sessionId || '', extra: typeof b.extra === 'object' ? b.extra : {} };
-  insertLead(lead);
+  const leadId = insertLead(lead);
+  const cmp = campaignOf(c);
+  if (cmp) db.prepare('UPDATE leads SET campaign = ? WHERE id = ?').run(cmp, leadId);
+  trackRequest(c, 'lead', { productId: clean.product_id });
   alertLead(lead).catch(() => {});
   return c.json({ ok: true });
 });
@@ -268,6 +274,7 @@ mountDeals(app, { ipOf });
 mountSystemAdmin(app);
 mountAuditAdmin(app);
 mountTasksAdmin(app);
+mountGrowthAdmin(app);
 mountOpsCenter(app);
 mountCopyAdmin(app);
 mountAssetsAdmin(app);

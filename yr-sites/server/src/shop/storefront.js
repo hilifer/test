@@ -16,6 +16,9 @@ import { sendMail } from './mailer.js';
 import { createRma, rmasForCustomer } from '../ops/service.js';
 import './notify.js';
 import * as M from './marketing.js';
+import { bestPromotion, productBadge, promoZone } from '../marketing/promotions.js';
+import { campaignOf, trackRequest } from '../marketing/analytics.js';
+import { db } from '../db.js';
 
 const CART = 'yr_cart', CUST = 'yr_cust';
 const secure = () => config.publicBaseUrl.startsWith('https://');
@@ -93,12 +96,13 @@ function cartPage(c, x) {
 <td class="n">${money(v.currency, i.lineTotal)}<form method="post" action="/shop/cart/remove"><input type="hidden" name="sku" value="${esc(i.sku)}"><button class="btn l sm" style="margin-top:6px">${t.remove}</button></form></td></tr>`;
   }).join('');
   return page(c, t.cart, `<h1>${t.cart}</h1>${msg(c)}<div class="card"><table><thead><tr><th></th><th>${t.item}</th><th class="n h">${t.price}</th><th>${t.qty}</th><th class="n">${t.total}</th></tr></thead><tbody>${rows}</tbody></table>
-<p class="n" style="font-size:18px;margin:14px 0"><b>${t.subtotal}: ${money(v.currency, v.subtotal)}</b></p><p class="n">${v.ok ? `<a class="btn" href="/shop/checkout">${t.checkout}</a>` : ''}</p></div>`, { ...x, cartCount: v.count });
+${(() => { const pr = bestPromotion(v, { lang }); return pr ? `<p class="n" style="color:#c62828;margin:14px 0 0">${esc(pr.name)}: −${money(v.currency, pr.discount)}</p>` : ''; })()}<p class="n" style="font-size:18px;margin:14px 0"><b>${t.subtotal}: ${money(v.currency, v.subtotal)}</b></p><p class="n">${v.ok ? `<a class="btn" href="/shop/checkout">${t.checkout}</a>` : ''}</p></div>`, { ...x, cartCount: v.count });
 }
 
 function checkoutPage(c, x, { error = '', form = {} } = {}) {
   const { t, lang, customer } = x;
   const v = viewCart(x.cart?.id);
+  const autoPromo = bestPromotion(v, { lang });
   if (!v.items.length || !v.ok) return go(c, '/shop/cart');
   const saved = customer ? A.listAddresses(customer.id) : [];
   const def = saved[0] || {};
@@ -114,8 +118,8 @@ function checkoutPage(c, x, { error = '', form = {} } = {}) {
 <div class="card"><h2 style="margin-top:0">${t.ship}</h2>${country ? opts.map((o, i) => `<label class="opt"><input type="radio" name="zone" value="${o.zoneId}"${i === 0 ? ' checked' : ''}><span><b>${esc(o.name)}</b> — ${o.free ? t.free : money(v.currency, o.fee)}<br><span class="mute">${o.days[0]}–${o.days[1]} ${t.days}${o.freeOver != null && !o.free ? ` · ${t.free} ≥ ${money(v.currency, o.freeOver)}` : ''}</span></span></label>`).join('') || '<p class="prob">—</p>' : `<p class="mute">${t.chooseCountry}</p>`}</div>
 <div class="card"><h2 style="margin-top:0">${t.pay}</h2>${methods.map((m, i) => `<label class="opt"><input type="radio" name="payment" value="${m}"${i === 0 ? ' checked' : ''}><span>${t[m]}</span></label>`).join('')}<label>${t.coupon}<input name="coupon" value="${esc(f.coupon || '')}" autocomplete="off"></label><label>${t.note}<textarea name="note" rows="2">${esc(f.note || '')}</textarea></label></div></div>
 <div><div class="card"><h2 style="margin-top:0">${t.cart}</h2><table class="sum">${v.items.map((i) => `<tr><td>${i.qty} × ${esc(nm(lang, i))}<div class="mute">${esc(i.label || '')}</div></td><td class="n">${money(v.currency, i.lineTotal)}</td></tr>`).join('')}
-<tr><td>${t.subtotal}</td><td class="n">${money(v.currency, v.subtotal)}</td></tr><tr><td>${t.shipping}</td><td class="n">${opts[0] ? (opts[0].free ? t.free : money(v.currency, opts[0].fee)) : '—'}</td></tr>
-<tr class="t"><td>${t.total}</td><td class="n">${opts[0] ? money(v.currency, v.subtotal + opts[0].fee) : '—'}</td></tr></table><button class="btn" style="width:100%;margin-top:14px"${opts.length ? '' : ' disabled'}>${t.place}</button></div></div></div></form>`, { ...x, cartCount: v.count });
+<tr><td>${t.subtotal}</td><td class="n">${money(v.currency, v.subtotal)}</td></tr>${autoPromo ? `<tr><td>${esc(autoPromo.name)}</td><td class="n" style="color:#c62828">−${money(v.currency, autoPromo.discount)}</td></tr>` : ''}<tr><td>${t.shipping}</td><td class="n">${opts[0] ? (opts[0].free ? t.free : money(v.currency, opts[0].fee)) : '—'}</td></tr>
+<tr class="t"><td>${t.total}</td><td class="n">${opts[0] ? money(v.currency, v.subtotal - (autoPromo?.discount || 0) + opts[0].fee) : '—'}</td></tr></table><button class="btn" style="width:100%;margin-top:14px"${opts.length ? '' : ' disabled'}>${t.place}</button></div></div></div></form>`, { ...x, cartCount: v.count });
 }
 
 function orderPage(c, x, o) {
@@ -166,7 +170,7 @@ export function mountShop(app, { ipOf }) {
     const p = config.catalog.products.find((x) => x.id === c.req.param('id'));
     if (!p) return c.json({ error: 'not_found' }, 404);
     const avail = availableBySku();
-    return c.json({ id: p.id, salesMode: p.salesMode || 'inquiry', currency: config.catalog.currency, unit: p.unit,
+    return c.json({ id: p.id, salesMode: p.salesMode || 'inquiry', currency: config.catalog.currency, unit: p.unit, promo: productBadge(p.id, c.req.query('lang') === 'zh' ? 'zh' : 'en'),
       variants: (p.variants || []).filter((v) => v.price > 0).map((v) => ({ sku: v.sku, label: v.label, options: v.options, price: v.price, compareAt: v.compareAt, tiers: v.tiers, minQty: v.minQty, available: Math.max(0, avail.get(v.sku) || 0) })) });
   });
   app.get('/api/shop/cart', (c) => { const x = ctx(c); const v = viewCart(x.cart?.id); return c.json({ count: v.count, subtotal: v.subtotal, currency: v.currency }); });
@@ -177,11 +181,13 @@ export function mountShop(app, { ipOf }) {
     const cart = ensureCart(c, x);
     try {
       const r = setItem(cart.id, String(b.sku || ''), b.qty ?? 1);
+      trackRequest(c, 'cart', { productId: db.prepare('SELECT product_id FROM skus WHERE sku = ?').get(String(b.sku || ''))?.product_id || '', path: c.req.header('referer') ? new URL(c.req.header('referer')).pathname : '' });
       const v = viewCart(cart.id);
       return c.json({ ok: true, qty: r.qty, raisedToMoq: r.raisedToMoq, count: v.count, subtotal: v.subtotal, currency: v.currency });
     } catch (e) { return c.json({ error: e.code || 'error' }, 400); }
   });
 
+  app.get('/api/shop/promotions', (c) => c.json(promoZone(c.req.query('lang') === 'zh' ? 'zh' : 'en')));
   app.get('/api/shop/reviews/:id', (c) => c.json(M.publicReviews(c.req.param('id'))));
   app.get('/api/shop/related/:id', (c) => c.json(M.related(c.req.param('id'))));
   app.get('/api/shop/wishlist', (c) => { const x = ctx(c); return c.json({ loggedIn: Boolean(x.customer), ids: x.customer ? M.wishlist(x.customer.id).map((p) => p.id) : [] }); });
@@ -221,6 +227,9 @@ export function mountShop(app, { ipOf }) {
     if (!x.cart) return go(c, '/shop/cart');
     try {
       const o = placeOrder({ cartId: x.cart.id, customer: x.customer, email: f.email, address: f, zoneId: f.zone, payment: String(f.payment || ''), note: f.note, coupon: f.coupon, lang: x.lang });
+      const cmp = campaignOf(c);
+      if (cmp) db.prepare('UPDATE orders SET campaign = ? WHERE id = ?').run(cmp, o.id);
+      trackRequest(c, 'order', { value: o.total });
       if (x.customer) { const a = { ...f }; delete a.id; try { if (!A.listAddresses(x.customer.id).some((s) => s.line1 === a.line1 && s.city === a.city)) A.saveAddress(x.customer.id, a, x.lang); } catch { /* optional */ } }
       const url = `${config.publicBaseUrl}/shop/order/${encodeURIComponent(o.number)}?t=${encodeURIComponent(o.access_token)}`;
       await sendMail(String(x.customer?.email || f.email), `${config.profile.brand}: order ${o.number} received`, `Thank you for your order ${o.number} (${o.currency} ${o.total}).\n${o.payment_method === 'tt' ? `Please pay by bank transfer quoting ${o.number}. Payment details: ${url}` : 'If you have not completed payment yet, you can pay here:'}\n${url}`);
