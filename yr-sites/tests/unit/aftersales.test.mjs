@@ -45,21 +45,28 @@ describe('tracking (17TRACK)', () => {
   test('AS-01 status mapping', () => {
     assert.deepEqual(['InfoReceived', 'InTransit', 'OutForDelivery', 'AvailableForPickup', 'Delivered', 'Exception', 'Expired'].map(T.mapStatus), [null, 'in_transit', 'in_transit', 'arrived', 'delivered', 'exception', 'exception']);
   });
-  test('AS-02 registers new numbers once, then updates shipment and order status from the carrier', async () => {
-    const o = shopOrder();
-    const s = S.createShipment({ order_id: o.id, carrier: 'DHL', tracking_no: '1234567890' });
+  const ctx = {};
+  test('AS-02a first sync moves a new shipment to in_transit and the order to shipped', async () => {
+    ctx.o = shopOrder();
+    ctx.s = S.createShipment({ order_id: ctx.o.id, carrier: 'DHL', tracking_no: '1234567890' });
     track.set('1234567890', 'InTransit');
     assert.deepEqual(await T.syncTracking(), { checked: 1, changed: 1 });
-    assert.equal(S.getShipment(s.id).status, 'in_transit');
-    assert.equal(S.getOrder(o.id).status, 'shipped');
+    assert.equal(S.getShipment(ctx.s.id).status, 'in_transit');
+    assert.equal(S.getOrder(ctx.o.id).status, 'shipped');
+  });
+  test('AS-02b the new number is registered with 17TRACK once, using the API token', () => {
     assert.equal(prov.calls.filter((c) => c.url === '/track/v2.2/register').length, 1);
     assert.equal(prov.calls.find((c) => c.url === '/track/v2.2/register').headers['17token'], 'k17');
+  });
+  test('AS-02c carrier "Delivered" marks shipment and order delivered and records the event location', async () => {
     track.set('1234567890', 'Delivered');
     await T.syncTracking();
-    assert.equal(S.getShipment(s.id).status, 'delivered');
-    assert.equal(S.getOrder(o.id).status, 'delivered');
+    assert.equal(S.getShipment(ctx.s.id).status, 'delivered');
+    assert.equal(S.getOrder(ctx.o.id).status, 'delivered');
+    assert.equal(S.getShipment(ctx.s.id).events.at(-1).location, 'Los Angeles');
+  });
+  test('AS-02d a number already registered is not registered again on later syncs', () => {
     assert.equal(prov.calls.filter((c) => c.url === '/track/v2.2/register').length, 1, 'not registered twice');
-    assert.equal(S.getShipment(s.id).events.at(-1).location, 'Los Angeles');
   });
   test('AS-03 booked → delivered in one poll steps through in_transit (legal transitions only)', async () => {
     const o = shopOrder();
@@ -74,27 +81,33 @@ describe('tracking (17TRACK)', () => {
     await T.syncTracking({ ids: [s.id] });
     assert.equal(S.getShipment(s.id).track_error, 'invalid number');
   });
-  test('AS-05 the buyer is e-mailed when the shipment is created and when it moves', () => {
+  test('AS-05a the buyer gets a "shipment created" e-mail containing the tracking number', () => {
     const subjects = mails('buyer@aftersales.test').map((m) => m.subject);
     assert.ok(subjects.some((s) => /shipment created/.test(s)));
+    assert.ok(mails('buyer@aftersales.test').some((m) => /Tracking number: 1234567890/.test(m.body)));
+  });
+  test('AS-05b the buyer gets an e-mail when the shipment goes in transit and when it is delivered', () => {
+    const subjects = mails('buyer@aftersales.test').map((m) => m.subject);
     assert.ok(subjects.some((s) => /in transit/.test(s)));
     assert.ok(subjects.some((s) => /delivered/.test(s)));
-    assert.ok(mails('buyer@aftersales.test').some((m) => /Tracking number: 1234567890/.test(m.body)));
   });
 });
 
 describe('refunds', () => {
-  test('AS-06 Stripe: refund sent to Stripe (cents, idempotency key) and booked as a negative payment', async () => {
-    const o = shopOrder({ paidVia: 'stripe' });
-    const r = await R.refundOrder(o.id, { amount: 100, reason: 'damaged' });
+  const st = {};
+  test('AS-06a Stripe: refund is sent to Stripe for the payment intent, in cents, with an idempotency key', async () => {
+    st.o = shopOrder({ paidVia: 'stripe' });
+    const r = await R.refundOrder(st.o.id, { amount: 100, reason: 'damaged' });
     assert.equal(r.provider, 'stripe');
     const call = prov.calls.filter((c) => c.url === '/v1/refunds').at(-1);
     const p = new URLSearchParams(call.body);
     assert.equal(p.get('payment_intent'), 'pi_123');
     assert.equal(p.get('amount'), '10000');
     assert.ok(call.headers['idempotency-key'].startsWith('refund-'));
-    assert.equal(S.getOrder(o.id).paid, o.total - 100);
-    assert.equal(R.refundsFor(o.id)[0].status, 'done');
+  });
+  test('AS-06b Stripe: the refund is booked as a negative payment and the refund record is done', () => {
+    assert.equal(S.getOrder(st.o.id).paid, st.o.total - 100);
+    assert.equal(R.refundsFor(st.o.id)[0].status, 'done');
   });
   test('AS-07 PayPal: refund against the capture', async () => {
     const o = shopOrder({ paidVia: 'paypal' });
@@ -106,10 +119,14 @@ describe('refunds', () => {
     const o = shopOrder();
     assert.equal((await R.refundOrder(o.id, { amount: 10 })).provider, 'manual');
   });
-  test('AS-09 limits: more than received, zero, unknown order', async () => {
-    const o = shopOrder();
-    await assert.rejects(R.refundOrder(o.id, { amount: o.total + 1 }), /不能超过已收金额/);
-    await assert.rejects(R.refundOrder(o.id, { amount: 0 }), /大于 0/);
+  test('AS-09a a refund larger than the amount received is refused', async () => {
+    st.limit = shopOrder();
+    await assert.rejects(R.refundOrder(st.limit.id, { amount: st.limit.total + 1 }), /不能超过已收金额/);
+  });
+  test('AS-09b a zero refund is refused', async () => {
+    await assert.rejects(R.refundOrder(st.limit.id, { amount: 0 }), /大于 0/);
+  });
+  test('AS-09c a refund for an unknown order is refused', async () => {
     await assert.rejects(R.refundOrder('nope', { amount: 1 }), /订单不存在/);
   });
   test('AS-10 provider failure: nothing booked, refund marked failed with the reason', async () => {
@@ -118,7 +135,7 @@ describe('refunds', () => {
     assert.equal(S.getOrder(o.id).paid, o.total);
     assert.equal(R.refundsFor(o.id)[0].status, 'failed');
   });
-  test('AS-11 refund for an approved RMA resolves it; full refund then allows cancelling an unshipped order', async () => {
+  test('AS-11a a refund for an approved RMA resolves the RMA with resolution "refund"', async () => {
     const o = shopOrder();
     const s = S.createShipment({ order_id: o.id });
     S.addShipmentEvent(s.id, { status: 'in_transit' });
@@ -127,10 +144,16 @@ describe('refunds', () => {
     await R.refundOrder(o.id, { amount: 20, rmaId: rma.id });
     assert.equal(S.getRma(rma.id).status, 'resolved');
     assert.equal(S.getRma(rma.id).resolution, 'refund');
-    const o2 = shopOrder();
-    assert.throws(() => S.setOrderStatus(o2.id, 'cancelled'), /请先登记退款/);
-    await R.refundOrder(o2.id, { amount: o2.total });
-    assert.equal(S.setOrderStatus(o2.id, 'cancelled').status, 'cancelled');
+  });
+  test('AS-11b a paid, unshipped order cannot be cancelled before a refund is booked', () => {
+    st.o2 = shopOrder();
+    assert.throws(() => S.setOrderStatus(st.o2.id, 'cancelled'), /请先登记退款/);
+  });
+  test('AS-11c after a full refund the unshipped order can be cancelled', async () => {
+    await R.refundOrder(st.o2.id, { amount: st.o2.total });
+    assert.equal(S.setOrderStatus(st.o2.id, 'cancelled').status, 'cancelled');
+  });
+  test('AS-11d the buyer is e-mailed about the refund', () => {
     assert.ok(mails('buyer@aftersales.test').some((m) => /refund/.test(m.subject)));
   });
 });

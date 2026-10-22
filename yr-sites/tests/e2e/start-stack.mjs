@@ -33,6 +33,7 @@ for (const [name, p] of Object.entries(STACK)) {
     ADMIN_PASSWORD: 'e2e-pass', ERP_MODE: 'mock', RATE_LIMIT_PER_MIN: '1000', TRUSTED_PROXY_HOPS: '0',
     LLM_PROVIDER: '', LLM_API_KEY: '', LLM_MODEL: '', CONTENT_ENABLED: 'false', GEO_ENABLED: 'false',
     BUILD_CMD: 'node scripts/sync-shared.mjs && npx astro build', RELEASES_DIR: rel,
+    BACKUP_HOUR: String((new Date().getHours() + 12) % 24), // no surprise backup during the run
   };
   procs.push(spawn(process.execPath, [join(ROOT, 'server/src/index.js')], { env, stdio: 'inherit' }));
   procs.push(spawn(process.execPath, [join(ROOT, 'scripts/serve-local.mjs'), join(rel, 'current'), String(p.site), String(p.api)], { stdio: 'inherit' }));

@@ -38,20 +38,30 @@ const goodDraft = (o = {}) => ({ title: 'Choosing UFO high bay wattage', descrip
 const ctx = () => ({ lang: 'en', allowed: new Set(['/products/ufo-high-bay-u2/', '/quote/']), sourceUrls: new Set(['https://news.test/a']), existingSlugs: new Set() });
 
 describe('validate (guardrails)', () => {
-  test('CA-01 a well-formed answer-first draft passes; slug normalised; unknown product ids dropped', () => {
+  test('CA-01a a well-formed answer-first draft passes with no issues', () => {
+    assert.deepEqual(validate(goodDraft(), ctx()).issues, []);
+  });
+  test('CA-01b the slug is normalised', () => {
     const d = goodDraft();
-    const v = validate(d, ctx());
-    assert.deepEqual(v.issues, []);
+    validate(d, ctx());
     assert.equal(d.slug, 'choosing-ufo-wattage');
+  });
+  test('CA-01c unknown product ids are dropped', () => {
+    const d = goodDraft();
+    validate(d, ctx());
     assert.deepEqual(d.product_ids, ['YR-HB-U2']);
   });
-  test('CA-02 unknown internal links and unsourced external links are stripped (text kept)', () => {
-    const d = goodDraft({ body: goodBody(' [fake](/products/not-real/) and [blog](https://evil.test/x) and [src](https://news.test/a)') });
-    const v = validate(d, ctx());
+  const linked = () => { const d = goodDraft({ body: goodBody(' [fake](/products/not-real/) and [blog](https://evil.test/x) and [src](https://news.test/a)') }); return { d, v: validate(d, ctx()) }; };
+  test('CA-02a an unknown internal link is stripped (text kept) and noted', () => {
+    const { d, v } = linked();
     assert.doesNotMatch(d.body, /\(\/products\/not-real\/\)/);
-    assert.doesNotMatch(d.body, /evil\.test/);
-    assert.match(d.body, /\[src\]\(https:\/\/news\.test\/a\)/);
     assert.ok(v.notes.some((n) => n.includes('/products/not-real/')));
+  });
+  test('CA-02b an external link that is not a supplied source is stripped', () => {
+    assert.doesNotMatch(linked().d.body, /evil\.test/);
+  });
+  test('CA-02c an external link to a supplied source is kept', () => {
+    assert.match(linked().d.body, /\[src\]\(https:\/\/news\.test\/a\)/);
   });
   test('CA-03 banned superlatives / guarantees become hard issues', () => {
     for (const w of ['the best in the world', 'guaranteed savings', 'cheapest', 'industry-leading', '保证收益']) {
@@ -59,44 +69,68 @@ describe('validate (guardrails)', () => {
       assert.ok(v.issues.some((i) => i.startsWith('banned claim')), w);
     }
   });
-  test('CA-04 money figures and unsourced percentages are flagged', () => {
+  test('CA-04a money figures are flagged', () => {
     assert.ok(validate(goodDraft({ body: goodBody(' Costs US$ 40 each.') }), ctx()).issues.some((i) => i.includes('money')));
+  });
+  test('CA-04b percentages without a source are flagged', () => {
     assert.ok(validate(goodDraft({ body: goodBody(' Saves 60% energy.') }), ctx()).issues.some((i) => i.includes('without a source')));
+  });
+  test('CA-04c percentages with a supplied source are not flagged', () => {
     const sourced = goodDraft({ body: goodBody(' Saves 60% energy.'), sources: [{ title: 'DOE', url: 'https://news.test/a' }] });
     assert.ok(!validate(sourced, ctx()).issues.some((i) => i.includes('without a source')));
   });
-  test('CA-05 structure checks: short answer, headings, FAQ, length', () => {
-    const v = validate({ title: 'T', slug: 's', body: 'too short', faq: [] }, ctx());
-    for (const k of ['too short', 'short answer', 'section headings', 'FAQ']) assert.ok(v.issues.some((i) => i.includes(k)), k);
+  const skeleton = () => validate({ title: 'T', slug: 's', body: 'too short', faq: [] }, ctx()).issues;
+  test('CA-05a structure check: a body below the minimum length is an issue', () => {
+    assert.ok(skeleton().some((i) => i.includes('too short')), 'too short');
   });
-  test('CA-06 duplicate slugs get a date suffix; sources not in the supplied list are dropped', () => {
-    const d = goodDraft({ slug: 'dup', sources: [{ title: 'x', url: 'https://made-up.test' }] });
-    validate(d, { ...ctx(), existingSlugs: new Set(['dup']) });
-    assert.match(d.slug, /^dup-\d{4}-\d{2}-\d{2}$/);
-    assert.deepEqual(d.sources, []);
+  test('CA-05b structure check: a missing short answer is an issue', () => {
+    assert.ok(skeleton().some((i) => i.includes('short answer')), 'short answer');
   });
-  test('CA-07 Chinese article rules (short-answer marker, char count)', () => {
-    const v = validate({ title: '标题', slug: 'zh-a', body: '**简短回答：** 很短', faq: [{ q: 'a', a: 'b' }, { q: 'c', a: 'd' }] }, { ...ctx(), lang: 'zh' });
-    assert.ok(v.issues.some((i) => i.startsWith('too short')));
-    assert.ok(!v.issues.some((i) => i.includes('short answer')));
+  test('CA-05c structure check: missing section headings are an issue', () => {
+    assert.ok(skeleton().some((i) => i.includes('section headings')), 'section headings');
+  });
+  test('CA-05d structure check: a missing FAQ is an issue', () => {
+    assert.ok(skeleton().some((i) => i.includes('FAQ')), 'FAQ');
+  });
+  const dup = () => { const d = goodDraft({ slug: 'dup', sources: [{ title: 'x', url: 'https://made-up.test' }] }); validate(d, { ...ctx(), existingSlugs: new Set(['dup']) }); return d; };
+  test('CA-06a a duplicate slug gets a date suffix', () => {
+    assert.match(dup().slug, /^dup-\d{4}-\d{2}-\d{2}$/);
+  });
+  test('CA-06b sources not in the supplied list are dropped', () => {
+    assert.deepEqual(dup().sources, []);
+  });
+  const zhIssues = () => validate({ title: '标题', slug: 'zh-a', body: '**简短回答：** 很短', faq: [{ q: 'a', a: 'b' }, { q: 'c', a: 'd' }] }, { ...ctx(), lang: 'zh' }).issues;
+  test('CA-07a a Chinese article is measured in characters and flagged when too short', () => {
+    assert.ok(zhIssues().some((i) => i.startsWith('too short')));
+  });
+  test('CA-07b the Chinese short-answer marker (简短回答) is accepted', () => {
+    assert.ok(!zhIssues().some((i) => i.includes('short answer')));
   });
 });
 
 describe('feeds', () => {
-  test('CA-08 parseFeed decodes CDATA, entities and strips HTML', () => {
-    const items = parseFeed(RSS, 'Test');
-    assert.equal(items[0].title, 'DOE updates LED rules & tests');
-    assert.equal(items[0].summary, 'New efficacy rules');
-    assert.equal(items[0].link, 'https://news.test/a');
+  test('CA-08a parseFeed decodes CDATA and entities in the title', () => {
+    assert.equal(parseFeed(RSS, 'Test')[0].title, 'DOE updates LED rules & tests');
+  });
+  test('CA-08b parseFeed strips HTML from the summary', () => {
+    assert.equal(parseFeed(RSS, 'Test')[0].summary, 'New efficacy rules');
+  });
+  test('CA-08c parseFeed reads the item link', () => {
+    assert.equal(parseFeed(RSS, 'Test')[0].link, 'https://news.test/a');
   });
   test('CA-09 Atom entries with href links', () => {
     const items = parseFeed('<feed><entry><title>Atom</title><link href="https://a.test/1"/><updated>2026-01-01T00:00:00Z</updated><summary>s</summary></entry></feed>', 'A');
     assert.equal(items[0].link, 'https://a.test/1');
   });
-  test('CA-10 freshItems keeps recent unseen items, skips failing feeds and reports them', async () => {
-    const r = await freshItems([{ name: 'ok', url: `${llm.url}/rss` }, { name: 'bad', url: `${llm.url}/broken` }]);
-    assert.deepEqual(r.items.map((i) => i.link), ['https://news.test/a']);
-    assert.ok(r.errors[0].startsWith('bad: HTTP 500'));
+  const fr = {};
+  test('CA-10a freshItems keeps recent items and skips old ones', async () => {
+    fr.r = await freshItems([{ name: 'ok', url: `${llm.url}/rss` }, { name: 'bad', url: `${llm.url}/broken` }]);
+    assert.deepEqual(fr.r.items.map((i) => i.link), ['https://news.test/a']);
+  });
+  test('CA-10b freshItems skips a failing feed and reports it', () => {
+    assert.ok(fr.r.errors[0].startsWith('bad: HTTP 500'));
+  });
+  test('CA-10c freshItems does not return items already marked seen', async () => {
     store.markSeen('https://news.test/a');
     const again = await freshItems([{ name: 'ok', url: `${llm.url}/rss` }]);
     assert.equal(again.items.length, 0, 'seen items are not reused');
@@ -104,17 +138,21 @@ describe('feeds', () => {
 });
 
 describe('store', () => {
-  test('CA-11 front matter round-trip, path traversal rejected', () => {
+  test('CA-11a front matter and body survive a save / read round-trip', () => {
     store.saveArticle('unit-a', { title: 'A: colon', status: 'draft', date: '2026-01-01', faq: [{ q: 'x', a: 'y' }] }, 'Body');
     const a = store.readArticle('unit-a');
     assert.equal(a.data.title, 'A: colon');
     assert.equal(a.body.trim(), 'Body');
+  });
+  test('CA-11b article ids with path traversal are rejected on read and save', () => {
     assert.equal(store.readArticle('../etc/passwd'), null);
     assert.throws(() => store.saveArticle('../x', {}, ''), /bad id/);
   });
-  test('CA-12 setStatus(published) stamps publishedAt; articleUrl handles zh/', () => {
+  test('CA-12a setStatus(published) stamps publishedAt', () => {
     store.setStatus('unit-a', 'published');
     assert.ok(store.readArticle('unit-a').data.publishedAt);
+  });
+  test('CA-12b articleUrl builds /news/ URLs and /zh/news/ for zh/ ids', () => {
     assert.equal(store.articleUrl('zh/x'), '/zh/news/x/');
     assert.equal(store.articleUrl('x'), '/news/x/');
   });
@@ -126,57 +164,75 @@ describe('store', () => {
 });
 
 describe('generateArticle (LLM mocked)', () => {
-  test('CA-14 plan → write → validate → saved as draft awaiting review (autoPublish off)', async () => {
+  const gen = {};
+  test('CA-14a plan → write → validate returns a draft with no issues (autoPublish off)', async () => {
     llmReplies.push({ kind: 'evergreen', item_ids: [], topic: 'High bay wattage', target_question: 'What wattage?', angle: '', product_ids: ['YR-HB-U2'] });
     llmReplies.push(goodDraft({ slug: 'high-bay-wattage-guide' }));
-    const r = await generateArticle({ lang: 'en' });
+    const r = gen.r = await generateArticle({ lang: 'en' });
     assert.equal(r.status, 'draft');
     assert.deepEqual(r.issues, []);
-    const a = store.readArticle(r.id);
+  });
+  test('CA-14b the generated article is saved as a draft with its topic and the generating model', () => {
+    const a = store.readArticle(gen.r.id);
     assert.equal(a.data.status, 'draft');
     assert.equal(a.data.topic, 'High bay wattage');
     assert.ok(a.data.generatedBy.includes('claude-opus-5-5'));
   });
-  test('CA-15 failing draft gets one self-correction pass; still failing → stays draft with issues', async () => {
+  test('CA-15a a draft that still fails after self-correction stays a draft with its issues', async () => {
     llmReplies.push(goodDraft({ slug: 'bad-one', body: goodBody(' We are the cheapest.') }));
     llmReplies.push(goodDraft({ slug: 'bad-one', body: goodBody(' Still the cheapest.') }));
     const r = await generateArticle({ lang: 'en', topic: 'Pricing' });
     assert.equal(r.status, 'draft');
     assert.ok(r.issues.some((i) => i.startsWith('banned claim')));
+  });
+  test('CA-15b a failing draft gets one self-correction pass that lists the failed checks', () => {
     const writes = llm.calls.filter((c) => c.url === '/v1/messages').slice(-2);
     assert.match(writes[1].body.messages[0].content, /failed these checks/);
   });
-  test('CA-16 autoPublish publishes only drafts with zero issues', async () => {
+  test('CA-16a autoPublish publishes a draft with zero issues', async () => {
     config.content.autoPublish = true;
     try {
       llmReplies.push(goodDraft({ slug: 'auto-ok' }));
       assert.equal((await generateArticle({ lang: 'en', topic: 'x' })).status, 'published');
+    } finally { config.content.autoPublish = false; }
+  });
+  test('CA-16b autoPublish leaves a draft with issues unpublished', async () => {
+    config.content.autoPublish = true;
+    try {
       llmReplies.push(goodDraft({ slug: 'auto-bad', body: 'short' }), goodDraft({ slug: 'auto-bad', body: 'short' }));
       assert.equal((await generateArticle({ lang: 'en', topic: 'y' })).status, 'draft');
     } finally { config.content.autoPublish = false; }
   });
-  test('CA-17 Anthropic requests carry the configured model and no sampling params the model rejects', () => {
+  test('CA-17a Anthropic requests carry the configured model and API key', () => {
     const c = llm.calls.filter((x) => x.url === '/v1/messages').at(-1);
     assert.equal(c.body.model, 'claude-opus-5-5');
     assert.equal(c.headers['x-api-key'], 'test');
+  });
+  test('CA-17b Anthropic requests send no temperature (rejected by the model)', () => {
+    const c = llm.calls.filter((x) => x.url === '/v1/messages').at(-1);
     assert.equal(c.body.temperature, undefined, 'Opus 5.5 rejects temperature');
   });
 });
 
 describe('publisher / scheduler / geo', () => {
-  test('CA-18 rebuild runs BUILD_CMD and coalesces concurrent calls', async () => {
+  test('CA-18a rebuild runs BUILD_CMD and produces the dist folder', async () => {
     await Promise.all([publisher.rebuild(), publisher.rebuild(), publisher.rebuild()]);
     assert.ok(existsSync(join(env.SITE_DIR, 'dist')));
+  });
+  test('CA-18b concurrent rebuild calls are coalesced into at most two builds', () => {
     const builds = store.recentRuns().filter((r) => r.kind === 'build' && r.status === 'ok');
     assert.ok(builds.length >= 1 && builds.length <= 2, `got ${builds.length} builds`);
   });
-  test('CA-19 rebuild into RELEASES_DIR swaps the "current" symlink atomically and keeps 3 releases', async () => {
-    config.content.releasesDir = join(env.SITE_DIR, 'srv');
+  const releases = join(env.SITE_DIR, 'srv');
+  test('CA-19a rebuild into RELEASES_DIR points the "current" symlink at the new release', async () => {
+    config.content.releasesDir = releases;
     try {
       for (let i = 0; i < 4; i++) await publisher.rebuild();
       assert.ok(existsSync(join(config.content.releasesDir, 'current')));
-      assert.equal(readdirSync(join(config.content.releasesDir, 'releases')).length, 3);
     } finally { config.content.releasesDir = ''; }
+  });
+  test('CA-19b rebuild into RELEASES_DIR keeps only the last 3 releases', () => {
+    assert.equal(readdirSync(join(releases, 'releases')).length, 3);
   });
   test('CA-20 failed build is logged and rejects (site unchanged)', async () => {
     const old = config.content.buildCmd;
@@ -184,8 +240,10 @@ describe('publisher / scheduler / geo', () => {
     try { await assert.rejects(publisher.rebuild(), /build exited 3/); } finally { config.content.buildCmd = old; }
     assert.equal(store.recentRuns()[0].status, 'error');
   });
-  test('CA-21 IndexNow is skipped without a key, posts absolute URLs with a key', async () => {
+  test('CA-21a IndexNow is skipped without a key', async () => {
     assert.deepEqual(await publisher.indexNow(['/news/']), { skipped: true });
+  });
+  test('CA-21b with a key IndexNow posts absolute URLs and the key location', async () => {
     const realFetch = globalThis.fetch;
     let sent;
     globalThis.fetch = async (url, init) => { sent = { url, body: JSON.parse(init.body) }; return new Response('', { status: 202 }); };
@@ -195,20 +253,28 @@ describe('publisher / scheduler / geo', () => {
     assert.deepEqual(sent.body.urlList, ['https://example.test/news/a/']);
     assert.equal(sent.body.keyLocation, 'https://example.test/k123.txt');
   });
-  test('CA-22 scheduled content job: errors are logged per article, nothing published → no rebuild', async () => {
-    const before = store.recentRuns().filter((r) => r.kind === 'build').length;
+  const job = {};
+  test('CA-22a scheduled content job logs an error per failed article', async () => {
+    job.before = store.recentRuns().filter((r) => r.kind === 'build').length;
     llmReplies.push('not json at all');
     const out = await contentJob();
     assert.ok(out[0].error);
-    assert.equal(store.recentRuns().filter((r) => r.kind === 'build').length, before);
   });
-  test('CA-23 GEO monitor records whether the brand is mentioned and which competitors appear', async () => {
+  test('CA-22b scheduled content job does not rebuild when nothing was published', () => {
+    assert.equal(store.recentRuns().filter((r) => r.kind === 'build').length, job.before);
+  });
+  const geo = {};
+  test('CA-23a GEO monitor records whether the brand is mentioned in each answer', async () => {
     llmReplies.length = 0;
     config.profile.content.geo = { questions: [{ q: 'Best UFO high bay supplier?' }, { q: 'Who sells DLC high bays?' }], brandAliases: ['Yaorong'], competitors: ['Acme Lights'] };
     llmReplies.push('Try YAORONG LED or Acme Lights.', 'Many vendors exist.');
-    const r = await runGeoCheck();
-    assert.deepEqual(r.map((x) => x.mentioned), [1, 0]);
-    assert.deepEqual(r[0].competitors, ['Acme Lights']);
+    geo.r = await runGeoCheck();
+    assert.deepEqual(geo.r.map((x) => x.mentioned), [1, 0]);
+  });
+  test('CA-23b GEO monitor records which competitors appear', () => {
+    assert.deepEqual(geo.r[0].competitors, ['Acme Lights']);
+  });
+  test('CA-23c GEO check results are kept in the history', () => {
     assert.equal(geoHistory().length, 2);
   });
 });

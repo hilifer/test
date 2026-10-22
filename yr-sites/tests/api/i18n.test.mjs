@@ -9,6 +9,7 @@ before(async () => { api = await startServer({ site: 'led' }); });
 after(async () => { await api.stop(); });
 const PW = 'Str0ngPassw0rd';
 const CJK = /[㐀-鿿]/;
+const ctx = {};
 /** Log in through the login page and keep the session cookie. */
 async function session(username, password = PW) {
   const r = await fetch(`${api.url}/admin/login`, { method: 'POST', redirect: 'manual', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ username, password, next: '/admin' }) });
@@ -19,22 +20,31 @@ async function session(username, password = PW) {
 }
 const visible = (html) => html.replace(/<textarea[\s\S]*?<\/textarea>/g, '').replace(/<(span|b|pre|td|div)\b[^>]*\stranslate="no"[^>]*>[\s\S]*?<\/\1>/g, '').replace(/\svalue="[^"]*"/g, '');
 
-test('IN-A01 a user switches to English; the choice is remembered at the next login; others stay in Chinese', async () => {
+test('IN-A01a a new user sees the admin in Chinese by default', async () => {
   for (const [u, role] of [['emma', 'sales'], ['li01', 'sales']]) await api.form('/admin/users/new', { username: u, role, password: PW });
-  const emma = await session('emma');
-  assert.match(await (await emma.get('/admin')).text(), /<html lang="zh-CN">[\s\S]*线索/);
-  assert.equal((await emma.post('/admin/lang', { lang: 'en' }, { 'x-requested-with': 'fetch' })).status, 204);
-  const page = await (await emma.get('/admin')).text();
+  ctx.emma = await session('emma');
+  assert.match(await (await ctx.emma.get('/admin')).text(), /<html lang="zh-CN">[\s\S]*线索/);
+});
+
+test('IN-A01b switching to English (fetch) answers 204 and the admin is then in English with a 中文 switch', async () => {
+  assert.equal((await ctx.emma.post('/admin/lang', { lang: 'en' }, { 'x-requested-with': 'fetch' })).status, 204);
+  const page = await (await ctx.emma.get('/admin')).text();
   assert.match(page, /<html lang="en">/);
   assert.match(page, />Leads</);
   assert.match(page, /title="Switch to Chinese">&#20013;&#25991;<\/button>/); // the switch shows 中文 in Chinese
+});
+
+test('IN-A01c the English choice is remembered at the next login', async () => {
   const again = await session('emma'); // new login, no cookie from before
   assert.match(await (await again.get('/admin')).text(), /<html lang="en">/);
+});
+
+test('IN-A01d other users stay in Chinese', async () => {
   const li = await session('li01');
   assert.match(await (await li.get('/admin')).text(), /<html lang="zh-CN">/);
 });
 
-test('IN-A02 every admin page in English has no Chinese left (form values and textareas excluded)', async () => {
+test('IN-A02a every admin page in English has no Chinese left (form values and textareas excluded)', async () => {
   const emma = await session('admin', 'test-pass');
   await emma.post('/admin/lang', { lang: 'en' });
   const pages = ['/admin', '/admin/dashboard', '/admin/conversations', '/admin/ops', '/admin/quotes', '/admin/orders', '/admin/shipments', '/admin/rma', '/admin/skus', '/admin/inventory', '/admin/customers',
@@ -46,48 +56,76 @@ test('IN-A02 every admin page in English has no Chinese left (form values and te
     const left = visible(await r.text()).match(/[^<>"]{0,20}[㐀-鿿]+[^<>"]{0,20}/);
     assert.equal(left, null, `${p}: ${left?.[0]}`);
   }
-  // messages after an action are translated too
+});
+
+test('IN-A02b a message after an action is shown in English (the redirect carries the raw Chinese message)', async () => {
+  const emma = await session('admin', 'test-pass');
+  await emma.post('/admin/lang', { lang: 'en' });
   assert.match(flash(await emma.post('/admin/products/bulk', { action: 'publish' })).err, /请先勾选/); // the redirect carries the raw message…
   assert.match(await (await emma.get('/admin/products?e=' + encodeURIComponent('请先勾选商品'))).text(), /Select products first/); // …and the page shows it in English
 });
 
-test('IN-A03 Chinese data survives in English: quote notes (textarea) and Chinese company names are left as they are', async () => {
+test('IN-A03a in English a quote page keeps the Chinese notes in the textarea while the buttons are English', async () => {
   const a = await session('admin', 'test-pass');
   await a.post('/admin/lang', { lang: 'en' });
   const qid = (await a.post('/admin/quotes/new', { email: 'cn@buyer.test', company: '深圳测试公司' })).headers.get('location').split('/').pop();
   await a.post(`/admin/quotes/${qid}/save`, { sku_0: 'YR-HB-U2', qty_0: '100', price_0: '45', currency: 'USD', incoterm: 'FOB', payment_terms: 'tt30', validity_days: '15', notes: '请尽快发货，已确认', action: 'save' });
-  const page = await (await a.get(`/admin/quotes/${qid}`)).text();
-  assert.match(page, /<textarea name="notes"[^>]*>请尽快发货，已确认<\/textarea>/);
-  assert.match(page, /深圳测试公司/);
-  assert.match(page, /Save and send to customer/);
+  ctx.quotePage = await (await a.get(`/admin/quotes/${qid}`)).text();
+  assert.match(ctx.quotePage, /<textarea name="notes"[^>]*>请尽快发货，已确认<\/textarea>/);
+  assert.match(ctx.quotePage, /Save and send to customer/);
 });
 
-test('IN-A04 system default language for users without a preference; the login page follows the cookie', async () => {
-  const admin = await session('admin', 'test-pass');
-  assert.match(flash(await admin.post('/admin/system/lang', { lang: 'en' })).ok, /默认后台语言已保存/);
-  const li = await session('li01'); // li01 never chose a language
-  assert.match(await (await li.get('/admin')).text(), /<html lang="en">/);
-  await li.post('/admin/lang', { lang: 'zh' }); // own choice wins over the default
-  assert.match(await (await li.get('/admin')).text(), /<html lang="zh-CN">/);
-  await admin.post('/admin/system/lang', { lang: 'zh' });
+test('IN-A03b in English a Chinese company name is left as it is', async () => {
+  assert.match(ctx.quotePage, /深圳测试公司/);
+});
+
+test('IN-A04a an administrator saves English as the system default language', async () => {
+  ctx.admin = await session('admin', 'test-pass');
+  assert.match(flash(await ctx.admin.post('/admin/system/lang', { lang: 'en' })).ok, /默认后台语言已保存/);
+});
+
+test('IN-A04b a user without a preference gets the system default language', async () => {
+  ctx.li = await session('li01'); // li01 never chose a language
+  assert.match(await (await ctx.li.get('/admin')).text(), /<html lang="en">/);
+});
+
+test('IN-A04c a user\'s own choice wins over the system default', async () => {
+  await ctx.li.post('/admin/lang', { lang: 'zh' });
+  assert.match(await (await ctx.li.get('/admin')).text(), /<html lang="zh-CN">/);
+});
+
+test('IN-A04d the login page follows the language cookie and is Chinese without it', async () => {
+  await ctx.admin.post('/admin/system/lang', { lang: 'zh' });
   assert.match(await (await fetch(`${api.url}/admin/login`, { headers: { cookie: 'yr_admin_lang=en' } })).text(), /Staff login/);
   assert.match(await (await fetch(`${api.url}/admin/login`)).text(), /后台登录/);
-  assert.equal((await admin.post('/admin/system/lang', { lang: 'fr' })).headers.get('location').includes('e='), true);
+});
+
+test('IN-A04e an unsupported system default language is rejected with an error', async () => {
+  assert.equal((await ctx.admin.post('/admin/system/lang', { lang: 'fr' })).headers.get('location').includes('e='), true);
+});
+
+test('IN-A04f a non-admin cannot open the system page where the default is set (403)', async () => {
   assert.equal((await (await session('emma')).get('/admin/system')).status, 403);
 });
 
-test('IN-A05 product CSV column names follow the admin language (and import accepts both)', async () => {
-  const admin = await session('admin', 'test-pass');
-  await admin.post('/admin/lang', { lang: 'en' });
-  const head = (await (await admin.get('/admin/products/export.csv')).text()).replace(/^﻿/, '').split(/\r?\n/)[0];
+test('IN-A05a in English the product CSV export has English column names', async () => {
+  ctx.admin = await session('admin', 'test-pass');
+  await ctx.admin.post('/admin/lang', { lang: 'en' });
+  const head = (await (await ctx.admin.get('/admin/products/export.csv')).text()).replace(/^﻿/, '').split(/\r?\n/)[0];
   assert.match(head, /^id,status,category,name,name_zh/);
-  await admin.post('/admin/lang', { lang: 'zh' });
-  assert.match((await (await admin.get('/admin/products/export.csv')).text()).split(/\r?\n/)[0], /型号\/编码\*/);
 });
 
-test('IN-A06 the language switch refuses cross-site posts and invalid input falls back to Chinese', async () => {
-  const emma = await session('emma');
-  assert.equal((await emma.post('/admin/lang', { lang: 'en' }, { origin: 'https://evil.test' })).status, 403);
-  await emma.post('/admin/lang', { lang: 'xx' });
-  assert.match(await (await emma.get('/admin')).text(), /<html lang="zh-CN">/);
+test('IN-A05b in Chinese the product CSV export has Chinese column names', async () => {
+  await ctx.admin.post('/admin/lang', { lang: 'zh' });
+  assert.match((await (await ctx.admin.get('/admin/products/export.csv')).text()).split(/\r?\n/)[0], /型号\/编码\*/);
+});
+
+test('IN-A06a the language switch refuses cross-site posts (403)', async () => {
+  ctx.emma = await session('emma');
+  assert.equal((await ctx.emma.post('/admin/lang', { lang: 'en' }, { origin: 'https://evil.test' })).status, 403);
+});
+
+test('IN-A06b an invalid language falls back to Chinese', async () => {
+  await ctx.emma.post('/admin/lang', { lang: 'xx' });
+  assert.match(await (await ctx.emma.get('/admin')).text(), /<html lang="zh-CN">/);
 });

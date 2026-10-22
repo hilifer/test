@@ -46,10 +46,12 @@ function makeOrder() {
 }
 
 describe('kingdee adapter', () => {
-  test('KD-01 login uses AppSecret, keeps the session cookie and sends it on later calls', async () => {
+  test('KD-01a login sends the AppSecret credentials', async () => {
     await K.login();
     const loginCall = kd.calls.find((c) => c.url.includes('LoginByAppSecret'));
     assert.deepEqual(loginCall.body, { acctID: 'ACC1', username: 'api', appId: 'APP', appSecret: 'SECRET', lcid: 2052 });
+  });
+  test('KD-01b later calls send the kept session cookie', async () => {
     const rows = await K.query('STK_Inventory', 'FMaterialId.FNumber,FStockId.FName,FBaseQty');
     assert.equal(rows.length, 3);
     assert.equal(kd.calls.at(-1).headers.cookie, 'kdservice-sessionid=SID123');
@@ -63,19 +65,28 @@ describe('kingdee adapter', () => {
   test('KD-03 query errors returned inside the array are raised', async () => {
     await assert.rejects(K.query('NOPE', 'x'), /金蝶查询失败/);
   });
-  test('KD-04 buildCustomer / buildSalesOrder follow the standard data model', () => {
-    const o = makeOrder();
-    const c = S.getCustomer(o.customer_id);
-    const bc = K.buildCustomer(c);
+  let o4, c4, so;
+  test('KD-04a buildCustomer sets the name and creating organisation and does not auto-audit', () => {
+    o4 = makeOrder();
+    c4 = S.getCustomer(o4.customer_id);
+    const bc = K.buildCustomer(c4);
     assert.equal(bc.Model.FName, 'Acme Inc');
     assert.equal(bc.Model.FCreateOrgId.FNumber, '100');
     assert.equal(bc.IsAutoSubmitAndAudit, false);
-    const so = K.buildSalesOrder({ ...o, quote_number: 'PI-1', freight: 300 }, { ...c, erp_number: 'CUST9' }, S.getSku);
+  });
+  test('KD-04b buildSalesOrder only saves (never auto-audits) with the standard sales order bill type', () => {
+    so = K.buildSalesOrder({ ...o4, quote_number: 'PI-1', freight: 300 }, { ...c4, erp_number: 'CUST9' }, S.getSku);
     assert.equal(so.IsAutoSubmitAndAudit, false, 'orders are only saved, never auto-audited');
     assert.equal(so.Model.FBillTypeID.FNUMBER, 'XSDD01_SYS');
+  });
+  test('KD-04c buildSalesOrder uses the customer ERP number and the USD settlement currency', () => {
     assert.equal(so.Model.FCustId.FNumber, 'CUST9');
     assert.equal(so.Model.FSaleOrderFinance.FSettleCurrId.FNumber, 'PRE007');
+  });
+  test('KD-04d buildSalesOrder lines carry the material ERP number, quantity and tax-inclusive price', () => {
     assert.deepEqual(so.Model.FSaleOrderEntry.map((e) => [e.FMaterialId.FNumber, e.FQty, e.FTaxPrice]), [['1.01.HBU2', 100, 45]]);
+  });
+  test('KD-04e buildSalesOrder puts the freight into the note', () => {
     assert.match(so.Model.FNote, /运费 USD 300/);
   });
   test('KD-05 failed login surfaces Kingdee\'s message', async () => {
@@ -85,29 +96,41 @@ describe('kingdee adapter', () => {
 });
 
 describe('ERP facade', () => {
-  test('KD-06 pushOrder: creates the customer first, then saves the sales order; retry-safe', async () => {
-    const o = makeOrder();
-    const r = await erp.pushOrder(o.id);
+  let o6;
+  test('KD-06a pushOrder creates the customer first, then saves the sales order', async () => {
+    o6 = makeOrder();
+    const r = await erp.pushOrder(o6.id);
     assert.deepEqual(r, { bill: 'XSDD0001' });
-    assert.equal(S.getCustomer(o.customer_id).erp_number, 'CUST0001');
-    assert.equal(S.getOrder(o.id).erp_bill_no, 'XSDD0001');
     const saves = kd.calls.filter((c) => c.url.includes('Save')).map((c) => c.body.formid);
     assert.deepEqual(saves.slice(-2), ['BD_Customer', 'SAL_SaleOrder']);
-    assert.deepEqual(await erp.pushOrder(o.id), { already: 'XSDD0001' }, 'second push does nothing');
   });
-  test('KD-07 Save errors are stored on the order and in the ERP log (shown to staff)', async () => {
-    const o = makeOrder();
+  test('KD-06b pushOrder stores the ERP numbers on the customer and the order', () => {
+    assert.equal(S.getCustomer(o6.customer_id).erp_number, 'CUST0001');
+    assert.equal(S.getOrder(o6.id).erp_bill_no, 'XSDD0001');
+  });
+  test('KD-06c pushing the same order again does nothing', async () => {
+    assert.deepEqual(await erp.pushOrder(o6.id), { already: 'XSDD0001' }, 'second push does nothing');
+  });
+  let o7;
+  test('KD-07a a Save error is returned with the field and Kingdee\'s message', async () => {
+    o7 = makeOrder();
     state.failSave = '客户不存在';
     try {
-      const r = await erp.pushOrder(o.id);
+      const r = await erp.pushOrder(o7.id);
       assert.match(r.error, /金蝶保存失败：FCustId: 客户不存在/);
     } finally { state.failSave = null; }
-    assert.match(S.getOrder(o.id).erp_error, /客户不存在/);
+  });
+  test('KD-07b the Save error is stored on the order', () => {
+    assert.match(S.getOrder(o7.id).erp_error, /客户不存在/);
+  });
+  test('KD-07c the failed push is in the ERP log', () => {
     assert.equal(erp.erpLog(1)[0].ok, 0);
   });
-  test('KD-08 inventory sync maps materials to SKUs, drops unknown materials, sums warehouses', async () => {
+  test('KD-08a inventory sync maps materials to SKUs and drops unknown materials', async () => {
     const r = await erp.syncInventory();
     assert.equal(r.rows, 2);
+  });
+  test('KD-08b inventory sync sums the warehouses and records the sync time', () => {
     const row = S.stockView().find((s) => s.sku === 'YR-HB-U2');
     assert.equal(row.on_hand, 150);
     assert.ok(row.synced_at);
@@ -117,13 +140,18 @@ describe('ERP facade', () => {
     assert.ok(row.reserved >= 100);
     assert.equal(row.available, row.on_hand - row.reserved);
   });
-  test('KD-10 mock and local modes', async () => {
+  test('KD-10a mock mode: the connection test says simulated and inventory sync returns rows', async () => {
     config.erp.mode = 'mock';
-    assert.match(await erp.testConnection(), /模拟/);
-    assert.ok((await erp.syncInventory()).rows > 0);
+    try {
+      assert.match(await erp.testConnection(), /模拟/);
+      assert.ok((await erp.syncInventory()).rows > 0);
+    } finally { config.erp.mode = 'kingdee'; }
+  });
+  test('KD-10b local mode: orders are not pushed and the connection test says local stock', async () => {
     config.erp.mode = 'local';
-    assert.deepEqual(await erp.pushOrder('x'), { skipped: true });
-    assert.match(await erp.testConnection(), /本地库存/);
-    config.erp.mode = 'kingdee';
+    try {
+      assert.deepEqual(await erp.pushOrder('x'), { skipped: true });
+      assert.match(await erp.testConnection(), /本地库存/);
+    } finally { config.erp.mode = 'kingdee'; }
   });
 });

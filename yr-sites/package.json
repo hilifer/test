@@ -12,7 +12,8 @@
     "test:ci": "node --test --test-concurrency=4 --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination=test-results/node-junit.xml \"tests/unit/*.test.mjs\" \"tests/api/*.test.mjs\"",
     "test:e2e": "playwright test",
     "test:all": "pnpm test && pnpm build && pnpm test:e2e",
-    "stack": "node tests/e2e/start-stack.mjs"
+    "stack": "node tests/e2e/start-stack.mjs",
+    "test:demo": "playwright test -c playwright.demo.config.mjs; node scripts/demo-index.mjs test-results/demo-report.json test-results/e2e-report.json"
   },
   "type": "module",
   "devDependencies": {

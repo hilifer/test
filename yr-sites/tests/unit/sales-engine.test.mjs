@@ -41,34 +41,53 @@ describe('searchProducts', () => {
 });
 
 describe('getProduct / productView', () => {
-  test('SE-07 lookup by id or slug, case-insensitive', () => {
+  test('SE-07a lookup by id is case-insensitive', () => {
     assert.equal(getProduct(led, 'yr-hb-u2').id, 'YR-HB-U2');
+  });
+  test('SE-07b lookup by slug', () => {
     assert.equal(getProduct(led, 'ufo-high-bay-u2').id, 'YR-HB-U2');
+  });
+  test('SE-07c an unknown id or slug returns null', () => {
     assert.equal(getProduct(led, 'nope'), null);
   });
-  test('SE-08 public view exposes reference bands + disclaimer but no internal fields', () => {
-    const v = productView(led, getProduct(led, 'YR-HB-U2'), 'https://x.test');
-    assert.equal(v.url, 'https://x.test/products/ufo-high-bay-u2/');
-    assert.equal(v.markdown, 'https://x.test/products/ufo-high-bay-u2.md');
-    assert.equal(v.referencePrice.note, led.priceNote);
-    assert.ok(!('cost' in v) && !('floorPrice' in v));
+  const v8 = productView(led, getProduct(led, 'YR-HB-U2'), 'https://x.test');
+  test('SE-08a public view links to the product page and its Markdown version', () => {
+    assert.equal(v8.url, 'https://x.test/products/ufo-high-bay-u2/');
+    assert.equal(v8.markdown, 'https://x.test/products/ufo-high-bay-u2.md');
   });
-  test('SE-09 hidden-price mode removes bands from the public catalog and view', () => {
-    const hidden = { ...led, priceDisplay: 'hidden' };
+  test('SE-08b public view carries the reference price with the disclaimer', () => {
+    assert.equal(v8.referencePrice.note, led.priceNote);
+  });
+  test('SE-08c public view exposes no internal fields (cost, floor price)', () => {
+    assert.ok(!('cost' in v8) && !('floorPrice' in v8));
+  });
+  const hidden = { ...led, priceDisplay: 'hidden' };
+  test('SE-09a hidden-price mode is detected', () => {
     assert.equal(pricesHidden(hidden), true);
+  });
+  test('SE-09b hidden-price mode removes price bands from the public catalog', () => {
     assert.ok(publicCatalog(hidden).products.every((p) => !('priceBands' in p)));
+  });
+  test('SE-09c hidden-price mode removes the reference price from the product view', () => {
     assert.equal(productView(hidden, getProduct(hidden, 'YR-HB-U2')).referencePrice, null);
+  });
+  test('SE-09d with prices shown the public catalog is returned unchanged', () => {
     assert.equal(publicCatalog(led), led);
   });
 });
 
 describe('estimateQuote', () => {
   const p = getProduct(led, 'YR-HB-U2');
-  test('SE-10 picks the band for the quantity and multiplies totals', () => {
+  test('SE-10a picks the unit price band for the quantity', () => {
     const q = estimateQuote(led, p, 600);
     assert.equal(q.ok, true);
     assert.deepEqual(q.unitPrice, { low: 35, high: 46 });
-    assert.deepEqual(q.total, { low: 21000, high: 27600 });
+  });
+  test('SE-10b multiplies the band by the quantity for the totals', () => {
+    assert.deepEqual(estimateQuote(led, p, 600).total, { low: 21000, high: 27600 });
+  });
+  test('SE-10c the quote carries the disclaimer and the trade term', () => {
+    const q = estimateQuote(led, p, 600);
     assert.equal(q.note, led.priceNote);
     assert.equal(q.term, 'FOB Shenzhen');
   });
@@ -110,8 +129,10 @@ describe('scoreLead', () => {
     assert.ok(FREE_MAIL.test('a@gmail.com'));
     assert.ok(!scoreLead({ email: 'a@gmail.com' }).reasons.includes('company email'));
   });
-  test('SE-19 thresholds: B (4–6) and C (2–3)', () => {
+  test('SE-19a a score of 4–6 is grade B', () => {
     assert.equal(scoreLead({ email: 'x@corp.com', quantity: 300 }).grade, 'B'); // 2+2
+  });
+  test('SE-19b a score of 2–3 is grade C', () => {
     assert.equal(scoreLead({ email: 'x@corp.com' }).grade, 'C'); // 2
   });
   test('SE-20 channel buyers and quote lists add points', () => {
@@ -125,23 +146,39 @@ describe('scoreLead', () => {
 });
 
 describe('parseIntent', () => {
-  test('SE-22 extracts watt, qty, price intent and email', () => {
-    const it = parseIntent('Price for 150W UFO, 1,200 pcs? mail me at bob@corp.com');
-    assert.equal(it.watt, 150);
-    assert.equal(it.qty, 1200);
-    assert.equal(it.price, true);
-    assert.equal(it.email, 'bob@corp.com');
+  const it22 = parseIntent('Price for 150W UFO, 1,200 pcs? mail me at bob@corp.com');
+  test('SE-22a extracts the wattage', () => {
+    assert.equal(it22.watt, 150);
   });
-  test('SE-23 kWh / kW / Chinese quantity', () => {
-    const it = parseIntent('215kWh 储能柜 100kw 需要 5 台 报价');
-    assert.equal(it.kwh, 215);
-    assert.equal(it.kw, 100);
-    assert.equal(it.qty, 5);
-    assert.equal(it.price, true);
+  test('SE-22b extracts the quantity with a thousands separator', () => {
+    assert.equal(it22.qty, 1200);
   });
-  test('SE-24 OEM / human / certification flags', () => {
+  test('SE-22c detects a price question', () => {
+    assert.equal(it22.price, true);
+  });
+  test('SE-22d extracts the e-mail address', () => {
+    assert.equal(it22.email, 'bob@corp.com');
+  });
+  const it23 = parseIntent('215kWh 储能柜 100kw 需要 5 台 报价');
+  test('SE-23a extracts kWh', () => {
+    assert.equal(it23.kwh, 215);
+  });
+  test('SE-23b extracts kW (case-insensitive)', () => {
+    assert.equal(it23.kw, 100);
+  });
+  test('SE-23c extracts a Chinese quantity (台)', () => {
+    assert.equal(it23.qty, 5);
+  });
+  test('SE-23d detects a Chinese price question (报价)', () => {
+    assert.equal(it23.price, true);
+  });
+  test('SE-24a flags an OEM request', () => {
     assert.equal(parseIntent('Can you do OEM with our logo?').oem, true);
+  });
+  test('SE-24b flags a request for a human', () => {
     assert.equal(parseIntent('I want to talk to a real person').human, true);
+  });
+  test('SE-24c flags a certification question, but not a bare certification name', () => {
     assert.equal(parseIntent('Does it have UL?').cert, true);
     assert.equal(parseIntent('UL').cert, false);
   });
@@ -149,12 +186,16 @@ describe('parseIntent', () => {
 });
 
 describe('demoReply (rules mode, same red lines as the AI)', () => {
-  test('SE-26 price question with quantity → range + disclaimer + lead prompt', () => {
-    const r = demoReply(led, ledProfile, [], 'price for 600 pcs ufo high bay 150W');
-    assert.match(r.reply, /US\$35–US\$46/);
-    assert.match(r.reply, /Reference only/);
-    assert.equal(r.askLead, true);
-    assert.equal(r.quote.quantity, 600);
+  const r26 = demoReply(led, ledProfile, [], 'price for 600 pcs ufo high bay 150W');
+  test('SE-26a a price question with quantity gets the price range', () => {
+    assert.match(r26.reply, /US\$35–US\$46/);
+  });
+  test('SE-26b the price answer carries the disclaimer', () => {
+    assert.match(r26.reply, /Reference only/);
+  });
+  test('SE-26c the price answer asks for lead details and records the quoted quantity', () => {
+    assert.equal(r26.askLead, true);
+    assert.equal(r26.quote.quantity, 600);
   });
   test('SE-27 price without quantity asks for quantity first', () => {
     const r = demoReply(led, ledProfile, [], 'how much is the ufo high bay?');
@@ -187,10 +228,12 @@ describe('demoReply (rules mode, same red lines as the AI)', () => {
     const r = demoReply(grid, gridProfile, [], 'what is the payback / ROI?');
     assert.ok(r.link && r.link.href.includes('calculator'));
   });
-  test('SE-34 shared email is acknowledged and flagged for lead capture', () => {
-    const r = demoReply(led, ledProfile, [], 'my email is bob@corp.com');
-    assert.equal(r.capturedEmail, 'bob@corp.com');
-    assert.equal(r.askLead, true);
+  const r34 = demoReply(led, ledProfile, [], 'my email is bob@corp.com');
+  test('SE-34a a shared e-mail is captured', () => {
+    assert.equal(r34.capturedEmail, 'bob@corp.com');
+  });
+  test('SE-34b a shared e-mail flags the reply for lead capture', () => {
+    assert.equal(r34.askLead, true);
   });
   test('SE-35 certification answer comes from the catalog only', () => {
     const r = demoReply(led, ledProfile, [], 'Does the ufo high bay have DLC certification?');

@@ -34,68 +34,111 @@ async function readyOrder(email) {
   return { id, number };
 }
 
-test('WA-01 roles: warehouse uses the shipping desk, stock and carriers; sales has no access', async () => {
+const stockOf = async () => Number((await page('/admin/warehouse/stock')).match(/<b>YR-HB-U2<\/b><\/a><\/td><td>[^<]*<span class="mute">[^<]*<\/span><\/td><td class="n">(-?\d+)<\/td>/)[1]);
+
+test('WA-01a the warehouse role opens the shipping desk, stock and carriers', async () => {
+  for (const p of ['/admin/warehouse', '/admin/warehouse/stock', '/admin/warehouse/carriers']) assert.equal((await fetch(api.url + p, { headers: auth('wes') })).status, 200, p);
+});
+
+test('WA-01b the sales role is refused the warehouse pages (403)', async () => {
+  for (const p of ['/admin/warehouse', '/admin/warehouse/stock', '/admin/warehouse/carriers']) assert.equal((await fetch(api.url + p, { headers: auth('sam') })).status, 403, p);
+});
+
+test('WA-01c the shipping desk lists the orders that are ready to ship', async () => {
   ctx.a = await readyOrder('alpha@buyer.test');
   ctx.b = await readyOrder('beta@buyer.test');
   ctx.c = await readyOrder('gamma@buyer.test');
-  for (const p of ['/admin/warehouse', '/admin/warehouse/stock', '/admin/warehouse/carriers']) {
-    assert.equal((await fetch(api.url + p, { headers: auth('wes') })).status, 200, p);
-    assert.equal((await fetch(api.url + p, { headers: auth('sam') })).status, 403, p);
-  }
   const desk = await page('/admin/warehouse');
   for (const o of [ctx.a, ctx.b, ctx.c]) assert.ok(desk.includes(o.number), o.number);
 });
 
-test('WA-02 picking list for selected orders: totals by SKU and per order', async () => {
-  const html = await page(`/admin/warehouse/picking?ids=${ctx.a.id}&ids=${ctx.b.id}`);
-  assert.match(html, /<h1>拣货单<\/h1>/);
-  assert.match(html, /2 个订单 · 200 件/);
-  assert.match(html, /<b>YR-HB-U2<\/b>[\s\S]*?<td class="n"><b>200<\/b><\/td>/);
-  assert.match(html, new RegExp(`${ctx.a.number}[\\s\\S]*${ctx.b.number}`));
+test('WA-02a the picking list for selected orders totals the quantity by SKU', async () => {
+  ctx.picking = await page(`/admin/warehouse/picking?ids=${ctx.a.id}&ids=${ctx.b.id}`);
+  assert.match(ctx.picking, /<h1>拣货单<\/h1>/);
+  assert.match(ctx.picking, /2 个订单 · 200 件/);
+  assert.match(ctx.picking, /<b>YR-HB-U2<\/b>[\s\S]*?<td class="n"><b>200<\/b><\/td>/);
+});
+
+test('WA-02b the picking list also lists each selected order', async () => {
+  assert.match(ctx.picking, new RegExp(`${ctx.a.number}[\\s\\S]*${ctx.b.number}`));
+});
+
+test('WA-02c the picking list without selected orders redirects back (302)', async () => {
   assert.equal((await fetch(`${api.url}/admin/warehouse/picking`, { headers: auth('wes'), redirect: 'manual' })).status, 302);
 });
 
-test('WA-03 bulk shipping from the desk form and from pasted lines; results per order; stock goes down', async () => {
-  const before = Number((await page('/admin/warehouse/stock')).match(/<b>YR-HB-U2<\/b><\/a><\/td><td>[^<]*<span class="mute">[^<]*<\/span><\/td><td class="n">(-?\d+)<\/td>/)[1]);
+test('WA-03a bulk shipping from the desk form ships orders with a tracking number and skips blank rows', async () => {
+  ctx.stockBefore = await stockOf();
   const body = new URLSearchParams([[`carrier_${ctx.a.id}`, 'DHL'], [`tracking_${ctx.a.id}`, 'DHL-001'], [`mode_${ctx.a.id}`, 'express'], [`carrier_${ctx.b.id}`, ''], [`tracking_${ctx.b.id}`, '']]);
   const html = await (await form(auth('wes'), '/admin/warehouse/ship', body)).text();
   assert.match(html, /批量发货结果：成功 1，失败 0/);
   assert.match(html, new RegExp(`${ctx.a.number}：已发货，发货单 SH-`));
+});
+
+test('WA-03b an order shipped from the desk is marked shipped', async () => {
   assert.match(await page(`/admin/orders/${ctx.a.id}`, ADMIN), /已发货/);
+});
+
+test('WA-03c bulk shipping from pasted lines reports a result per line, including unknown orders', async () => {
   const imp = await (await form(auth('wes'), '/admin/warehouse/import', { lines: `order, carrier, tracking\n${ctx.b.number}, UPS, 1Z-77, express\nSO-NOPE, UPS, 9` })).text();
   assert.match(imp, /成功 1，失败 1/);
   assert.match(imp, /SO-NOPE：<b style="color:#c62828">订单不存在<\/b>/);
-  const after = Number((await page('/admin/warehouse/stock')).match(/<b>YR-HB-U2<\/b><\/a><\/td><td>[^<]*<span class="mute">[^<]*<\/span><\/td><td class="n">(-?\d+)<\/td>/)[1]);
-  assert.equal(after, before - 200);
+});
+
+test('WA-03d shipping lowers stock by the shipped quantity and records ship movements', async () => {
+  assert.equal(await stockOf(), ctx.stockBefore - 200);
   assert.match(await page('/admin/warehouse/stock?kind=ship'), /发货<\/td><td class="n" style="color:#c62828">-100<\/td>/);
+});
+
+test('WA-03e bulk shipping without any tracking number is refused', async () => {
   assert.match(flash(await form(auth('wes'), '/admin/warehouse/ship', { x: '1' })).err, /至少填写一个运单号/);
 });
 
-test('WA-04 stock: record goods in and a stock count; safety stock with default; low stock shows on the workbench', async () => {
+test('WA-04a recording goods in updates the stock balance', async () => {
   assert.match(flash(await form(auth('wes'), '/admin/warehouse/move', { sku: 'YR-HB-U2', kind: 'in', qty: '1000', ref: 'PO-9', note: 'container' })).ok, /已登记，YR-HB-U2 结存/);
+});
+
+test('WA-04b a stock count sets the balance', async () => {
   assert.match(flash(await form(auth('wes'), '/admin/warehouse/move', { sku: 'YR-HB-U2', kind: 'adjust', qty: '900' })).ok, /结存 900/);
+});
+
+test('WA-04c taking out more than is in stock is refused', async () => {
   assert.match(flash(await form(auth('wes'), '/admin/warehouse/move', { sku: 'YR-HB-U2', kind: 'out', qty: '5000' })).err, /库存只有 900/);
+});
+
+test('WA-04d saving safety stock (default + per SKU) highlights SKUs below it', async () => {
   assert.match(flash(await form(auth('wes'), '/admin/warehouse/safety', { default: '10', 'safety_YR-HB-U2': '5000' })).ok, /安全库存/);
-  const html = await page('/admin/warehouse/stock');
-  assert.match(html, /<tr style="background:#fdecea"><td><a href="\?sku=YR-HB-U2"><b>YR-HB-U2<\/b>/);
+  assert.match(await page('/admin/warehouse/stock'), /<tr style="background:#fdecea"><td><a href="\?sku=YR-HB-U2"><b>YR-HB-U2<\/b>/);
+});
+
+test('WA-04e low stock shows on the workbench', async () => {
   assert.match(await page('/admin/home'), /YR-HB-U2 可售 \d+，低于安全库存 5000/);
+});
+
+test('WA-04f a negative default safety stock is refused', async () => {
   assert.match(flash(await form(auth('wes'), '/admin/warehouse/safety', { default: '-1' })).err, /不小于 0/);
 });
 
-test('WA-05 carriers: quotes for a destination and real performance per carrier', async () => {
-  const html = await page('/admin/warehouse/carriers?country=US&kg=5');
-  assert.match(html, /运费模板报价：US · 5 kg/);
-  assert.match(html, /<b>DHL<\/b><\/td><td>快递<\/td><td class="n">1<\/td>/);
-  assert.match(html, /<b>UPS<\/b>/);
+test('WA-05a the carriers page quotes freight for a destination and weight', async () => {
+  ctx.carriers = await page('/admin/warehouse/carriers?country=US&kg=5');
+  assert.match(ctx.carriers, /运费模板报价：US · 5 kg/);
 });
 
-test('WA-06 English warehouse pages and workbench', async () => {
+test('WA-05b the carriers page shows real performance per carrier', async () => {
+  assert.match(ctx.carriers, /<b>DHL<\/b><\/td><td>快递<\/td><td class="n">1<\/td>/);
+  assert.match(ctx.carriers, /<b>UPS<\/b>/);
+});
+
+test('WA-06a warehouse pages in English have no Chinese left', async () => {
   const EN = { ...auth('wes'), cookie: 'yr_admin_lang=en' };
   for (const p of ['/admin/warehouse', '/admin/warehouse/stock', '/admin/warehouse/carriers?country=US&kg=5']) {
     const text = (await page(p, EN)).replace(/<textarea[\s\S]*?<\/textarea>|<script[\s\S]*?<\/script>|<[^>]+>/g, ' ');
     const left = text.match(/[^\s]{0,20}[一-鿿]+[^\s]{0,20}/);
     assert.equal(left, null, `${p}: ${left?.[0]}`);
   }
+});
+
+test('WA-06b the warehouse workbench shows orders to ship, shipped today, in transit, exceptions, low stock and replacements', async () => {
   const home = await page('/admin/home');
   for (const k of ['待发货订单', '今日已发', '在途', '物流异常', '低库存 SKU', '待处理补发']) assert.ok(home.includes(k), k);
 });

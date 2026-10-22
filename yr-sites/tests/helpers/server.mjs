@@ -32,6 +32,8 @@ export async function startServer({ site = 'led', env = {} } = {}) {
     BUILD_CMD: `node -e "require('fs').mkdirSync(process.env.OUT_DIR,{recursive:true})"`,
     LLM_PROVIDER: '', LLM_API_KEY: '', LLM_MODEL: '', WECOM_WEBHOOK_URL: '', FEISHU_WEBHOOK_URL: '', ALERT_WEBHOOK_URL: '',
     CONTENT_ENABLED: 'false', GEO_ENABLED: 'false', INDEXNOW_KEY: '',
+    // the daily backup must not fire at start-up when the suite happens to run in its hour (tests expect no backup yet)
+    BACKUP_HOUR: String((new Date().getHours() + 12) % 24),
     ...env,
   };
   const child = spawn(process.execPath, [join(ROOT, 'server/src/index.js')], { env: childEnv, stdio: ['ignore', 'pipe', 'pipe'] });

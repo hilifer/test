@@ -1,6 +1,7 @@
-# CI for yr-sites (YAORONG LED + YR GRID AI sales sites).
-# Runs on every push / PR touching yr-sites: unit + API tests, both site builds, browser E2E
-# (desktop + mobile Chromium) and a Docker production-start smoke test for each site.
+# CI for yr-sites (YAORONG LED + YR GRID AI sales sites). Separate jobs so each area shows on its own in GitHub:
+#   unit · api (2 shards) · e2e (desktop + mobile, every flow recorded) · demo videos (every page, every feature)
+#   docker smoke (led, grid) · e2e on the production image (Docker + Caddy) · live services (real sandboxes, secrets)
+#   report: every test case in the run summary, as a check run, and the video bundle as an artifact.
 name: yr-sites CI
 
 on:
@@ -14,45 +15,127 @@ concurrency:
   group: yr-sites-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  checks: write
+
 defaults:
   run:
     working-directory: yr-sites
 
+env:
+  NODE_JUNIT: --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit
+
 jobs:
-  test:
-    name: Unit · API · Build · E2E
+  unit:
+    name: Unit tests
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10.28.0
+        with: { version: 10.28.0 }
       - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-          cache-dependency-path: yr-sites/pnpm-lock.yaml
+        with: { node-version: 22, cache: pnpm, cache-dependency-path: yr-sites/pnpm-lock.yaml }
       - run: pnpm install --frozen-lockfile
-      - name: Unit + API tests (node:test)
-        run: mkdir -p test-results && pnpm test:ci
+      - name: Unit tests (node:test, one file per module)
+        run: mkdir -p test-results && node --test $NODE_JUNIT --test-reporter-destination=test-results/unit-junit.xml "tests/unit/*.test.mjs"
+      - name: Summary
+        if: always()
+        run: node scripts/test-summary.mjs "Unit tests" test-results/unit-junit.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: junit-unit, path: yr-sites/test-results/unit-junit.xml, retention-days: 14 }
+
+  api:
+    name: API tests (${{ matrix.shard }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - shard: a-l
+            files: tests/api/[a-l]*.test.mjs
+          - shard: m-z
+            files: tests/api/[m-z]*.test.mjs
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm, cache-dependency-path: yr-sites/pnpm-lock.yaml }
+      - run: pnpm install --frozen-lockfile
+      - name: Black-box API tests (real servers on random ports)
+        run: mkdir -p test-results && node --test --test-concurrency=4 $NODE_JUNIT --test-reporter-destination=test-results/api-${{ matrix.shard }}-junit.xml ${{ matrix.files }}
+      - name: Summary
+        if: always()
+        run: node scripts/test-summary.mjs "API tests (${{ matrix.shard }})" test-results/api-${{ matrix.shard }}-junit.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: junit-api-${{ matrix.shard }}, path: yr-sites/test-results/api-${{ matrix.shard }}-junit.xml, retention-days: 14 }
+
+  e2e:
+    name: Browser E2E (recorded)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm, cache-dependency-path: yr-sites/pnpm-lock.yaml }
+      - run: pnpm install --frozen-lockfile
       - name: Build both sites (Astro)
         run: pnpm build
-      - name: Install Chromium for Playwright
-        run: pnpm exec playwright install --with-deps chromium
-      - name: Browser E2E (desktop + mobile)
+      - name: Chromium + Chinese fonts (for readable videos)
+        run: pnpm exec playwright install --with-deps chromium && sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+      - name: Browser E2E (desktop + mobile), every flow recorded
         run: pnpm test:e2e
-        env:
-          CI: 'true'
-      - name: Test summary
+        env: { CI: 'true', E2E_VIDEO: '1' }
+      - name: Summary
         if: always()
-        run: node scripts/test-summary.mjs test-results/node-junit.xml test-results/e2e-junit.xml
+        run: node scripts/test-summary.mjs "Browser E2E" test-results/e2e-junit.xml
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results
+          name: e2e-results
           path: |
-            yr-sites/test-results/
+            yr-sites/test-results/e2e-junit.xml
+            yr-sites/test-results/e2e-report.json
+            yr-sites/test-results/e2e-artifacts/
+            yr-sites/test-results/e2e-report/
+          retention-days: 14
+
+  demo:
+    name: Demo videos (every page, every feature)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm, cache-dependency-path: yr-sites/pnpm-lock.yaml }
+      - run: pnpm install --frozen-lockfile
+      - name: Build both sites (Astro)
+        run: pnpm build
+      - name: Chromium + Chinese fonts
+        run: pnpm exec playwright install --with-deps chromium && sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+      - name: Record the page tour and the feature walkthroughs
+        run: pnpm exec playwright test -c playwright.demo.config.mjs
+        env: { CI: 'true' }
+      - name: Summary
+        if: always()
+        run: node scripts/test-summary.mjs "Demo videos" test-results/demo-junit.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: demo-results
+          path: |
+            yr-sites/test-results/demo-junit.xml
+            yr-sites/test-results/demo-report.json
+            yr-sites/test-results/demo-artifacts/
           retention-days: 14
 
   docker:
@@ -67,3 +150,97 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build image, start like production, check health / seeding / site build / API
         run: bash scripts/docker-smoke.sh ${{ matrix.site }}
+
+  prod-e2e:
+    name: E2E on the production image (Docker + Caddy)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm, cache-dependency-path: yr-sites/pnpm-lock.yaml }
+      - run: pnpm install --frozen-lockfile
+      - name: Start both sites from the production image behind the production Caddyfile
+        run: bash scripts/prod-stack.sh up
+      - name: Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Browser E2E against the production stack (desktop)
+        run: pnpm exec playwright test --project=desktop --reporter=list,junit
+        env: { CI: 'true', E2E_EXTERNAL: '1', PLAYWRIGHT_JUNIT_OUTPUT_NAME: test-results/prod-e2e-junit.xml }
+      - name: Container logs
+        if: failure()
+        run: for c in yr-led-app yr-grid-app yr-led-caddy yr-grid-caddy; do echo "== $c"; docker logs --tail 80 $c; done
+      - name: Summary
+        if: always()
+        run: node scripts/test-summary.mjs "E2E on the production image" test-results/prod-e2e-junit.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: junit-prod-e2e, path: yr-sites/test-results/prod-e2e-junit.xml, retention-days: 14 }
+      - if: always()
+        run: bash scripts/prod-stack.sh down
+
+  live:
+    name: Live services (real sandboxes)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm, cache-dependency-path: yr-sites/pnpm-lock.yaml }
+      - run: pnpm install --frozen-lockfile
+      - name: Real Claude / Stripe test mode / PayPal sandbox / WeCom / SMTP / 17TRACK / Kingdee (skipped without secrets)
+        run: mkdir -p test-results && node --test $NODE_JUNIT --test-reporter-destination=test-results/live-junit.xml "tests/live/*.test.mjs"
+        env:
+          LIVE_LLM_PROVIDER: ${{ vars.LIVE_LLM_PROVIDER }}
+          LIVE_LLM_MODEL: ${{ vars.LIVE_LLM_MODEL }}
+          LIVE_LLM_API_KEY: ${{ secrets.LIVE_LLM_API_KEY }}
+          LIVE_STRIPE_SECRET_KEY: ${{ secrets.LIVE_STRIPE_SECRET_KEY }}
+          LIVE_PAYPAL_CLIENT_ID: ${{ secrets.LIVE_PAYPAL_CLIENT_ID }}
+          LIVE_PAYPAL_CLIENT_SECRET: ${{ secrets.LIVE_PAYPAL_CLIENT_SECRET }}
+          LIVE_WECOM_WEBHOOK_URL: ${{ secrets.LIVE_WECOM_WEBHOOK_URL }}
+          LIVE_SMTP_URL: ${{ secrets.LIVE_SMTP_URL }}
+          LIVE_MAIL_FROM: ${{ vars.LIVE_MAIL_FROM }}
+          LIVE_TRACK17_KEY: ${{ secrets.LIVE_TRACK17_KEY }}
+          LIVE_KD_BASE: ${{ secrets.LIVE_KD_BASE }}
+          LIVE_KD_ACCT: ${{ secrets.LIVE_KD_ACCT }}
+          LIVE_KD_USERNAME: ${{ secrets.LIVE_KD_USERNAME }}
+          LIVE_KD_APP_ID: ${{ secrets.LIVE_KD_APP_ID }}
+          LIVE_KD_APP_SECRET: ${{ secrets.LIVE_KD_APP_SECRET }}
+          LIVE_KD_ORG: ${{ vars.LIVE_KD_ORG }}
+      - name: Summary
+        if: always()
+        run: node scripts/test-summary.mjs "Live services (real sandboxes)" test-results/live-junit.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: junit-live, path: yr-sites/test-results/live-junit.xml, retention-days: 14 }
+
+  report:
+    name: Report — every test case + demo video bundle
+    if: always()
+    needs: [unit, api, e2e, demo, prod-e2e, live]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { path: yr-sites/test-results, merge-multiple: true }
+      - name: All test cases in one summary
+        run: node scripts/test-summary.mjs "YR sites — all test cases" test-results/unit-junit.xml test-results/api-a-l-junit.xml test-results/api-m-z-junit.xml test-results/e2e-junit.xml test-results/prod-e2e-junit.xml test-results/live-junit.xml test-results/demo-junit.xml
+      - name: Every test case as a check run
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: yr-sites test cases
+          path: 'yr-sites/test-results/*-junit.xml'
+          reporter: java-junit
+          fail-on-error: false
+      - name: Demo video bundle (index.html + videos)
+        if: always()
+        run: node scripts/demo-index.mjs test-results/demo-report.json test-results/e2e-report.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: demo-videos, path: yr-sites/test-results/demo/, retention-days: 30 }

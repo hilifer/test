@@ -32,33 +32,50 @@ test('AA-01 setup: a paid, shipped online order', async () => {
   ctx.ship = s.path.split('/').pop();
   assert.ok(ctx.ship);
 });
-test('AA-02 17TRACK refresh button updates the shipment and the customer sees "In transit"', async () => {
+test('AA-02a the 17TRACK refresh button reports the shipment status as updated', async () => {
   assert.match(flash(await api.form(`/admin/shipments/${ctx.ship}/track`, {})).ok, /状态已更新/);
+});
+test('AA-02b after the refresh the admin shipment page shows the InTransit status', async () => {
   assert.match(await (await api.admin(`/admin/shipments/${ctx.ship}`)).text(), /InTransit/);
+});
+test('AA-02c after the refresh the customer order page shows "DHL JD0001 — In transit"', async () => {
   assert.match(await (await api.get(ctx.orderUrl)).text(), /DHL JD0001 — In transit/);
 });
-test('AA-03 customer reports a problem from the order page; it appears in admin and on the page', async () => {
-  const path = ctx.orderUrl.replace(`/shop/order/${ctx.no}?t=`, `/shop/order/${ctx.no}/rma?t=`);
-  const r = await fetch(api.url + path, { method: 'POST', redirect: 'manual', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ sku: 'YR-HB-U2', qty: '3', issue: 'damage', description: '3 lamps cracked' }) });
+test('AA-03a customer reports a problem from the order page and gets an RMA number', async () => {
+  ctx.rmaPath = ctx.orderUrl.replace(`/shop/order/${ctx.no}?t=`, `/shop/order/${ctx.no}/rma?t=`);
+  const r = await fetch(api.url + ctx.rmaPath, { method: 'POST', redirect: 'manual', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ sku: 'YR-HB-U2', qty: '3', issue: 'damage', description: '3 lamps cracked' }) });
   assert.match(decodeURIComponent(r.headers.get('location')), /After-sales number: RMA-/);
+});
+test('AA-03b the customer RMA appears in the admin RMA list as transport damage', async () => {
   assert.match(await (await api.admin('/admin/rma')).text(), /运输损坏/);
+});
+test('AA-03c the customer RMA is listed on the order page with its issue and status', async () => {
   assert.match(await (await api.get(ctx.orderUrl)).text(), /RMA-\d{6}-\d{3} · Damaged in transit · Submitted/);
+});
+test('AA-03d an RMA post with a wrong order token is 404', async () => {
+  const path = ctx.rmaPath;
   const bad = await fetch(api.url + path.replace(/t=[^&]+/, 't=wrong'), { method: 'POST', redirect: 'manual', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: 'description=x' });
   assert.equal(bad.status, 404);
 });
-test('AA-04 refund from the admin (finance only); RMA resolved; customer page shows the new balance', async () => {
-  const rmaId = (await (await api.admin('/admin/rma')).text()).match(/\/admin\/rma\/([\w-]+)/)[1];
-  await api.form(`/admin/rma/${rmaId}/status`, { to: 'approved', resolution: 'refund' });
-  const PW = 'Str0ngPassw0rd';
+const PW = 'Str0ngPassw0rd';
+const as = (u) => ({ authorization: 'Basic ' + Buffer.from(`${u}:${PW}`).toString('base64'), 'content-type': 'application/x-www-form-urlencoded' });
+const refundBody = () => new URLSearchParams({ amount: '120', reason: '3 cracked', rma_id: ctx.rmaId });
+test('AA-04a a sales user cannot refund an order (403)', async () => {
+  ctx.rmaId = (await (await api.admin('/admin/rma')).text()).match(/\/admin\/rma\/([\w-]+)/)[1];
+  await api.form(`/admin/rma/${ctx.rmaId}/status`, { to: 'approved', resolution: 'refund' });
   await api.form('/admin/users/new', { username: 'sales1', role: 'sales', password: PW });
   await api.form('/admin/users/new', { username: 'fin1', role: 'finance', password: PW });
-  const as = (u) => ({ authorization: 'Basic ' + Buffer.from(`${u}:${PW}`).toString('base64'), 'content-type': 'application/x-www-form-urlencoded' });
-  const body = new URLSearchParams({ amount: '120', reason: '3 cracked', rma_id: rmaId });
-  assert.equal((await fetch(`${api.url}/admin/orders/${ctx.id}/refund`, { method: 'POST', redirect: 'manual', headers: as('sales1'), body })).status, 403);
-  const ok = await fetch(`${api.url}/admin/orders/${ctx.id}/refund`, { method: 'POST', redirect: 'manual', headers: as('fin1'), body });
+  assert.equal((await fetch(`${api.url}/admin/orders/${ctx.id}/refund`, { method: 'POST', redirect: 'manual', headers: as('sales1'), body: refundBody() })).status, 403);
+});
+test('AA-04b a finance user refunds against the RMA and the order records who refunded', async () => {
+  const ok = await fetch(`${api.url}/admin/orders/${ctx.id}/refund`, { method: 'POST', redirect: 'manual', headers: as('fin1'), body: refundBody() });
   assert.match(flash(ok).ok, /已退款 120（manual）/);
   const page = await (await api.admin(`/admin/orders/${ctx.id}`)).text();
   assert.match(page, /fin1 · manual/);
-  assert.match(await (await api.admin(`/admin/rma/${rmaId}`)).text(), /已解决/);
+});
+test('AA-04c the refunded RMA is marked resolved', async () => {
+  assert.match(await (await api.admin(`/admin/rma/${ctx.rmaId}`)).text(), /已解决/);
+});
+test('AA-04d a refund larger than the amount received is rejected', async () => {
   assert.match(flash(await api.form(`/admin/orders/${ctx.id}/refund`, { amount: '999999' })).err, /不能超过已收金额/);
 });
