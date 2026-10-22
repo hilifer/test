@@ -16,6 +16,7 @@ import p14 from './en-14.js';
 import p15 from './en-15.js';
 import p16 from './en-16.js';
 import p17 from './en-17.js';
+import p18 from './en-18.js';
 import { DICT } from '../../../shared/dictionary.js';
 
 const fromDict = {};
@@ -26,4 +27,4 @@ for (const ent of Object.values(DICT)) {
     for (const v of Array.isArray(group) ? group : Object.values(group)) if (v && v.zh && v.en) fromDict[v.zh] = v.en;
   }
 }
-export const EN = { ...fromDict, ...p1, ...p2, ...p3, ...p4, ...p5, ...p6, ...p7, ...p8, ...p9, ...p10, ...p11, ...p12, ...p13, ...p14, ...p15, ...p16, ...p17 };
+export const EN = { ...fromDict, ...p1, ...p2, ...p3, ...p4, ...p5, ...p6, ...p7, ...p8, ...p9, ...p10, ...p11, ...p12, ...p13, ...p14, ...p15, ...p16, ...p17, ...p18 };

@@ -21,6 +21,7 @@ import { running as runningPromos } from './marketing/promotions.js';
 import { seesAllLeads, dueFollowups, performance, upcomingDates } from './sales/crm.js';
 import { backupOverdue, drillOverdue } from './ops/security.js';
 import { inbox, performance as performanceOf, ratingSummary } from './service/desk.js';
+import { brandKit, contrastChecks } from './assets/brand.js';
 import { toDecide, myApproved, involved, KINDS as APPROVAL_KINDS } from './governance/approvals.js';
 
 // storage usage walks the files: cache it for a minute
@@ -130,8 +131,9 @@ const BOARDS = [
     const failedTasks = listTasks({ user: currentUser()?.username, status: 'failed', limit: 3 });
     return {
       kpis: [['本周上传', n("SELECT COUNT(*) n FROM assets WHERE created_at >= ?", since(24 * 7)), '/admin/assets?sort=new'], ['空间使用', `${u.pct}%`, '/admin/assets/settings'], ['缺主图的在售商品', noImage.length, '/admin/products?status=published'], ['回收站', u.trashed, '/admin/assets/trash']],
-      todos: [...noImage.slice(0, 5).map((id) => ({ text: `${id} 还没有主图`, href: `/admin/assets?product=${encodeURIComponent(id)}` })), ...lowRes.map((a) => ({ text: `${a.product_id} 的 ${a.original_name} 分辨率不足 800 px`, href: `/admin/assets/${a.id}` })), ...(u.pct >= 80 ? [{ text: `素材空间已用 ${u.pct}%`, href: '/admin/assets/settings' }] : []), ...failedTasks.map((t) => ({ text: `任务"${t.title}"有失败项，可重试`, href: `/admin/tasks/${t.id}` }))],
-      links: [['素材仓库', '/admin/assets'], ['链接拉取', '/admin/assets/pull'], ['水印', '/admin/assets/watermarks'], ['任务中心', '/admin/tasks']] };
+      todos: [...noImage.slice(0, 5).map((id) => ({ text: `${id} 还没有主图`, href: `/admin/assets?product=${encodeURIComponent(id)}` })), ...lowRes.map((a) => ({ text: `${a.product_id} 的 ${a.original_name} 分辨率不足 800 px`, href: `/admin/assets/${a.id}` })), ...(u.pct >= 80 ? [{ text: `素材空间已用 ${u.pct}%`, href: '/admin/assets/settings' }] : []), ...failedTasks.map((t) => ({ text: `任务"${t.title}"有失败项，可重试`, href: `/admin/tasks/${t.id}` })),
+        ...(brandKit().logos.primary ? [] : [{ text: '品牌资产还没有设置 Logo（排版模板会用到）', href: '/admin/brand' }]), ...contrastChecks().filter((x) => !x.ok).map((x) => ({ text: `品牌色对比度偏低：${x.pair}`, href: '/admin/brand' }))],
+      links: [['素材仓库', '/admin/assets'], ['品牌资产', '/admin/brand'], ['排版模板', '/admin/brand/templates'], ['链接拉取', '/admin/assets/pull'], ['水印', '/admin/assets/watermarks'], ['任务中心', '/admin/tasks']] };
   } },
   { perm: 'marketing', title: '运营：营销', build: () => {
     const f = funnel(1);

@@ -32,7 +32,7 @@ const CSS = `<style>
 .cmp{display:grid;grid-template-columns:1fr 1fr;gap:10px}.cmp img{width:100%;background:#eef1f4;border:1px solid var(--line);border-radius:8px}
 .fl2{display:grid;gap:4px;font-size:13px}.fl2 input,.fl2 select{padding:6px 8px;border:1px solid #cfd6dc;border-radius:6px}
 </style>`;
-const sub = `<p class="acts"><a href="/admin/assets">素材仓库</a> · <a href="/admin/assets/pull">链接拉取</a> · <a href="/admin/assets/watermarks">水印</a> · <a href="/admin/assets/similar">以图搜图</a> · <a href="/admin/assets/trash">回收站</a> · <a href="/admin/assets/settings">容量与设置</a> · <a href="/admin/tasks">任务中心</a></p>`;
+const sub = `<p class="acts"><a href="/admin/assets">素材仓库</a> · <a href="/admin/assets/pull">链接拉取</a> · <a href="/admin/assets/watermarks">水印</a> · <a href="/admin/assets/similar">以图搜图</a> · <a href="/admin/assets/trash">回收站</a> · <a href="/admin/assets/settings">容量与设置</a> · <a href="/admin/brand">品牌与模板</a> · <a href="/admin/tasks">任务中心</a></p>`;
 const view = (title, body) => shell(title, CSS + sub + body);
 
 function tree(active) {

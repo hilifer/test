@@ -107,7 +107,7 @@ test('GO-06 English board and approvals', async () => {
   const EN = { ...ADMIN, cookie: 'yr_admin_lang=en' };
   for (const [api, p] of [[led, '/admin/board'], [grid, '/admin/board?site=all'], [led, '/admin/approvals'], [led, '/admin/approvals/settings']]) {
     const text = (await page(api, p, EN)).replace(/<textarea[\s\S]*?<\/textarea>|<script[\s\S]*?<\/script>|<[^>]+translate="no"[^>]*>[\s\S]*?<\/[a-z]+>|<[^>]+>/g, ' ');
-    const left = text.match(/[^\s]{0,20}[㐀-鿿]+[^\s]{0,20}/);
+    const left = text.match(/[^\s]{0,20}[\u3400-\u9fff]+[^\s]{0,20}/);
     assert.equal(left, null, `${p}: ${left?.[0]}`);
   }
 });

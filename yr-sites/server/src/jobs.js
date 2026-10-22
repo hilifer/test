@@ -67,13 +67,13 @@ export function setPaused(id, paused) {
 }
 export const onJobFailure = (fn) => { onFailure = fn; };
 
-/** Run a job now (manual = who asked, or null for the schedule). */
-export async function runJob(id, { manual = null } = {}) {
+/** Run a job now (manual = who asked, or null for the schedule; at = the scheduler's time, recorded as the run time). */
+export async function runJob(id, { manual = null, at = Date.now() } = {}) {
   const job = jobs.get(id);
   if (!job) throw new Error('定时任务不存在');
   if (running.has(id)) throw new Error('这个任务正在运行');
   running.add(id);
-  lastStart.set(id, Date.now());
+  lastStart.set(id, at);
   const t0 = Date.now();
   let ok = 1, detail = null;
   try {
@@ -82,7 +82,7 @@ export async function runJob(id, { manual = null } = {}) {
   } catch (e) { ok = 0; detail = String(e?.message || e); }
   finally { running.delete(id); }
   const quietSkip = job.quiet && ok && !manual && (detail == null || detail === '0' || detail === '');
-  if (!quietSkip) db.prepare('INSERT INTO job_runs (job, ts, ok, seconds, detail, manual) VALUES (?,?,?,?,?,?)').run(id, new Date(t0).toISOString(), ok, (Date.now() - t0) / 1000, detail?.slice(0, 1000) ?? null, manual);
+  if (!quietSkip) db.prepare('INSERT INTO job_runs (job, ts, ok, seconds, detail, manual) VALUES (?,?,?,?,?,?)').run(id, new Date(at).toISOString(), ok, (Date.now() - t0) / 1000, detail?.slice(0, 1000) ?? null, manual);
   if (!ok && onFailure) Promise.resolve(onFailure(job, detail)).catch(() => {});
   return { ok: Boolean(ok), detail };
 }
@@ -105,7 +105,7 @@ export function tick(t = Date.now()) {
   const paused = new Set(pausedJobs());
   for (const j of jobs.values()) {
     if (running.has(j.id) || paused.has(j.id) || !j.enabled()) continue;
-    if (due(j, t)) runJob(j.id).catch(() => {});
+    if (due(j, t)) runJob(j.id, { at: t }).catch(() => {});
   }
 }
 let timer = null;

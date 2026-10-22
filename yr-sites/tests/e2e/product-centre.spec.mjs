@@ -310,3 +310,30 @@ test('E2E-P09 home page "New arrivals": hand-pick two products → publish → t
   await page.goto(SITE + '/');
   await expect(page.locator('[data-new-arrivals] h2')).toHaveText('New arrivals');
 });
+
+test('E2E-P10 designer: brand colour → layout template preview with a new title → save to the asset library', async ({ page }) => {
+  await page.goto(SITE + '/admin/login');
+  await page.locator('input[name="username"]').fill('admin');
+  await page.locator('input[name="password"]').fill('e2e-pass');
+  await page.getByRole('button', { name: '登录' }).click();
+  await page.waitForURL(/\/admin\/home/);
+  await page.goto(SITE + '/admin/brand');
+  await page.locator('input[name="color_primary"]').fill('#1a237e');
+  await page.getByRole('button', { name: '保存品牌资产' }).click();
+  await expect(page.locator('main')).toContainText('已保存');
+  await page.goto(SITE + '/admin/brand/templates');
+  await expect(page.locator('img[alt="促销横幅"]')).toHaveJSProperty('complete', true);
+  expect(await page.locator('img[alt="促销横幅"]').evaluate((i) => i.naturalWidth)).toBeGreaterThan(0);
+  await page.locator('section', { hasText: '促销横幅' }).getByRole('link', { name: '使用' }).click();
+  await page.locator('select[name="product"]').selectOption('YR-HB-U2');
+  await page.locator('input[name="title"]').fill('Summer Sale');
+  await page.getByRole('button', { name: '刷新预览' }).click();
+  await expect(page).toHaveURL(/title=Summer\+Sale/);
+  const preview = page.locator('img[alt="预览"]');
+  await expect(preview).toHaveAttribute('src', /title=Summer\+Sale/);
+  await expect.poll(() => preview.evaluate((i) => i.complete && i.naturalWidth)).toBe(1000);
+  await page.getByRole('button', { name: '保存到素材库' }).click();
+  await expect(page).toHaveURL(/\/admin\/assets\/[\w-]+/);
+  await expect(page.locator('main')).toContainText('已保存到素材库');
+  await expect(page.locator('main')).toContainText('promo-banner-YR-HB-U2-en.png');
+});

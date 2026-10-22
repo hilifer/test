@@ -107,7 +107,7 @@ test('CS-07 English service pages', async () => {
   const EN = { ...auth('sue'), cookie: 'yr_admin_lang=en' };
   for (const p of ['/admin/service', '/admin/service/quick-replies', '/admin/service/kb?test=warranty', '/admin/service/performance']) {
     const text = (await page(p, EN)).replace(/<textarea[\s\S]*?<\/textarea>|<script[\s\S]*?<\/script>|<[^>]+translate="no"[^>]*>[\s\S]*?<\/[a-z]+>|<[^>]+>/g, ' ');
-    const left = text.match(/[^\s]{0,20}[㐀-鿿]+[^\s]{0,20}/);
+    const left = text.match(/[^\s]{0,20}[\u3400-\u9fff]+[^\s]{0,20}/);
     assert.equal(left, null, `${p}: ${left?.[0]}`);
   }
 });
