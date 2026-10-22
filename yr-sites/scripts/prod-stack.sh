@@ -25,7 +25,7 @@ for s in led grid; do
   docker run -d --name "yr-$s-app" --network "yr-$s" --network-alias app \
     -e SITE="$s" -e PORT=8787 -e ADMIN_PASSWORD=e2e-pass -e ERP_MODE=mock -e RATE_LIMIT_PER_MIN=1000 -e TRUSTED_PROXY_HOPS=1 \
     -e DB_PATH="/data/db/$s.sqlite" -e NEWS_DIR=/data/news -e MEDIA_DIR=/data/media -e RELEASES_DIR=/srv/site \
-    -e SITE_URL="http://127.0.0.1:$p" -e PUBLIC_BASE_URL="http://127.0.0.1:$p" -e CONTENT_ENABLED=false -e GEO_ENABLED=false \
+    -e SITE_URL="https://$s.example.com" -e PUBLIC_BASE_URL="http://127.0.0.1:$p" -e CONTENT_ENABLED=false -e GEO_ENABLED=false \
     -v "yr-$s-site:/srv/site" "$IMG" >/dev/null
   docker run -d --name "yr-$s-caddy" --network "yr-$s" -p "$p:80" -v "$WORK/Caddyfile:/etc/caddy/Caddyfile:ro" -v "yr-$s-site:/srv/site:ro" caddy:2.8.4 >/dev/null
 done
