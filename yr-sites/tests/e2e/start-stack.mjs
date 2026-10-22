@@ -34,6 +34,7 @@ for (const [name, p] of Object.entries(STACK)) {
     LLM_PROVIDER: '', LLM_API_KEY: '', LLM_MODEL: '', CONTENT_ENABLED: 'false', GEO_ENABLED: 'false',
     BUILD_CMD: 'node scripts/sync-shared.mjs && npx astro build', RELEASES_DIR: rel,
     BACKUP_HOUR: String((new Date().getHours() + 12) % 24), // no surprise backup during the run
+    INBOUND_EMAIL_TOKEN: 'e2e-inbound', ERROR_TEST_ROUTE: 'true', // demo data: a customer e-mail and a server error to show
   };
   procs.push(spawn(process.execPath, [join(ROOT, 'server/src/index.js')], { env, stdio: 'inherit' }));
   procs.push(spawn(process.execPath, [join(ROOT, 'scripts/serve-local.mjs'), join(rel, 'current'), String(p.site), String(p.api)], { stdio: 'inherit' }));

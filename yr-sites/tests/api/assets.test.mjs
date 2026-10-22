@@ -380,3 +380,9 @@ test('MS-13e pulling an unreachable link reports that it cannot be opened', asyn
 test('MS-13f pulling a non-HTTP link is rejected as invalid', async () => {
   assert.match(flash(await form(auth('dee'), '/admin/assets/pull', { url: 'ftp://x.test/a', mode: 'own', product: 'YR-FL-F5' })).err, /链接无效/);
 });
+
+test('MS-14 the version compare page opened without an asset goes back to the library with a message (no server error)', async () => {
+  const r = await fetch(`${api.url}/admin/assets/compare`, { headers: ADMIN, redirect: 'manual' });
+  assert.equal(r.status, 302);
+  assert.match(decodeURIComponent(r.headers.get('location')), /^\/admin\/assets\?e=请勾选两个版本进行对比/);
+});

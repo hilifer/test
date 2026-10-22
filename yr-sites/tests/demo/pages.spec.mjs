@@ -30,6 +30,7 @@ test.beforeAll(async ({ request }) => {
   const lead = await request.post(`${LED}/api/leads`, { data: { email: 'demo.buyer@example.com', company: 'Demo Warehouse Inc.', name: 'Alex Demo', country: 'US', product_id: 'YR-HB-U2', quantity: 200, needs: '200 high bays for a new warehouse', consent: true } });
   expect(lead.ok()).toBeTruthy();
   await request.post(`${LED}/api/chat`, { data: { message: 'Do you have 150W UFO high bays with DLC?' } });
+  await request.post(`${LED}/api/chat`, { data: { message: 'I want to talk to a person about an OEM project' } }); // a hand-off, so the service inbox has a chat
   const list = await (await request.get(`${LED}/admin?scope=all`, { headers: auth })).text();
   const id = list.match(/\/admin\/lead\/([\w-]+)"/)?.[1];
   if (!id) return;
@@ -39,6 +40,33 @@ test.beforeAll(async ({ request }) => {
   await request.post(`${LED}/admin/quotes/${qid}/status`, { headers: { ...auth, origin: LED }, form: { to: 'sent' }, maxRedirects: 0 });
   const token = (await (await request.get(`${LED}/admin/quotes/${qid}`, { headers: auth })).text()).match(/\/portal\/pi\/([\w-]+)/)?.[1];
   if (token) await request.post(`${LED}/portal/pi/${token}`, { form: {}, maxRedirects: 0 });
+  // one record for every detail page; each step is best effort (a failure only leaves that page without data)
+  const post = (path, form) => request.post(LED + path, { headers: { ...auth, origin: LED }, form, maxRedirects: 0 });
+  const step = async (fn) => { try { await fn(); } catch (e) { console.warn('[demo seed]', e.message); } };
+  await step(async () => { // paid, shipped order and an after-sales request from the customer portal
+    const oid = (await (await request.get(`${LED}/admin/orders`, { headers: auth })).text()).match(/href="\/admin\/orders\/([\w-]+)"/)[1];
+    const html = await (await request.get(`${LED}/admin/orders/${oid}`, { headers: auth })).text();
+    const total = html.match(/合计[^\d]*([\d,]+(?:\.\d+)?)/)[1].replace(/,/g, '');
+    await post(`/admin/orders/${oid}/payment`, { kind: 'deposit', amount: total });
+    await post(`/admin/orders/${oid}/status`, { to: 'ready_to_ship' });
+    await post(`/admin/orders/${oid}/ship`, { mode: 'express', carrier: 'DHL', tracking_no: 'DHL-DEMO-1' });
+    const page = await (await request.get(`${LED}/admin/orders/${oid}`, { headers: auth })).text();
+    const portal = [page.match(/\/portal\/c\/([\w-]+)/)?.[1], page.match(/SO-\d{6}-\d{3}/)?.[0]];
+    if (portal[0] && portal[1]) await request.post(`${LED}/portal/c/${portal[0]}/o/${portal[1]}/rma`, { form: { issue: 'damage', qty: '2', description: 'Two fixtures arrived with cracked lenses.' }, maxRedirects: 0 });
+  });
+  await step(async () => { // a contract sent for e-signature
+    const q2 = (await request.get(`${LED}/admin/quotes/new?lead=${id}`, { headers: auth, maxRedirects: 0 })).headers().location.split('?')[0].split('/').pop();
+    await post(`/admin/quotes/${q2}/status`, { to: 'sent' });
+    await post(`/admin/quotes/${q2}/contract`, {});
+  });
+  await step(async () => { // an image in the asset library, and a background task
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+    await request.post(`${LED}/admin/assets/upload`, { headers: { ...auth, origin: LED, 'x-requested-with': 'fetch' }, multipart: { product: 'YR-HB-U2', files: { name: 'demo-lamp.png', mimeType: 'image/png', buffer: png } } });
+    await post('/admin/brand/templates/feature-card/batch', { products: 'YR-HB-U2', lang: 'en' });
+  });
+  await step(() => post('/admin/marketing/emails', { subject: 'New UFO high bays for your warehouse', body: 'Hello, our new UFO high bay U2 is in stock. Reply for a quote.' }));
+  await step(() => request.post(`${LED}/api/inbound/email?token=e2e-inbound`, { data: { from: 'Jordan Buyer <jordan@example.com>', subject: 'Sample request', text: 'Could you send two samples of the UFO high bay?' } }));
+  await step(() => request.get(`${LED}/api/__error?n=demo`));
 });
 
 for (const [site, base, name] of [['led', LED, 'YAORONG LED'], ['grid', GRID, 'YR GRID']]) {
@@ -60,22 +88,28 @@ for (const path of SHOP) {
   });
 }
 
+// list page that links to the records of a detail route, when it is not simply the parent path
+const LIST = { '/admin/lead': '/admin?scope=all', '/admin/conv': '/admin/conversations', '/admin/service/mail': '/admin/service?channel=email' };
+const ROUTES = adminRoutes();
+const SKIP_WHY = { '/admin/deals/:id': '议价详情只在 AI 模式（配置了大模型）下由 AI 议价产生', '/admin/marketing/emails/:id': '邮件统计页在活动发出后才有（需要同意接收营销邮件的客户）' };
 const resolved = new Map();
 async function resolvePath(page, route) {
   if (!route.includes(':')) return route + (QUERY[route] || '');
   if (resolved.has(route)) return resolved.get(route);
   const parent = route.split('/:')[0];
-  const html = await (await page.request.get(LED + parent, { headers: auth })).text();
-  const m = html.match(new RegExp(`${parent.replace(/[/.]/g, '\\$&')}/([^"/?#&]+)`));
-  const out = m ? route.replace(/:[a-z]+/, m[1]).replace(/\/:[a-z]+/g, '') : null;
+  // words that are pages or actions of their own (/admin/products/new, /admin/system/errors/resolve) are not record ids
+  const taken = new Set(ROUTES.filter((r) => r.startsWith(parent + '/')).map((r) => r.slice(parent.length + 1).split('/')[0]).concat(['new', 'resolve', 'bulk', 'import', 'export.csv', 'save', 'delete']));
+  const html = await (await page.request.get(LED + (LIST[parent] || parent), { headers: auth })).text();
+  const id = [...html.matchAll(new RegExp(`href="${parent.replace(/[/.]/g, '\\$&')}/([^"/?#&]+)`, 'g'))].map((m) => m[1]).find((x) => !taken.has(x) && !x.startsWith(':'));
+  const out = id ? route.replace(/:[a-z]+/, id).replace(/\/:[a-z]+/g, '') : null;
   resolved.set(route, out);
   return out;
 }
-for (const route of adminRoutes()) {
+for (const route of ROUTES) {
   test(`PG-ADMIN 后台页面 ${route}`, async ({ staff }) => {
     const page = await staff(ADMIN);
     const path = await resolvePath(page, route);
-    test.skip(!path, `没有可展示的记录：${route}`);
+    test.skip(!path, SKIP_WHY[route] || `没有可展示的记录：${route}`);
     const r = await page.goto(LED + path);
     expect(r.status(), path).toBeLessThan(400);
     await titleCard(page, `后台 · ${await page.title()}`, 1200);

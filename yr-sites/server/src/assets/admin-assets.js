@@ -346,7 +346,7 @@ ${u.pct >= 80 ? '<div class="warn">空间使用已超过 80%，请清理回收�
   app.get('/admin/assets/compare', (c) => {
     const a = A.getAsset(c.req.query('id'));
     const vs = c.req.queries('v') || [];
-    if (!a || vs.length !== 2) return back(c, `/admin/assets/${c.req.query('id') || ''}`, 'e', '请勾选两个版本进行对比');
+    if (!a || vs.length !== 2) return back(c, a ? `/admin/assets/${a.id}` : '/admin/assets', 'e', '请勾选两个版本进行对比');
     const v = A.versionsOf(a.id).filter((x) => vs.includes(String(x.version))).sort((x, y) => x.version - y.version);
     return c.html(view('版本对比', `<p><a href="/admin/assets/${a.id}">← ${esc(a.original_name)}</a></p><h2>版本对比</h2><div class="cmp">${v.map((x) => `<figure style="margin:0"><img src="/admin/assets/file/${a.id}/${x.version}" alt="v${x.version}" loading="lazy"><figcaption>v${x.version} · ${x.width}×${x.height} · ${mb(x.bytes)} · ${esc(x.note || x.source)}</figcaption></figure>`).join('')}</div>`));
   });

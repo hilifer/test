@@ -210,7 +210,7 @@ async function makeDerivatives(id, file, kind, ext, buf) {
 }
 
 // ---------------------------------------------------------------- ingest / versions
-export const getAsset = (id) => { const a = db.prepare('SELECT * FROM assets WHERE id = ?').get(id); return a && { ...a, tags: J(a.tags, []), auto_tags: J(a.auto_tags, []) }; };
+export const getAsset = (id) => { if (!id) return null; const a = db.prepare('SELECT * FROM assets WHERE id = ?').get(String(id)); return a && { ...a, tags: J(a.tags, []), auto_tags: J(a.auto_tags, []) }; };
 export const versionsOf = (id) => db.prepare('SELECT * FROM asset_versions WHERE asset_id = ? ORDER BY version DESC').all(id);
 export const versionFile = (id, version) => { const v = db.prepare('SELECT file FROM asset_versions WHERE asset_id = ? AND version = ?').get(id, Number(version)); return v ? join(dirOf(id), v.file) : null; };
 export const officialFile = (a) => versionFile(a.id, a.official || a.version);
