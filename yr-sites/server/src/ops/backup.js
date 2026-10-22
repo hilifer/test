@@ -85,12 +85,12 @@ export function backupNow() {
       const bytes = statSync(out).size;
       const detail = { verify, offsite, pruned: Math.max(0, all.length - c.keep) };
       db.prepare('INSERT INTO backup_runs (ts, file, bytes, ok, detail, seconds) VALUES (?,?,?,?,?,?)').run(new Date().toISOString(), name, bytes, offsite && !offsite.ok ? 0 : 1, JSON.stringify(detail), (Date.now() - started) / 1000);
-      if (offsite && !offsite.ok) alertOps('数据库备份异地复制失败', [name, offsite.out]).catch(() => {});
+      if (offsite && !offsite.ok) alertOps('数据库备份异地复制失败', [name, offsite.out], { event: 'backup_failed' }).catch(() => {});
       return { ok: !offsite || offsite.ok, file: name, bytes, verify, offsite };
     } catch (e) {
       for (const f of [raw, `${out}.part`]) rmSync(f, { force: true });
       db.prepare('INSERT INTO backup_runs (ts, file, bytes, ok, detail, seconds) VALUES (?,?,?,?,?,?)').run(new Date().toISOString(), name, 0, 0, JSON.stringify({ error: e.message }), (Date.now() - started) / 1000);
-      alertOps('数据库备份失败', [e.message]).catch(() => {});
+      alertOps('数据库备份失败', [e.message], { event: 'backup_failed' }).catch(() => {});
       return { ok: false, error: e.message };
     } finally { running = null; }
   })();

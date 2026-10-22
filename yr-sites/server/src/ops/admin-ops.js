@@ -301,7 +301,7 @@ export function mountOpsAdmin(app) {
   app.post('/admin/shipments/:id/event', guard(async (c) => {
     const f = await c.req.parseBody();
     const s = S.addShipmentEvent(c.req.param('id'), { status: String(f.status), location: String(f.location || ''), note: String(f.note || '') });
-    if (s.status === 'exception') alertOps('物流异常', [`${s.number}`, String(f.location || ''), String(f.note || '')]).catch(() => {});
+    if (s.status === 'exception') alertOps('物流异常', [`${s.number}`, String(f.location || ''), String(f.note || '')], { event: 'shipment_exception' }).catch(() => {});
     return back(c, `/admin/shipments/${s.id}`, '物流动态已更新，客户中心同步可见');
   }, (c) => `/admin/shipments/${c.req.param('id')}`));
 

@@ -115,7 +115,7 @@ export function mountPortal(app) {
     if (!String(f.description || '').trim()) return c.html(orderPage(cust, o, lang, '', T[lang].desc));
     const photos = String(f.photos || '').split(/[\s,]+/).filter((u) => /^https?:\/\//.test(u));
     const r = createRma({ order_id: o.id, sku: String(f.sku || ''), qty: f.qty, issue: String(f.issue || 'other'), description: String(f.description), photos, source: 'portal' });
-    alertOps('新售后申请', [`${r.number} / 订单 ${o.number}`, `客户：${cust.company || cust.email}`, `问题：${DICT.rma.issues[r.issue].zh} ${r.sku} ×${r.qty}`, String(f.description).slice(0, 200), `处理：${config.publicBaseUrl}/admin/rma/${r.id}`]).catch(() => {});
+    alertOps('新售后申请', [`${r.number} / 订单 ${o.number}`, `客户：${cust.company || cust.email}`, `问题：${DICT.rma.issues[r.issue].zh} ${r.sku} ×${r.qty}`, String(f.description).slice(0, 200), `处理：${config.publicBaseUrl}/admin/rma/${r.id}`], { event: 'rma_new' }).catch(() => {});
     return c.redirect(`/portal/c/${cust.portal_token}/o/${encodeURIComponent(o.number)}?lang=${lang}&rma=${r.number}`);
   });
   app.get('/portal/pi/:t', (c) => {

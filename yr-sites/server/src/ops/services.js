@@ -88,8 +88,8 @@ export async function checkService(id, by = 'system') {
   catch (e) { ok = 0; level = 'fail'; detail = String(e?.cause?.code || e?.message || e).slice(0, 300); }
   const ms = Date.now() - t0;
   db.prepare('INSERT INTO service_checks (service, ts, ok, level, ms, detail, by) VALUES (?,?,?,?,?,?,?)').run(id, new Date().toISOString(), ok, level, ms, detail, by);
-  if (!ok && (!before || before.ok)) alertOps(`外部服务异常：${s.name}`, [detail]).catch(() => {});
-  if (level === 'warn' && before?.level !== 'warn') alertOps(`需要处理：${s.name}`, [detail]).catch(() => {});
+  if (!ok && (!before || before.ok)) alertOps(`外部服务异常：${s.name}`, [detail], { event: 'service_down' }).catch(() => {});
+  if (level === 'warn' && before?.level !== 'warn') alertOps(`需要处理：${s.name}`, [detail], { event: 'service_down' }).catch(() => {});
   return { ok: Boolean(ok), level, ms, detail };
 }
 export async function checkAll(by = 'system') {

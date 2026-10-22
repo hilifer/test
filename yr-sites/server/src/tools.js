@@ -164,7 +164,7 @@ export async function runTool(name, input = {}, ctx = {}) {
       const sku = input.sku && v.order.lines.some((l) => l.sku === input.sku) ? input.sku : v.order.lines[0]?.sku || '';
       const r = createRma({ order_id: v.order.id, sku, qty: input.qty, issue: input.issue, description: input.description, photos: (input.photo_links || []).filter((u) => /^https?:\/\//.test(u)), source: 'chat' });
       if (ctx.convId) markHandoff(ctx.convId, `after-sales ${r.number}`);
-      alertOps('AI 客服收到售后申请', [`${r.number} / 订单 ${v.order.number}`, `客户：${v.customer.company || v.customer.email}`, `问题：${DICT.rma.issues[r.issue].zh} ${r.sku} ×${r.qty}`, String(input.description).slice(0, 200), `${config.publicBaseUrl}/admin/rma/${r.id}`]).catch(() => {});
+      alertOps('AI 客服收到售后申请', [`${r.number} / 订单 ${v.order.number}`, `客户：${v.customer.company || v.customer.email}`, `问题：${DICT.rma.issues[r.issue].zh} ${r.sku} ×${r.qty}`, String(input.description).slice(0, 200), `${config.publicBaseUrl}/admin/rma/${r.id}`], { event: 'rma_new' }).catch(() => {});
       return { created: true, rma_number: r.number, next: 'A service engineer reviews the case, normally within one business day, and replies by email. Progress is visible in the customer portal.', portal: `${base()}/portal/c/${v.customer.portal_token}/o/${encodeURIComponent(v.order.number)}` };
     }
     case 'prepare_offer': {

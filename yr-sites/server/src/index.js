@@ -57,6 +57,7 @@ import { mountWarehouseAdmin } from './warehouse/admin-warehouse.js';
 import { startWarehouseJobs } from './warehouse/warehouse.js';
 import { mountServiceAdmin, mountServicePublic } from './service/admin-service.js';
 import { mountBrandAdmin } from './assets/admin-brand.js';
+import { mountNotifyAdmin } from './notify/admin-subscriptions.js';
 import { mountGovernanceAdmin, mountGovernancePublic } from './governance/admin-governance.js';
 
 const app = new Hono();
@@ -265,6 +266,7 @@ const staffGate = async (c, next) => {
 };
 app.use('/admin/*', staffGate);
 app.use('/admin', staffGate);
+mountNotifyAdmin(app); // before the staff pages: /admin/users/notify is not a user id
 mountStaffAdmin(app);
 app.get('/admin/conversations', (c) => c.html(conversationsPage()));
 app.get('/admin/conv/:id', (c) => c.html(conversationPage(c.req.param('id'), { e: c.req.query('e') })));

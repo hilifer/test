@@ -51,12 +51,12 @@ export function onLoginAttempt(username, ip, ok) {
   const u = String(username || '').toLowerCase();
   if (ok) {
     const before = db.prepare("SELECT COUNT(*) n, SUM(ip = ?) same FROM audit_log WHERE username = ? AND action = 'login'").get(ip, u);
-    if (before.n > 0 && !before.same && getSetting('alert_new_ip', true)) alertOps('后台账号在新的 IP 登录', [`账号：${u}`, `IP：${ip}`, `如非本人操作，请到"系统 → 登录与会话"强制下线并重置密码`]).catch(() => {});
+    if (before.n > 0 && !before.same && getSetting('alert_new_ip', true)) alertOps('后台账号在新的 IP 登录', [`账号：${u}`, `IP：${ip}`, `如非本人操作，请到"系统 → 登录与会话"强制下线并重置密码`], { event: 'security' }).catch(() => {});
     return before.n > 0 && !before.same ? 'new_ip' : null;
   }
   const since = new Date(Date.now() - 15 * 60e3).toISOString();
   const fails = db.prepare("SELECT COUNT(*) n FROM audit_log WHERE username = ? AND action = 'login_failed' AND ts >= ?").get(u, since).n + 1;
-  if (fails === 5) alertOps('后台登录多次失败', [`账号：${u}`, `IP：${ip}`, '15 分钟内失败 5 次，账号已临时锁定']).catch(() => {});
+  if (fails === 5) alertOps('后台登录多次失败', [`账号：${u}`, `IP：${ip}`, '15 分钟内失败 5 次，账号已临时锁定'], { event: 'security' }).catch(() => {});
   return fails >= 5 ? 'locked' : null;
 }
 
@@ -109,7 +109,7 @@ export function startOpsWatch() {
     const last = getSetting('backup_overdue_alerted', '');
     if (last && Date.now() - Date.parse(last) < 12 * 3600e3) return null;
     setSetting('backup_overdue_alerted', now());
-    await alertOps('超过 36 小时没有成功的数据库备份', ['请到"系统 → 系统状态"查看备份记录，或点"立即备份"']);
+    await alertOps('超过 36 小时没有成功的数据库备份', ['请到"系统 → 系统状态"查看备份记录，或点"立即备份"'], { event: 'backup_failed' });
     return '已提醒';
   } });
 }

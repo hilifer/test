@@ -35,12 +35,12 @@ function settle(intent, { amount, currency, ref, provider }) {
   const o = getOrder(intent.order_id);
   if (String(currency).toUpperCase() !== String(o.currency).toUpperCase() || cents(amount) !== cents(o.total - o.paid)) {
     db.prepare("UPDATE payment_intents SET status = 'mismatch', updated_at = ? WHERE id = ?").run(now(), intent.id);
-    alertOps('在线付款金额与订单不符，未自动入账', [`${o.number}：应收 ${o.currency} ${o.total - o.paid}，实收 ${currency} ${amount}`, `${provider} ${ref}`]).catch(() => {});
+    alertOps('在线付款金额与订单不符，未自动入账', [`${o.number}：应收 ${o.currency} ${o.total - o.paid}，实收 ${currency} ${amount}`, `${provider} ${ref}`], { event: 'payment_issue' }).catch(() => {});
     return 'mismatch';
   }
   if (o.status === 'cancelled') {
     db.prepare("UPDATE payment_intents SET status = 'paid_after_cancel', updated_at = ? WHERE id = ?").run(now(), intent.id);
-    alertOps('订单已取消后客户才付款，请退款或人工恢复', [`${o.number} · ${currency} ${amount}`, `${provider} ${ref}`]).catch(() => {});
+    alertOps('订单已取消后客户才付款，请退款或人工恢复', [`${o.number} · ${currency} ${amount}`, `${provider} ${ref}`], { event: 'payment_issue' }).catch(() => {});
     return 'order_closed';
   }
   db.prepare("UPDATE payment_intents SET status = 'paid', capture_ref = ?, updated_at = ? WHERE id = ?").run(ref, now(), intent.id); // capture_ref is what refunds need
@@ -48,7 +48,7 @@ function settle(intent, { amount, currency, ref, provider }) {
   if (config.erp.autoPushOrders) pushOrder(o.id).catch(() => {});
   const c = getCustomer(o.customer_id);
   sendMail(c.email, `${config.profile.brand}: payment received for ${o.number}`, `Thank you — we received ${o.currency} ${amount} for order ${o.number}. We will e-mail you tracking details when it ships.\n\nOrder status: ${config.publicBaseUrl}/shop/order/${encodeURIComponent(o.number)}?t=${o.access_token}`).catch(() => {});
-  alertOps('网店订单已付款', [`${o.number} · ${o.currency} ${amount} · ${provider}`, `状态：${after.status}`]).catch(() => {});
+  alertOps('网店订单已付款', [`${o.number} · ${o.currency} ${amount} · ${provider}`, `状态：${after.status}`], { event: 'payment' }).catch(() => {});
   return 'paid';
 }
 

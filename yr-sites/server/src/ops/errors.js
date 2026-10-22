@@ -29,7 +29,7 @@ export function recordError(err, { source = 'request', method = '', path = '' } 
   const row = db.prepare('SELECT * FROM app_errors WHERE fingerprint = ?').get(fp);
   if (fresh && (!row.alerted_at || Date.now() - Date.parse(row.alerted_at) > 3600e3)) {
     db.prepare('UPDATE app_errors SET alerted_at = ? WHERE id = ?').run(ts, row.id);
-    alertOps(cur ? '错误再次出现' : '服务器新错误', [`${source === 'job' ? '定时任务' : source === 'process' ? '后台进程' : `${method} ${path}`}`, message.slice(0, 300)]).catch(() => {});
+    alertOps(cur ? '错误再次出现' : '服务器新错误', [`${source === 'job' ? '定时任务' : source === 'process' ? '后台进程' : `${method} ${path}`}`, message.slice(0, 300)], { event: 'server_error' }).catch(() => {});
   }
   return row.id;
 }

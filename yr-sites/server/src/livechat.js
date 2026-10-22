@@ -56,7 +56,7 @@ export function customerWrote(convId, text) {
   const t = lastAlert.get(convId) || 0;
   if (Date.now() - t > 60e3) {
     lastAlert.set(convId, Date.now());
-    alertOps('在线客户发来新消息（人工接待中）', [String(text).slice(0, 200), `${config.publicBaseUrl}/admin/conv/${convId}`]).catch(() => {});
+    alertOps('在线客户发来新消息（人工接待中）', [String(text).slice(0, 200), `${config.publicBaseUrl}/admin/conv/${convId}`], { event: 'chat_waiting', to: conv(convId)?.agent ? [conv(convId).agent] : null }).catch(() => {});
   }
 }
 

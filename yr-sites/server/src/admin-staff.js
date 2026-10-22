@@ -1,6 +1,7 @@
 // Login page, 403 page, staff accounts (admin only) and "change my password".
 import { config } from './config.js';
 import { shell, esc, fmt } from './admin.js';
+import { notifySection } from './notify/admin-subscriptions.js';
 import { PERMISSIONS, allRoles, roleNames, permsOf, can, saveRole, deleteRole, listStaff, getStaff, saveStaff, currentUser, verifyLogin, passwordProblem } from './auth.js';
 
 const page = (title, body) => `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${esc(title)}</title>
@@ -37,7 +38,7 @@ export function mountStaffAdmin(app) {
   app.get('/admin/users', (c) => {
     const rows = listStaff().map((u) => `<tr><td><b>${esc(u.username)}</b></td><td>${esc(u.name)}</td><td>${esc(roleNames(u.role))}</td><td>${u.active ? '启用' : '<span class="mute">已停用</span>'}</td><td>${fmt(u.last_login_at)}</td><td><a href="/admin/users/${u.id}">编辑</a></td></tr>`).join('');
     const perms = Object.entries(allRoles()).map(([, r]) => `<li><b>${esc(r.zh)}</b>${r.custom ? '（自定义）' : ''}：${esc(permList(r.perms))}</li>`).join('');
-    return c.html(shell('账号权限', `${flash(c)}<h2>账号与权限</h2><div class="wrap"><table><thead><tr><th>用户名</th><th>姓名</th><th>角色</th><th>状态</th><th>最近登录</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+    return c.html(shell('账号权限', `${flash(c)}<h2>账号与权限</h2><p class="acts"><a href="/admin/users/notify">消息提醒设置</a></p><div class="wrap"><table><thead><tr><th>用户名</th><th>姓名</th><th>角色</th><th>状态</th><th>最近登录</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
 <h3>新增账号</h3><form method="post" action="/admin/users/new" style="display:grid;gap:8px;max-width:420px"><input name="username" placeholder="用户名（小写字母/数字）" required><input name="name" placeholder="姓名">${roleBoxes('sales')}<input name="password" type="password" placeholder="初始密码（≥10 位，含字母和数字）" required><button>创建</button></form>
 <h3>角色说明</h3><p><a href="/admin/roles">管理岗位（新建岗位、勾选功能权限）</a></p><ul>${perms}</ul>`));
   });
@@ -92,7 +93,7 @@ ${Object.entries(groups).map(([g, list]) => `<fieldset style="border:1px solid #
     } catch (e) { return back(c, '/admin/roles', e.message, true); }
   });
   app.post('/admin/roles/:key/delete', (c) => { try { deleteRole(c.req.param('key')); return back(c, '/admin/roles', '已删除岗位'); } catch (e) { return back(c, '/admin/roles', e.message, true); } });
-  app.get('/admin/me', (c) => c.html(shell('修改密码', `${flash(c)}<h2>界面语言</h2><form method="post" action="/admin/lang" class="acts" style="display:flex;gap:8px;margin-bottom:18px"><select name="lang" aria-label="界面语言">${[['zh', '中文'], ['en', 'English']].map(([k, l]) => `<option value="${k}"${currentUser()?.lang === k ? ' selected' : ''}>${l}</option>`).join('')}</select><button>保存</button><span class="mute">每个账号单独设置，下次登录自动使用</span></form><h2>修改我的密码</h2><form method="post" action="/admin/me" style="display:grid;gap:8px;max-width:360px"><input name="old" type="password" placeholder="当前密码" required><input name="password" type="password" placeholder="新密码（≥10 位，含字母和数字）" required><button>保存</button></form>`)));
+  app.get('/admin/me', (c) => c.html(shell('修改密码', `${flash(c)}<h2>界面语言</h2><form method="post" action="/admin/lang" class="acts" style="display:flex;gap:8px;margin-bottom:18px"><select name="lang" aria-label="界面语言">${[['zh', '中文'], ['en', 'English']].map(([k, l]) => `<option value="${k}"${currentUser()?.lang === k ? ' selected' : ''}>${l}</option>`).join('')}</select><button>保存</button><span class="mute">每个账号单独设置，下次登录自动使用</span></form><h2>修改我的密码</h2><form method="post" action="/admin/me" style="display:grid;gap:8px;max-width:360px"><input name="old" type="password" placeholder="当前密码" required><input name="password" type="password" placeholder="新密码（≥10 位，含字母和数字）" required><button>保存</button></form>${notifySection(currentUser())}`)));
   app.post('/admin/me', async (c) => {
     const f = await c.req.parseBody();
     const me = currentUser();

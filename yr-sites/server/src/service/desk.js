@@ -93,7 +93,7 @@ export function receiveMail(b) {
   const subject = String(b.subject || b.Subject || '(no subject)').slice(0, 300);
   const body = String(b['stripped-text'] || b['body-plain'] || b.text || b.TextBody || b.body || '').slice(0, 20000);
   const id = Number(db.prepare('INSERT INTO inbox_mails (from_addr, from_name, subject, body, received_at) VALUES (?,?,?,?,?)').run(email, (m ? m[1] : b.FromName || '').trim().slice(0, 100), subject, body, now()).lastInsertRowid);
-  alertOps('收到客户邮件', [`${email}：${subject}`, `${config.publicBaseUrl}/admin/service/mail/${id}`]).catch(() => {});
+  alertOps('收到客户邮件', [`${email}：${subject}`, `${config.publicBaseUrl}/admin/service/mail/${id}`], { event: 'customer_mail' }).catch(() => {});
   return id;
 }
 export const getMail = (id) => { const r = db.prepare('SELECT * FROM inbox_mails WHERE id = ?').get(Number(id)); return r && { ...r, replies: J(r.replies, []) }; };
@@ -152,7 +152,7 @@ export function rateChat(convId, { rating, resolved = null, comment = '' }) {
   const agent = c.agent || J(db.prepare("SELECT meta FROM messages WHERE conv_id = ? AND role = 'agent' ORDER BY id DESC LIMIT 1").get(c.id)?.meta, {}).by || null;
   db.prepare('INSERT INTO chat_ratings (conv_id, rating, resolved, comment, agent, ts) VALUES (?,?,?,?,?,?) ON CONFLICT(conv_id) DO UPDATE SET rating = excluded.rating, resolved = excluded.resolved, comment = excluded.comment, ts = excluded.ts')
     .run(c.id, r, resolved == null ? null : resolved ? 1 : 0, String(comment || '').slice(0, 500), agent, now());
-  if (r <= 2) alertOps('客户给了差评', [`${r} 星${comment ? `：${String(comment).slice(0, 200)}` : ''}`, agent ? `接待：${agent}` : 'AI 接待', `${config.publicBaseUrl}/admin/conv/${c.id}`]).catch(() => {});
+  if (r <= 2) alertOps('客户给了差评', [`${r} 星${comment ? `：${String(comment).slice(0, 200)}` : ''}`, agent ? `接待：${agent}` : 'AI 接待', `${config.publicBaseUrl}/admin/conv/${c.id}`], { event: 'bad_rating' }).catch(() => {});
 }
 /**
  * Per person over the last N days: chats handled, average first response (customer message → first reply by that person),

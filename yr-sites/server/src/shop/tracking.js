@@ -8,6 +8,8 @@ import { getShipment, addShipmentEvent } from '../ops/service.js';
 import { canMove } from '../../../shared/dictionary.js';
 import './schema.js';
 import { registerJob, every } from '../jobs.js';
+import { alertOps } from '../alerts.js';
+import { config } from '../config.js';
 
 migrate([{ id: '2026-10-22-tracking', up: () => { for (const [c, t] of [['track_registered', 'INTEGER DEFAULT 0'], ['track_status', 'TEXT'], ['track_checked_at', 'TEXT'], ['track_error', 'TEXT']]) addColumn('shipments', c, t); } }]);
 
@@ -34,6 +36,7 @@ function advance(s, to, note, location) {
   const cur = getShipment(s.id);
   if (!canMove('shipment', cur.status, to)) return false;
   addShipmentEvent(s.id, { status: to, location: location || '', note: note || '' }, 'system');
+  if (to === 'exception') alertOps('物流异常（17TRACK）', [`${cur.number}${cur.carrier ? ` · ${cur.carrier} ${cur.tracking_no || ''}` : ''}`, [location, note].filter(Boolean).join(' · '), `${config.publicBaseUrl}/admin/shipments/${cur.id}`], { event: 'shipment_exception' }).catch(() => {});
   return true;
 }
 

@@ -256,7 +256,7 @@ export function mountShop(app, { ipOf }) {
     if (!String(f.description || '').trim()) return c.redirect(`${path}&e=${encodeURIComponent(T[langOf(c)].describe)}`);
     const sku = o.lines.some((l) => l.sku === f.sku) ? String(f.sku) : o.lines[0].sku;
     const r = createRma({ order_id: o.id, sku, qty: f.qty, issue: String(f.issue || 'other'), description: String(f.description), source: 'shop' });
-    alertOps('网店客户申请售后', [`${r.number} / 订单 ${o.number}`, `${DICT.rma.issues[r.issue].zh} ${r.sku} ×${r.qty}`, String(f.description).slice(0, 200)]).catch(() => {});
+    alertOps('网店客户申请售后', [`${r.number} / 订单 ${o.number}`, `${DICT.rma.issues[r.issue].zh} ${r.sku} ×${r.qty}`, String(f.description).slice(0, 200)], { event: 'rma_new' }).catch(() => {});
     return c.redirect(`${path}&m=${encodeURIComponent(`${T[langOf(c)].rmaOk} ${r.number}`)}`);
   });
   app.post('/shop/order/:no/pay', async (c) => {

@@ -81,7 +81,7 @@ function serviceReply(past, text, lang, convId) {
     const issue = /(damag|损坏|破)/i.test(text) ? 'damage' : /(missing|wrong|少发|错发)/i.test(text) ? 'shortage' : /(defect|faulty|not working|坏|故障|不亮)/i.test(text) ? 'defect' : 'other';
     const r = createRma({ order_id: v.order.id, sku: v.order.lines[0]?.sku, qty: 0, issue, description: text, source: 'chat' });
     markHandoff(convId, `after-sales ${r.number}`);
-    alertOps('AI 客服收到售后申请', [`${r.number} / 订单 ${v.order.number}`, `客户：${v.customer.company || v.customer.email}`, text.slice(0, 200)]).catch(() => {});
+    alertOps('AI 客服收到售后申请', [`${r.number} / 订单 ${v.order.number}`, `客户：${v.customer.company || v.customer.email}`, text.slice(0, 200)], { event: 'rma_new' }).catch(() => {});
     return { reply: L(`I'm sorry about that. I've opened after-sales case ${r.number} for order ${v.order.number}. A service engineer will review it and reply by email, normally within one business day. You can add photos and follow progress here: ${portal}`, `很抱歉给您带来不便。已为订单 ${v.order.number} 创建售后单 ${r.number}，售后工程师通常会在一个工作日内审核并邮件回复。您可以在这里补充照片、查看进度：${portal}`), link: { href: portal, label: L('Open order page', '打开订单页') } };
   }
   const st = orderStatusView(v.order, lang);

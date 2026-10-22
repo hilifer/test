@@ -4,7 +4,7 @@
 import { db } from '../db.js';
 import { config } from '../config.js';
 import { migrate } from '../migrate.js';
-import { currentUser, can } from '../auth.js';
+import { currentUser, can, listStaff } from '../auth.js';
 import { alertOps } from '../alerts.js';
 import { getSetting, setSetting } from '../catalog/store.js';
 import { onGate } from '../gate.js';
@@ -67,7 +67,7 @@ export function check(kind, info) {
   if (pending) throw Object.assign(new Error(`需要审批：${info.label} 已在等待审批（审批人：${who}，审批单 #${pending.id}）`), { approval: pending.id });
   const id = Number(db.prepare('INSERT INTO approvals (kind, ref, label, amount, currency, detail, requested_by, requested_at) VALUES (?,?,?,?,?,?,?,?)')
     .run(kind, ref, String(info.label || ref).slice(0, 200), info.amount == null ? null : Number(info.amount), info.currency || null, String(info.detail || '').slice(0, 500), u.username, now()).lastInsertRowid);
-  alertOps(`待审批：${KINDS[kind].name}`, [`${info.label}${info.detail ? ` · ${info.detail}` : ''}`, `申请人：${u.name || u.username}`, `${config.publicBaseUrl}/admin/approvals`]).catch(() => {});
+  alertOps(`待审批：${KINDS[kind].name}`, [`${info.label}${info.detail ? ` · ${info.detail}` : ''}`, `申请人：${u.name || u.username}`, `${config.publicBaseUrl}/admin/approvals`], { event: 'approval', to: listStaff().filter((s) => s.active && s.username !== u.username && can(s, [rule.approver])).map((s) => s.username) }).catch(() => {});
   throw Object.assign(new Error(`需要审批：已提交审批（审批人：${who}，审批单 #${id}），审批通过后请再操作一次`), { approval: id });
 }
 for (const k of Object.keys(KINDS)) onGate(k, (info) => check(k, info));
