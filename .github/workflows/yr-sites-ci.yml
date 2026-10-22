@@ -233,14 +233,12 @@ jobs:
         with: { path: yr-sites/test-results, merge-multiple: true }
       - name: All test cases in one summary
         run: node scripts/test-summary.mjs "YR sites — all test cases" test-results/unit-junit.xml test-results/api-a-l-junit.xml test-results/api-m-z-junit.xml test-results/e2e-junit.xml test-results/prod-e2e-junit.xml test-results/live-junit.xml test-results/demo-junit.xml
-      - name: Every test case as a check run
-        uses: dorny/test-reporter@v1
+      - name: Every test case as a check run ("yr-sites test cases")
         if: always()
-        with:
-          name: yr-sites test cases
-          path: 'yr-sites/test-results/*-junit.xml'
-          reporter: java-junit
-          fail-on-error: false
+        run: node scripts/publish-check.mjs test-results/unit-junit.xml test-results/api-a-l-junit.xml test-results/api-m-z-junit.xml test-results/e2e-junit.xml test-results/prod-e2e-junit.xml test-results/live-junit.xml test-results/demo-junit.xml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Demo video bundle (index.html + videos)
         if: always()
         run: node scripts/demo-index.mjs test-results/demo-report.json test-results/e2e-report.json
