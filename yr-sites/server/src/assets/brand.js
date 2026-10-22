@@ -17,7 +17,7 @@ import { publicationsFor } from './publish.js'; // also creates the asset_public
 // ---------------------------------------------------------------- brand kit
 export const COLOR_KEYS = { primary: '主色', secondary: '辅助色', accent: '强调色', text: '文字色', background: '背景色' };
 export const LOGO_KEYS = { primary: '标准 Logo', reversed: '反白 Logo（深色背景用）', icon: '图标 / 角标' };
-export const FONTS = ['Inter', 'DejaVu Sans', 'Noto Sans CJK SC', 'Source Han Sans SC', 'Arial', 'Helvetica', 'Georgia'];
+export const FONTS = ['Inter', 'DejaVu Sans', 'WenQuanYi Micro Hei', 'Noto Sans CJK SC', 'Source Han Sans SC', 'Arial', 'Helvetica', 'Georgia'];
 const HEX = /^#[0-9a-f]{6}$/i;
 const DEFAULT_KIT = () => ({ name: config.profile.brand, slogan: { en: '', zh: '' }, colors: { primary: '#0b3d91', secondary: '#f5a623', accent: '#c62828', text: '#1b2430', background: '#ffffff' }, fonts: { heading: 'Inter', body: 'Inter' }, logos: { primary: '', reversed: '', icon: '' }, rules: '' });
 
@@ -234,7 +234,7 @@ export async function render({ templateId, template = null, productId, lang = 'e
   const comps = [];
   let svg = [];
   const flush = () => { if (svg.length) { comps.push({ input: Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${t.width}" height="${t.height}">${svg.join('')}</svg>`), left: 0, top: 0 }); svg = []; } };
-  const fam = (l) => `${XML(l.font === 'heading' ? kit.fonts.heading : kit.fonts.body)}, Inter, DejaVu Sans, Noto Sans CJK SC, sans-serif`;
+  const fam = (l) => `${XML(l.font === 'heading' ? kit.fonts.heading : kit.fonts.body)}, Inter, DejaVu Sans, WenQuanYi Micro Hei, Noto Sans CJK SC, sans-serif`;
   const textSvg = (str, x, y, w, l, colour) => {
     const anchor = { left: 'start', center: 'middle', right: 'end' }[l.align];
     const ax = l.align === 'center' ? x + w / 2 : l.align === 'right' ? x + w : x;
